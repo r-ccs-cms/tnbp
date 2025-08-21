@@ -11,8 +11,23 @@ using **belief propagation** on tensor networks. The library targets tensor-prod
 
 > Note: This repository is intended as a foundation for test codes and benchmarking; the API may evolve as features are added.
 
+## Requirements
 
-**Author**
+- **External tensor library (mandatory):** This project depends on **TCI (tensor computing interface)** as the core tensor computation backend.
+  Please install and make it discoverable (e.g., via `CMAKE_PREFIX_PATH` or environment variables) before building this repository.
+
+## Getting Started
+
+```bash
+# assuming the external tensor library is installed and discoverable
+git clone https://github.com/r-ccs-cms/ptnbp.git
+cd ptnbp
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_PREFIX_PATH=/path/to/gqten/tci
+cmake --build build -j
+```
+
+## Authors
 
 - Tomonori Shirakawa
 - Rongyang Sun
