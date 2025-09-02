@@ -20,8 +20,8 @@ using **belief propagation** on tensor networks. The library targets tensor-prod
 
 ```bash
 # assuming the external tensor library is installed and discoverable
-git clone https://github.com/r-ccs-cms/ptnbp.git
-cd ptnbp
+git clone https://github.com/r-ccs-cms/tnbp.git
+cd tnbp
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_PREFIX_PATH=/path/to/gqten/tci
 cmake --build build -j
