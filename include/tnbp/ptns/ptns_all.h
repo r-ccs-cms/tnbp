@@ -6,8 +6,7 @@
 #ifndef TNBP_PTNS_PTNS_ALL_H
 #define TNBP_PTNS_PTNS_ALL_H
 
-#include "tnbp/ptns/stn.h"
-#include "tnbp/ptns/gtn.h"
+#include "tnbp/ptns/bptps.h"
 #include "tnbp/ptns/function/inc_all.h"
 
 #endif

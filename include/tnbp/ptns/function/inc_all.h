@@ -6,7 +6,6 @@
 #ifndef TNBP_PTNS_FUNCTION_INC_ALL_H
 #define TNBP_PTNS_FUNCTION_INC_ALL_H
 
-namespace tnbp {
-}
+
 
 #endif
