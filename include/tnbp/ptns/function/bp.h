@@ -12,14 +12,14 @@ Belief propagation step for self-consistent iteration
 */
   template <typename TenT>
   void BeliefPropagation(context_handle_t<TenT> & ctx,
-			 const std::vector<TenT> & V,
 			 const std::vector<std::pair<int,int>> & I,
+			 const std::vector<TenT> & V,
 			 const std::vector<int> & SiteIdx,
 			 const std::vector<int> & Site_To_MpiRank,
-			 MPI_Comm comm,
 			 const std::vector<std::pair<int,int>> & J,
 			 const std::vector<TenT> & E,
 			 const std::vector<int> & EdgeIdx,
+			 MPI_Comm comm,
 			 std::vector<TenT> & F) {
 
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
@@ -208,19 +208,19 @@ Belief propagation step for self-consistent iteration
    */
   template <typename TenT, typename RealT>
   void BeliefPropagationCondition(context_handle_t<TenT> & ctx,
-				  const std::vector<TenT> & V,
 				  const std::vector<std::pair<int,int>> & I,
+				  const std::vector<TenT> & V,
 				  const std::vector<int> & SiteIdx,
 				  const std::vector<int> & Site_To_MpiRank,
-				  MPI_Comm comm,
 				  const std::vector<TenT> & E,
 				  const std::vector<int> & EdgeIdx,
+				  MPI_Comm comm,
 				  RealT & result) {
     
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
     using RankT = typename tci::tensor_traits<TenT>::rank_t;
-    using IntI  = typename tci::tensor_traits<Tent>::bond_label_t;
+    using IntT  = typename tci::tensor_traits<Tent>::bond_label_t;
 
     size_t num_v = SiteIdx.size();
     size_t num_e = EdgeIdx.size();
