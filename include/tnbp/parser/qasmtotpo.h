@@ -11,6 +11,10 @@
 
 namespace tnbp {
 
+  /**
+     Function to construct matrix from qasm::Instruction
+     @param[in] ins: qasm::Instruction corresponding to the gate
+   */
   template<typename ElemT>
   std::vector<ElemT> InstructionMatrix(const qasm::Instruction & ins) {
     const double pi = 3.14159265358979323846;
@@ -125,6 +129,10 @@ namespace tnbp {
     }
   }
 
+  /**
+     Function to get the size of qubits of the gate defined by qasm::Instruction
+     @param[in] ins: qasm::Instruction corresponding to the gate
+   */
   inline int OpQubitCount(const qasm::Instruction & ins) {
     switch (ins.op) {
     case Op::U3: case Op::U2: case Op::U1:
@@ -148,6 +156,10 @@ namespace tnbp {
     return ins.qubits.size();
   }  
   
+  /**
+     Function to get the tensor form of the gate defined by qasm::Instruction
+     @param[in] ins: qasm::Instruction corresponding to the gate
+   */
   template <typename TenT>
   TenT InstructionTensor(context_handle_t<TenT> & ctx,
 			 const qasm::Instruction & ins) {
@@ -158,15 +170,19 @@ namespace tnbp {
   }
 
   /**
-     Function to construct tensor product operator
+     Function to construct tensor product operator from qasm::Program
+     @param[in] ctx: context_handle for tensor operations
+     @param[in] program: circuit composed of qasm2/qasm3 instruction
+     @param[in] edges: edges to define the tensor network
+     @param[in] num_gates: number of gates stacked on the one-slice of the tensor-product-operator
   */
   template <typename TenT>
   std::vector<std::vector<TenT>> QasmToTPO(
 		  context_handle_t<TenT> & ctx,
 		  const qasm::Program & program,
 		  const std::vector<std::pair<int,int>> & edges,
-		  std::vector<int> & num_gates) {
-
+		  const std::vector<int> & num_gates) {
+    
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using RealT = typename tci::tensor_traits<TenT>::real_t;
     using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
@@ -179,7 +195,7 @@ namespace tnbp {
     std::vector<std::vector<TenT>> res(num_gates,std::vector<TenT>(site.size()));
     int gate_count = 0;
     int m = 0;
-    for(auto const & ins : p.instructions) {
+    for(auto const & ins : program.instructions) {
 
       // initialization of tensor product operator
       if( gate_count == 0 ) {
@@ -253,10 +269,13 @@ namespace tnbp {
 
 	for(size_t i=0; i < path.size(); i++) {
 
+	  TenT X;
+	  
 	  if( 0 < i && i < path.size()-1 ) {
+	    
 	    ShapeT dimX(1,vdim*2);
-	    std::vector<RealT> dataX(2*vdim,RealT(1.0));
-	    RealTenT X = tci::initialize<RealTenT>(ctx,dimX,dataX);
+	    std::vector<ElemT> dataX(2*vdim,RealT(1.0));
+	    X = tci::initialize<TenT>(ctx,dimX,dataX);
 	    tci::diag(ctx,X);
 	    ShapeT shapeX(4);
 	    shapeX[0] = vdim;
@@ -270,89 +289,328 @@ namespace tnbp {
 	    new_order_X[2] = 1;
 	    new_order_X[3] = 3;
 	    tci::transpose(ctx,X,new_order_X);
-	    std::vector<IntT> IdxX(4);
-	    
-	    auto vb_a = GetSurroundingBondIndex(path[i],edges);
-	    std::vector<IntT> IdxA(vb_a.size()+2,1);
-	    int target_bond_m = 0;
-	    for(auto const & m : vb_a) {
-	      if( edges[m].first == path[i]
-		  && edges[m].second == path[i-1] ) {
+	  } else if ( i == 0 ) {
+	    X = A;
+	  } else if ( i == path.size()-1 ) {
+	    X = B;
+	  }
+	  auto vb_a = GetSurroundingBondIndex(path[i],edges);
+	  auto rank_X = tci::rank(ctx,X);
+	  std::vector<IntT> IdxA(vb_a.size()+2,1);
+	  std::vector<IntT> IdxX(rank_X);
+	  int target_bond_m = static_cast<int>(vb_a.size())+2;
+	  if( i > 0 ) {
+	    target_bond_m = 0;
+	    for(auto const & k : vb_a) {
+	      if( edges[k].first == path[i]
+		  && edges[k].second == path[i-1] ) {
 		break;
 	      }
-	      if( edges[m].second == path[i]
-		  && edges[m].first == path[i-1] ) {
+	      if( edges[k].second == path[i]
+		  && edges[k].first == path[i-1] ) {
 		break;
 	      }
 	      target_bond_m++;
 	    }
-	    int target_bond_p = 0;
-	    for(auto const & m : vb_a) {
-	      if( edges[m].first == path[i]
-		  && edges[m].second == path[i+1] ) {
+	  }
+	  int target_bond_p = vb_a.size()+2;
+	  if( i < path.size()-1 ) {
+	    target_bond_p = 0;
+	    for(auto const & k : vb_a) {
+	      if( edges[k].first == path[i]
+		  && edges[k].second == path[i+1] ) {
 		break;
 	      }
-	      if( edges[m].second == path[i]
-		  && edges[m].first == path[i+1] ) {
+	      if( edges[k].second == path[i]
+		  && edges[k].first == path[i+1] ) {
 		break;
 	      }
 	      target_bond_p++;
 	    }
-	    int k=0;
-	    ShapeT shapeA = tci::shape(ctx,T[m][path[i]]);
-	    ShapeT new_shapeA(vb_a.size()+2);
-	    for(int b=0; b < vb_a.size(); b++) {
-	      if( b == target_bond_m ) {
-		IdxA[b] = k;
-		k++;
-		IdxX[0] = k;
-		k++;
-		new_shapeA[b] = vdim*shapeA[b];
-	      } else if ( b == target_bond_p ) {
-		IdxA[b] = k;
-		k++;
-		IdxX[1] = k;
-		k++;
-		new_shapeA[b] = vdim*shapeA[b];
-	      } else {
-		IdxA[b] = k;
-		k++;
-		new_shapeA[b] = shapeA[b];
-	      }
-	    }
-	    IdxX[2] = static_cast<IntT>(vb_a.size());
-	    IdxX[3] = -1;
-	    IdxA[vb_a.size()+0] = -1;
-	    IdxA[vb_a.size()+1] = static_cast<IntT>(vb_a.size()+1);
-	    new_shapeA[vb_a.size()+0] = shapeA[vb_a.size()+0];
-	    new_shapeA[vb_a.size()+1] = shapeA[vb_a.size()+1];
-	    tci::contract(ctx,T[m][path[i]],IdxA,X,IdxX,T[m][path[i]]);
-	    tci::reshape(ctx,T[m][path[i]],new_shapeA);
-	  } else if ( i == 0 ) {
-	    // now writing
-	  } else if ( i == path.size()-1 ) {
-	    // now writing
 	  }
+	  int k = 0;
+	  int kx = 0;
+	  ShapeT shapeA = tci::shape(ctx,T[m][path[i]]);
+	  ShapeT new_shapeA(vb_a.size()+2);
+	  for(int b=0; b < vb_a.size(); b++) {
+	    if( b == target_bond_m ) {
+	      IdxA[b] = k;
+	      k++;
+	      IdxX[kx] = k;
+	      k++;
+	      kx++;
+	      new_shapeA[b] = vdim*shapeA[b];
+	    } else if ( b == target_bond_p ) {
+	      IdxA[b] = k;
+	      k++;
+	      IdxX[kx] = k;
+	      k++;
+	      kx++;
+	      new_shapeA[b] = vdim*shapeA[b];
+	    } else {
+	      IdxA[b] = k;
+	      k++;
+	      new_shapeA[b] = shapeA[b];
+	    }
+	  }
+	  IdxX[kx] = static_cast<IntT>(vb_a.size());
+	  IdxX[kx+1] = -1;
+	  IdxA[vb_a.size()+0] = -1;
+	  IdxA[vb_a.size()+1] = static_cast<IntT>(vb_a.size()+1);
+	  new_shapeA[vb_a.size()+0] = shapeA[vb_a.size()+0];
+	  new_shapeA[vb_a.size()+1] = shapeA[vb_a.size()+1];
+	  tci::contract(ctx,X,IdxX,T[m][path[i]],IdxA,T[m][path[i]]);
+	  tci::reshape(ctx,T[m][path[i]],new_shapeA);
 	}
-
-	
-
 	
       } else if ( num_qubits == 3 ) {
+
+	// choose shortest path
+	auto site_a = static_cast<int>(ins.qubits[0].index);
+	auto site_b = static_cast<int>(ins.qubits[1].index);
+	auto site_c = static_cast<int>(ins.qubits[2].index);
+
+	auto path_ab = FindShortestPath(edges,site_a,site_b);
+	auto path_bc = FindShortestPath(edges,site_b,site_c);
+	auto path_ca = FindShortestPath(edges,site_c,site_a);
+
+	std::vector<size_t> path_length(3);
+	path_length[0] = path_ab.size()+path_bc.size()-1;
+	path_length[1] = path_bc.size()+path_ca.size()-1;
+	path_length[2] = path_ca.size()+path_ab.size()-1;
+
+	size_t min_length = path_length[0];
+	int which_path = 0;
 	
-      }
+	if( path_length[1] < path_length[0] ) {
+	  which_path = 1;
+	  min_length = path_length[1];
+	}
+	if( path_length[2] < path_length[which_path] ) {
+	  which_path = 2;
+	  min_length = path_length[2];
+	}
+
+	std::vector<int> path(min_length);
+	std::vector<BondIdxT> new_order(6);
+	if( which_path == 0 ) {
+	  for(int i=0; i < path_length[0]-1; i++) {
+	    path[i] = path_ab[i];
+	  }
+	  for(int i=0; i < path_length[1]; i++) {
+	    path[i+path_length[0]] = path_bc[i];
+	  }
+	  new_order[0] = 0;
+	  new_order[1] = 3;
+	  new_order[2] = 1;
+	  new_order[3] = 4;
+	  new_order[4] = 2;
+	  new_order[5] = 5;
+	} else if ( which_path == 1 ) {
+	  for(int i=0; i < path_length[1]-1; i++) {
+	    path[i] = path_bc[i];
+	  }
+	  for(int i=0; i < path_length[2]; i++) {
+	    path[i+path_length[1]] = path_ca[i];
+	  }
+	  new_order[0] = 1;
+	  new_order[1] = 4;
+	  new_order[2] = 2;
+	  new_order[3] = 5;
+	  new_order[4] = 0;
+	  new_order[5] = 3;
+	  site_a = static_cast<int>(ins.qubits[1].index);
+	  site_b = static_cast<int>(ins.qubits[2].index);
+	  site_c = static_cast<int>(ins.qubits[0].index);
+	} else {
+	  for(int i=0; i < path_length[2]-1; i++) {
+	    path[i] = path_ca[i];
+	  }
+	  for(int i=0; i < path_length[0]; i++) {
+	    path[i+path_length[2]] = path_ab[i];
+	  }
+	  new_order[0] = 2;
+	  new_order[1] = 5;
+	  new_order[2] = 0;
+	  new_order[3] = 3;
+	  new_order[4] = 1;
+	  new_order[5] = 4;
+	  site_a = static_cast<int>(ins.qubits[2].index);
+	  site_b = static_cast<int>(ins.qubits[0].index);
+	  site_c = static_cast<int>(ins.qubits[1].index);
+	}
+	tci::transpose(ctx,gate,new_order);
+
+	// decompose a 3-qubit unitary into network of three 1-qubit tensors
+	TenT Ga;
+	TenT Gb;
+	TenT Gc;
+	RealTenT D;
+	TenT Gv; // temporary
+	RankT num_row_bonds = 2;
+	tci::svd(ctx,gate,num_row_bonds,Ga,D,Gv);
+	tci::for_each(ctx,D,[](ElemT & elem) {
+	  if( elem > 0.0 ) { elem = std::sqrt(elem); }
+	  else             { elem = 0.0; }
+	});
+	tci::diag(ctx,D);
+	std::vector<IntT> IdxGa(3);
+	std::vector<IntT> IdxD(2);
+	IdxGa[0] = 0;
+	IdxGa[1] = 1;
+	IdxGa[2] = -1;
+	IdxD[0] = -1;
+	IdxD[1] = 2;
+	tci::contract(ctx,Ga,IdxGa,D,IdxD,Ga);
+	std::vector<IntT> IdxGv(5);
+	IdxD[0] = 0;
+	IdxD[1] = -1;
+	IdxGv[0] = -1;
+	IdxGv[1] = 1;
+	IdxGv[2] = 2;
+	IdxGv[3] = 3;
+	IdxGv[4] = 4;
+	tci::contract(ctx,D,IdxD,Gv,IdxGv,Gv);
+	ShapeT shape_Dab = tci::shape(ctx,D);
+	num_row_bonds = 3;
+	tci::svd(ctx,Gv,num_row_bonds,Gb,D,Gc);
+	tci::for_each(ctx,D,[](ElemT & elem) {
+	  if( elem > 0.0 ) { elem = std::sqrt(elem); }
+	  else             { elem = 0.0; }
+	});
+	tci::diag(ctx,D);
+	std::vector<IntT> IdxGb(4);
+	std::vector<IntT> IdxGc(3);
+	IdxGb[0] = 0;
+	IdxGb[1] = 2;
+	IdxGb[2] = 3;
+	IdxGb[3] = -1;
+	IdxD[0] = -1;
+	IdxD[1] = 1;
+	tci::contract(ctx,Gb,IdxGb,D,IdxD,Gb);
+	IdxD[0] = 0;
+	IdxD[1] = -1;
+	IdxGc[0] = -1;
+	IdxGc[1] = 1;
+	IdxGc[2] = 2;
+	tci::contract(ctx,D,IdxD,Gc,IdxGc,Gc);
+	ShapeT shape_Dbc = tci::shape(ctx,D);
+
+	auto vdim_ab = shape_Dab[0];
+	auto vdim_bc = shape_Dbc[0];
+
+	auto vdim = vdim_ab;
+	size_t ib=path.size();
+	// attach unitary onto the tpo
+	for(size_t i=0; i < path.size(); i++) {
+
+	  TenT X;
+	  if( path[i] == site_a ) {
+	    X = Ga;
+	  } else if ( path[i] == site_b ) {
+	    X = Gb;
+	    ib = i;
+	  } else if ( path[i] == site_c ) {
+	    X = Gc;
+	  } else {
+	    if( i > ib ) {
+	      vdim = vdim_bc;
+	    }
+	    ShapeT dimX(1,vdim*2);
+	    std::vector<ElemT> dataX(2*vdim,RealT(1.0));
+	    X = tci::initialize<TenT>(ctx,dimX,dataX);
+	    tci::diag(ctx,X);
+	    ShapeT shapeX(4);
+	    shapeX[0] = vdim;
+	    shapeX[1] = 2;
+	    shapeX[2] = vdim;
+	    shapeX[3] = 2;
+	    tci::reshape(ctx,X,shapeX);
+	    std::vector<BondIdxT> new_order_X(4);
+	    new_order_X[0] = 0;
+	    new_order_X[1] = 2;
+	    new_order_X[2] = 1;
+	    new_order_X[3] = 3;
+	    tci::transpose(ctx,X,new_order_X);
+	  }
+	  auto vb_A = GetSurroundingBondIndex(path[i],edges);
+	  auto rank_X = tci::rank(ctx,X);
+	  std::vector<IntT> IdxA(vb_A.size()+2,1);
+	  std::vector<IntT> IdxX(rank_X);
+	  int target_bond_m = static_cast<int>(vb_A.size())+2;
+	  if( i > 0 ) {
+	    target_bond_m = 0;
+	    for(auto const & k : vb_A) {
+	      if( edges[k].first == path[i]
+		  && edges[k].second == path[i-1] ) {
+		break;
+	      }
+	      if( edges[k].second == path[i]
+		  && edges[k].first == path[i-1] ) {
+		break;
+	      }
+	      target_bond_m++;
+	    }
+	  }
+	  int target_bond_p = vb_A.size()+2;
+	  if( i < path.size()-1 ) {
+	    target_bond_p = 0;
+	    for(austo const & k : vb_a) {
+	      if( edges[k].first == path[i]
+		  && edges[k].second == path[i+1] ) {
+		break;
+	      }
+	      if( edges[k].second == path[i]
+		  && edges[k].first == path[i+1] ) {
+		break;
+	      }
+	      target_bond_p++;
+	    }
+	  }
+	  int k=0;
+	  int kx = 0;
+	  ShapeT shapeA = tci::shape(ctx,T[m][path[i]]);
+	  ShapeT new_shapeA(vb_A.size()+2);
+	  for(int b=0; b < vb_A.size(); b++) {
+	    if( b == target_bond_m ) {
+	      IdxA[b] = k;
+	      k++;
+	      IdxX[kx] = k;
+	      k++;
+	      kx++;
+	      new_shapeA[b] = vdim*shapeA[b];
+	    } else if ( b == target_bond_p ) {
+	      IdxA[b] = k;
+	      k++;
+	      IdxX[kx] = k;
+	      k++;
+	      kx++;
+	      new_shapeA[b] = vdim*shapeA[b];
+	    } else {
+	      IdxA[b] = k;
+	      k++;
+	      new_shapeA[b] = shapeA[b];
+	    }
+	  }
+	  IdxX[kx] = static_cast<IntT>(vb_A.size());
+	  IdxX[kx+1] = -1;
+	  IdxA[vb_A.size()+0] = -1;
+	  IdxA[vb_A.size()+1] = static_cast<IntT>(vb_A.size()+1);
+	  new_shapeA[vb_A.size()+0] = shapeA[vb_a.size()+0];
+	  new_shapeA[vb_A.size()+1] = shapeA[vb_a.size()+1];
+	  tci::contract(ctx,X,IdxX,T[m][path[i]],IdxA,T[m][path[i]]);
+	  tci::reshape(ctx,T[m][path[i]],new_shapeA);
+	}
+      } // else if ( num_qubits == 3 )
 
       gate_count++;
       if( gate_count == num_gates[m] ) {
 	m++;
 	gate_count=0;
       }
-    }
-  }
+    } // end for(auto const & ins : p.instructions)
+  } // end function
 
-  /**
-   */
-  
 }
 
 #endif
