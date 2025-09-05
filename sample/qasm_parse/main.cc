@@ -1,6 +1,6 @@
 // main.cpp
 #include <iostream>
-#include "qasm/any.hpp"
+#include "qasm/any.h"
 
 static void dump(const qasm::Program& p){
   std::cout << "qregs:\n";
@@ -11,7 +11,7 @@ static void dump(const qasm::Program& p){
   for (auto& ins: p.instructions) {
     std::cout << "  line " << ins.line << ": ";
     if (ins.op==qasm::Op::CUSTOM) std::cout << ins.name;
-    else std::cout << (int)ins.op;
+    else std::cout << (int)ins.op << "(" << op_name(ins.op) << ")";
     if (!ins.params.empty()) {
       std::cout << " (";
       for (size_t i=0;i<ins.params.size();++i){ if(i) std::cout<<", "; std::cout<<ins.params[i]; }

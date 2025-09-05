@@ -1,6 +1,6 @@
 // qasm/v3/parser.hpp
 #pragma once
-#include "../common/reader.hpp"
+#include "../common/reader.h"
 #include <unordered_map>
 
 namespace qasm::v3 {
@@ -11,39 +11,46 @@ class Parser {
     r.reset(src);
     r.skipSpacesAndComments();
     if (!r.peekWordEq("OPENQASM")) r.err("OPENQASM header required for v3");
-    r.readWord(); // OPENQASM
-    r.consumeVersionNumberToken(); // expects "3" etc.
+    r.readWord();                   // OPENQASM
+    r.consumeVersionNumberToken();  // "3" など
     r.expect(';');
 
     prog = {};
-    reg_q_sizes.clear(); reg_c_sizes.clear();
+    reg_q_sizes.clear();
+    reg_c_sizes.clear();
 
     while (!r.eof()) {
       r.skipSpacesAndComments();
       if (r.eof()) break;
 
+      // --- 宣言や単純文 ---
       if (r.peekWordEq("include")) { readInclude(); continue; }
       if (r.peekWordEq("qubit"))   { readQubitDecl(); continue; }
-      if (r.peekWordEq("bit"))     { readBitDecl();   continue; }
       if (r.peekWordEq("barrier")) { readBarrier();   continue; }
       if (r.peekWordEq("reset"))   { readReset();     continue; }
       if (r.peekWordEq("measure")) { readMeasureArrowCompat(); continue; }
 
-      // 代入形: <carg> = measure <qarg>;
-      // 行頭トークンが識別子なら、もしかすると代入measureかゲート
-      // ゲート修飾子（ctrl/inv/pow）は今回は非対応→エラー
-      std::size_t si=r.i, sl=r.line, sc=r.col;
-      std::string w = r.readWord(); // 先読み
-      if (ieq(w,"ctrl") || ieq(w,"inv") || ieq(w,"pow")) {
-        r.err("gate modifiers (ctrl/inv/pow) are not supported in this subset");
+      // ★ 代入測定（bit/creg の LHS）を bit/creg 宣言よりも先に判定
+      if (looksLikeBitMeasureAssign() || looksLikeCregMeasureAssign()) {
+        readMeasureAssign();
+        continue;
       }
-      // 代入形の可能性を判定するため戻す
-      r.i=si; r.line=sl; r.col=sc;
 
-      // 代入測定？
-      if (looksLikeMeasureAssign()) { readMeasureAssign(); continue; }
+      // bit 宣言（通常の宣言）
+      if (r.peekWordEq("bit")) { readBitDecl(); continue; }
 
-      // それ以外はゲート呼び出し扱い
+      // ゲート修飾子は非対応（限定展開を後で入れる場合はここを差し替え）
+      {
+        std::size_t si=r.i, sl=r.line, sc=r.col;
+        std::string w = r.readWord();
+        if (ieq(w,"ctrl") || ieq(w,"inv") || ieq(w,"pow")) {
+          r.err("gate modifiers (ctrl/inv/pow) are not supported in this subset");
+        }
+        // 先読みを戻す
+        r.i=si; r.line=sl; r.col=sc;
+      }
+
+      // ゲート呼び出し
       readGateOrCustom();
     }
 
@@ -51,20 +58,29 @@ class Parser {
   }
 
  private:
-  static bool ieq(const std::string& a, std::string_view b){ return qasm::common::Reader::eqNoCase(a,b); }
-
-  void readInclude(){
-    r.readWord(); r.skipSpacesAndComments(); r.expect('"');
-    while(!r.eof() && r.get()!='"'){} r.expect(';');
+  // ===== ヘルパ：大文字小文字無視比較 =====
+  static bool ieq(const std::string& a, std::string_view b){
+    return qasm::common::Reader::eqNoCase(a,b);
   }
 
+  // ===== include =====
+  void readInclude(){
+    r.readWord(); // include
+    r.skipSpacesAndComments(); r.expect('"');
+    while(!r.eof() && r.get()!='"'){}
+    r.expect(';');
+  }
+
+  // ===== 宣言（qubit/bit）=====
   void readQubitDecl(){
     r.readWord(); // qubit
     r.skipSpacesAndComments();
     std::size_t size = 1;
     if (r.peek()=='['){ r.get(); size = (std::size_t)r.parseNumber(); r.expect(']'); }
-    std::string name = r.readWord(); r.expect(';');
-    reg_q_sizes[name]=size; prog.qregs.push_back({name,size});
+    std::string name = r.readWord();
+    r.expect(';');
+    reg_q_sizes[name]=size;
+    prog.qregs.push_back({name,size});
   }
 
   void readBitDecl(){
@@ -72,49 +88,84 @@ class Parser {
     r.skipSpacesAndComments();
     std::size_t size = 1;
     if (r.peek()=='['){ r.get(); size = (std::size_t)r.parseNumber(); r.expect(']'); }
-    std::string name = r.readWord(); r.expect(';');
-    reg_c_sizes[name]=size; prog.cregs.push_back({name,size});
+    std::string name = r.readWord();
+    r.expect(';');
+    reg_c_sizes[name]=size;
+    prog.cregs.push_back({name,size});
   }
 
+  // ===== barrier/reset =====
   void readBarrier(){
     std::size_t L=r.line; r.readWord();
-    auto qargs = readQArgs(true); r.expect(';');
-    qasm::Instruction in; in.op=qasm::Op::BARRIER; in.qubits=std::move(qargs); in.line=L; in.raw=r.currentRawLine(L);
+    auto qargs = readQArgs(true);
+    r.expect(';');
+    qasm::Instruction in;
+    in.op = qasm::Op::BARRIER;
+    in.qubits = std::move(qargs);
+    in.line = L; in.raw = r.currentRawLine(L);
     prog.instructions.push_back(std::move(in));
   }
 
   void readReset(){
     std::size_t L=r.line; r.readWord();
-    auto qargs = readQArgs(true); r.expect(';');
+    auto qargs = readQArgs(true);
+    r.expect(';');
     for (auto &qa: qargs) {
-      qasm::Instruction in; in.op=qasm::Op::RESET; in.qubits={qa}; in.line=L; in.raw=r.currentRawLine(L);
+      qasm::Instruction in;
+      in.op = qasm::Op::RESET;
+      in.qubits = {qa};
+      in.line = L; in.raw = r.currentRawLine(L);
       prog.instructions.push_back(std::move(in));
     }
   }
 
-  // 互換: measure q[i] -> c[i];
+  // ===== measure 互換 (矢印形) =====
   void readMeasureArrowCompat(){
-    std::size_t L=r.line; r.readWord();
+    std::size_t L=r.line; r.readWord(); // measure
     auto q = readQArgs(false);
     r.skipSpacesAndComments();
-    if (!(r.peek()=='-' && r.i+1<r.src.size() && r.src[r.i+1]=='>')) r.err("expected '->' after measure");
-    r.get(); r.get();
-    auto [cr,ci] = readCArg(); r.expect(';');
+    if (!(r.peek()=='-' && r.i+1<r.src.size() && r.src[r.i+1]=='>'))
+      r.err("expected '->' after measure");
+    r.get(); r.get(); // ->
+    auto [cr,ci] = readCArg();
+    r.expect(';');
     if (q.size()!=1) r.err("measure expects a single qubit");
-    qasm::Instruction in; in.op=qasm::Op::MEASURE; in.qubits={q[0]}; in.has_classical=true; in.c_reg=cr; in.c_index=ci; in.line=L; in.raw=r.currentRawLine(L);
+    qasm::Instruction in;
+    in.op = qasm::Op::MEASURE;
+    in.qubits = {q[0]};
+    in.has_classical = true;
+    in.c_reg = cr; in.c_index = ci;
+    in.line = L; in.raw = r.currentRawLine(L);
     prog.instructions.push_back(std::move(in));
   }
 
-  bool looksLikeMeasureAssign(){
-    // Heuristics: <carg> '=' 'measure' ...
-    // Try to parse "<ident> '[' number ']'" or "<ident>" followed by '='
+  // ===== 代入測定の“見た目”判定 =====
+  bool looksLikeBitMeasureAssign(){
+    // 例: "bit x = measure q[2];"
+    std::size_t si=r.i, sl=r.line, sc=r.col;
+    r.skipSpacesAndComments();
+    if (!r.peekWordEq("bit")) { r.i=si; r.line=sl; r.col=sc; return false; }
+    r.readWord(); // bit
+    r.skipSpacesAndComments();
+    if (!qasm::common::Reader::isIdentStart(r.peek())) { r.i=si; r.line=sl; r.col=sc; return false; }
+    (void)r.readWord(); // name
+    r.skipSpacesAndComments();
+    bool ok = (r.peek()=='=');
+    r.i=si; r.line=sl; r.col=sc;
+    return ok;
+  }
+
+  bool looksLikeCregMeasureAssign(){
+    // 例: "c[i] = measure q[j];" / "c = measure q[0];"（c が size 1 のとき）
     std::size_t si=r.i, sl=r.line, sc=r.col;
     r.skipSpacesAndComments();
     if (!qasm::common::Reader::isIdentStart(r.peek())) { r.i=si; r.line=sl; r.col=sc; return false; }
-    std::string reg = r.readWord();
+    (void)r.readWord(); // creg name (仮)
     r.skipSpacesAndComments();
-    if (r.peek()=='['){ // index form
-      r.get(); (void)r.parseNumber(); r.expect(']');
+    if (r.peek()=='['){ // index 部
+      r.get();
+      (void)r.parseNumber();
+      r.expect(']');
     }
     r.skipSpacesAndComments();
     bool ok = (r.peek()=='=');
@@ -122,10 +173,11 @@ class Parser {
     return ok;
   }
 
+  // ===== 代入測定の本体 =====
   void readMeasureAssign(){
     // c[i] = measure q[j];  |  bit x = measure q[k];
     std::size_t L=r.line;
-    auto [cr, ci] = readCArgOrBitDeclLHS(); // returns existing creg/bit index (decl may occur)
+    auto [cr, ci] = readCArgOrBitDeclLHS();
     r.skipSpacesAndComments(); r.expect('=');
     r.skipSpacesAndComments();
     if (!r.peekWordEq("measure")) r.err("expected 'measure' in assignment");
@@ -133,49 +185,61 @@ class Parser {
     auto q = readQArgs(false);
     r.expect(';');
     if (q.size()!=1) r.err("measure expects a single qubit");
-    qasm::Instruction in; in.op=qasm::Op::MEASURE; in.qubits={q[0]}; in.has_classical=true; in.c_reg=cr; in.c_index=ci; in.line=L; in.raw=r.currentRawLine(L);
+    qasm::Instruction in;
+    in.op = qasm::Op::MEASURE;
+    in.qubits = {q[0]};
+    in.has_classical = true;
+    in.c_reg = cr; in.c_index = ci;
+    in.line = L; in.raw = r.currentRawLine(L);
     prog.instructions.push_back(std::move(in));
   }
 
-  // LHS could be: c[i]  (existing) OR  bit x  (declare then use index 0)
+  // LHS: "bit x"（宣言兼ねる）or 既存 "c[i]" / "c" (size==1)
   std::pair<std::string,std::size_t> readCArgOrBitDeclLHS(){
     r.skipSpacesAndComments();
     if (r.peekWordEq("bit")){
-      // bit x = measure ...
       r.readWord(); // bit
       r.skipSpacesAndComments();
       if (r.peek()=='[') r.err("bit array not allowed on LHS with declaration here");
       std::string name = r.readWord();
-      // Declare creg of size 1 mapped from bit
-      if (!reg_c_sizes.count(name)){ reg_c_sizes[name]=1; prog.cregs.push_back({name,1}); }
+      if (!reg_c_sizes.count(name)) {
+        reg_c_sizes[name]=1;
+        prog.cregs.push_back({name,1});
+      }
       return {name,0};
     }
-    // c[i]
-    return readCArg();
+    return readCArg(); // 既存 creg
   }
 
+  // c[i] or c (size==1 の省略形)
   std::pair<std::string,std::size_t> readCArg(){
     r.skipSpacesAndComments();
-    std::string reg = r.readWord(); r.skipSpacesAndComments();
-    if (r.peek()!='[') {
-      // Allow single-bit alias without bracket if it's size 1
-      auto it=reg_c_sizes.find(reg); if (it==reg_c_sizes.end()) r.err("unknown bit/creg: "+reg);
+    std::string reg = r.readWord();
+    r.skipSpacesAndComments();
+    if (r.peek()!='['){
+      auto it=reg_c_sizes.find(reg);
+      if (it==reg_c_sizes.end()) r.err("unknown bit/creg: "+reg);
       if (it->second!=1) r.err("missing index for creg: "+reg);
       return {reg,0};
     }
-    r.get(); std::size_t idx=(std::size_t)r.parseNumber(); r.expect(']');
-    checkC(reg, idx); return {reg, idx};
+    r.get();
+    std::size_t idx=(std::size_t)r.parseNumber();
+    r.expect(']');
+    checkC(reg, idx);
+    return {reg, idx};
   }
 
+  // ===== QArgs（単体/複数, スライス [lo:hi) 対応）=====
   std::vector<qasm::QArg> readQArgs(bool allow_many){
     std::vector<qasm::QArg> out;
+
     auto readOne=[&](){
       r.skipSpacesAndComments();
       std::string reg = r.readWord();
       r.skipSpacesAndComments();
       if (r.peek()=='['){
         r.get();
-        // index or slice [lo:hi]
+        // 単一 index か slice [lo:hi)
         r.skipSpacesAndComments();
         std::size_t lo = (std::size_t)r.parseNumber();
         r.skipSpacesAndComments();
@@ -184,7 +248,7 @@ class Parser {
           r.skipSpacesAndComments();
           std::size_t hi = (std::size_t)r.parseNumber();
           r.expect(']');
-          auto it = reg_q_sizes.find(reg); if (it==reg_q_sizes.end()) r.err("unknown qreg: "+reg);
+          auto it=reg_q_sizes.find(reg); if (it==reg_q_sizes.end()) r.err("unknown qreg: "+reg);
           if (hi<lo || hi>it->second) r.err("slice out of range: "+reg+"["+std::to_string(lo)+":"+std::to_string(hi)+"]");
           std::vector<qasm::QArg> v; v.reserve(hi-lo);
           for (std::size_t k=lo;k<hi;++k) v.push_back({reg,k});
@@ -202,22 +266,61 @@ class Parser {
         return v;
       }
     };
+
     auto first = readOne(); out.insert(out.end(), first.begin(), first.end());
     if (!allow_many) return out;
+
     r.skipSpacesAndComments();
-    while (r.peek()==','){ r.get(); auto nx=readOne(); out.insert(out.end(), nx.begin(), nx.end()); r.skipSpacesAndComments(); }
+    while (r.peek()==','){
+      r.get();
+      auto nx = readOne();
+      out.insert(out.end(), nx.begin(), nx.end());
+      r.skipSpacesAndComments();
+    }
     return out;
   }
 
-  void checkQ(const std::string& reg, std::size_t idx){
-    auto it=reg_q_sizes.find(reg); if (it==reg_q_sizes.end()) r.err("unknown qreg: "+reg);
-    if (idx>=it->second) r.err("qreg index out of range: "+reg+"["+std::to_string(idx)+"]");
-  }
-  void checkC(const std::string& reg, std::size_t idx){
-    auto it=reg_c_sizes.find(reg); if (it==reg_c_sizes.end()) r.err("unknown creg/bit: "+reg);
-    if (idx>=it->second) r.err("creg index out of range: "+reg+"["+std::to_string(idx)+"]");
+  // ===== gate 呼び出し =====
+  void readGateOrCustom(){
+    std::size_t L=r.line;
+    std::string gate = r.readWord();
+    if (ieq(gate,"ctrl") || ieq(gate,"inv") || ieq(gate,"pow")) {
+      r.err("gate modifiers are not supported in this subset");
+    }
+    std::vector<double> params;
+    r.skipSpacesAndComments();
+    if (r.peek()=='(') params = r.parseParamList();
+    r.skipSpacesAndComments();
+    auto qargs = readQArgs(true);
+    r.expect(';');
+
+    qasm::Op op = mapGate(gate);
+    std::size_t ar = gateArity(op);
+    if (ar>0 && qargs.size()%ar!=0)
+      r.err("gate '"+gate+"' expects multiple of "+std::to_string(ar)+" qubits");
+
+    if (ar==0){
+      qasm::Instruction in;
+      in.op = op;
+      if (op==qasm::Op::CUSTOM) in.name=gate;
+      in.params = params;
+      in.qubits = std::move(qargs);
+      in.line = L; in.raw = r.currentRawLine(L);
+      prog.instructions.push_back(std::move(in));
+    } else {
+      for (std::size_t k=0;k<qargs.size();k+=ar){
+        qasm::Instruction in;
+        in.op = op;
+        if (op==qasm::Op::CUSTOM) in.name=gate;
+        in.params = params;
+        in.qubits.assign(qargs.begin()+k, qargs.begin()+k+ar);
+        in.line = L; in.raw = r.currentRawLine(L);
+        prog.instructions.push_back(std::move(in));
+      }
+    }
   }
 
+  // ===== gate マッピング =====
   qasm::Op mapGate(const std::string& g){
     using R=qasm::common::Reader;
     auto L=[&](const char* s){ return R::eqNoCase(g,s); };
@@ -243,6 +346,7 @@ class Parser {
     if (L("cswap")) return qasm::Op::CSWAP;
     return qasm::Op::CUSTOM;
   }
+
   std::size_t gateArity(qasm::Op op){
     switch(op){
       case qasm::Op::U3: case qasm::Op::U2: case qasm::Op::U1:
@@ -256,33 +360,17 @@ class Parser {
     }
   }
 
-  void readGateOrCustom(){
-    std::size_t L=r.line;
-    std::string gate = r.readWord();
-    if (ieq(gate,"ctrl")||ieq(gate,"inv")||ieq(gate,"pow")) {
-      r.err("gate modifiers are not supported in this subset");
-    }
-    std::vector<double> params;
-    r.skipSpacesAndComments();
-    if (r.peek()=='(') params = r.parseParamList();
-    r.skipSpacesAndComments();
-    auto qargs = readQArgs(true);
-    r.expect(';');
+  // ===== index 範囲チェック =====
+  void checkQ(const std::string& reg, std::size_t idx){
+    auto it=reg_q_sizes.find(reg);
+    if (it==reg_q_sizes.end()) r.err("unknown qreg: "+reg);
+    if (idx>=it->second) r.err("qreg index out of range: "+reg+"["+std::to_string(idx)+"]");
+  }
 
-    qasm::Op op = mapGate(gate);
-    std::size_t ar = gateArity(op);
-    if (ar>0 && qargs.size()%ar!=0) r.err("gate '"+gate+"' expects multiple of "+std::to_string(ar)+" qubits");
-
-    if (ar==0){
-      qasm::Instruction in; in.op=op; if (op==qasm::Op::CUSTOM) in.name=gate; in.params=params; in.qubits=std::move(qargs); in.line=L; in.raw=r.currentRawLine(L);
-      prog.instructions.push_back(std::move(in));
-    } else {
-      for (std::size_t k=0;k<qargs.size();k+=ar){
-        qasm::Instruction in; in.op=op; if (op==qasm::Op::CUSTOM) in.name=gate; in.params=params;
-        in.qubits.assign(qargs.begin()+k, qargs.begin()+k+ar); in.line=L; in.raw=r.currentRawLine(L);
-        prog.instructions.push_back(std::move(in));
-      }
-    }
+  void checkC(const std::string& reg, std::size_t idx){
+    auto it=reg_c_sizes.find(reg);
+    if (it==reg_c_sizes.end()) r.err("unknown creg/bit: "+reg);
+    if (idx>=it->second) r.err("creg index out of range: "+reg+"["+std::to_string(idx)+"]");
   }
 
  private:

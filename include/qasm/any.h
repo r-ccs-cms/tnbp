@@ -1,7 +1,7 @@
 // qasm/any.hpp
 #pragma once
-#include "v2/parser.hpp"
-#include "v3/parser.hpp"
+#include "v2/parser.h"
+#include "v3/parser.h"
 
 namespace qasm {
 

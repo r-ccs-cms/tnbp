@@ -6,6 +6,6 @@
 #ifndef TNBP_TNBP_H
 #define TNBP_TNBP_H
 
-#include "tnbp/ptns/ptns_all.h"
+#include "tnbp/ptns/inc_all.h"
 
 #endif

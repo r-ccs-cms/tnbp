@@ -1,6 +1,6 @@
 // qasm/common/reader.hpp
 #pragma once
-#include "../ir.hpp"
+#include "../ir.h"
 #include <string_view>
 #include <string>
 #include <vector>

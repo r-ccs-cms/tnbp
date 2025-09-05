@@ -40,5 +40,22 @@ namespace qasm {
       : std::runtime_error("QASM parse error ("+std::to_string(l)+":"+std::to_string(c)+"): "+msg),
 	line(l), col(c) {}
   };
+
+  inline const char* op_name(qasm::Op op){
+    using qasm::Op;
+    switch(op){
+    case Op::U3: return "u3"; case Op::U2: return "u2"; case Op::U1: return "u1";
+    case Op::RX: return "rx"; case Op::RY: return "ry"; case Op::RZ: return "rz";
+    case Op::H: return "h";  case Op::X: return "x";  case Op::Y: return "y";  case Op::Z: return "z";
+    case Op::S: return "s";  case Op::SDG: return "sdg"; case Op::T: return "t"; case Op::TDG: return "tdg";
+    case Op::ID: return "id";
+    case Op::CX: return "cx"; case Op::CZ: return "cz"; case Op::SWAP: return "swap";
+    case Op::CCX: return "ccx"; case Op::CSWAP: return "cswap";
+    case Op::MEASURE: return "measure"; case Op::BARRIER: return "barrier"; case Op::RESET: return "reset";
+    case Op::CUSTOM: return "custom";
+    }
+    return "?";
+  }
+  
   
 } // namespace qasm

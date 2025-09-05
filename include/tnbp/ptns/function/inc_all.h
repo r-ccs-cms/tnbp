@@ -6,6 +6,7 @@
 #ifndef TNBP_PTNS_FUNCTION_INC_ALL_H
 #define TNBP_PTNS_FUNCTION_INC_ALL_H
 
-
+#include "tnbp/ptns/function/init.h"
+#include "tnbp/ptns/function/bp.h"
 
 #endif

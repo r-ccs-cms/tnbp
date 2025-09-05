@@ -9,7 +9,8 @@
 namespace tnbp {
 
   /**
-     Standard initializer to setup labels and tensors from bond labels
+     Standard initializer to setup labels and tensors
+     for real-space parallelized tensor product state from bond labels
    */
   template <typename TenT>
   void InitTensorProductState(context_handle_t<TenT> & ctx,

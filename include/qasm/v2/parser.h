@@ -1,6 +1,6 @@
 // qasm/v2/parser.hpp
 #pragma once
-#include "../common/reader.hpp"
+#include "../common/reader.h"
 #include <unordered_map>
 
 namespace qasm::v2 {
