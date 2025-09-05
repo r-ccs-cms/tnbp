@@ -7,5 +7,7 @@
 #define TNBP_TNBP_H
 
 #include "tnbp/ptns/inc_all.h"
+#include "tnbp/lattice/inc_all.h"
+#include "tnbp/parser/inc_all.h"
 
 #endif

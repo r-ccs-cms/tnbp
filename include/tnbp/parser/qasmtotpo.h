@@ -172,6 +172,7 @@ namespace tnbp {
     using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
     using RankT = typename tci::tensor_traits<TenT>::rank_t;
     using IntT = typename tci::tensor_traits<TenT>::bond_label_t;
+    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
     
     auto site = GetSiteIndexFromBond(edges);
     std::vector<std::vector<TenT>> res(num_gates,std::vector<TenT>(site.size()));
@@ -184,7 +185,7 @@ namespace tnbp {
 	for(auto const & i : site) {
 	  auto virtualbond = GetSurroundingBondIndex(i,edges);
 	  auto num_virtualbond = virtualbond.size();
-	  std::vector<int> bond(num_virtualbond+2,1);
+	  ShapeT bond(num_virtualbond+2,1);
 	  bond[num_virtualbond+0] = 2;
 	  bond[num_virtualbond+1] = 2;
 	  std::vector<ElemT> data(4,ElemT(0.0));
@@ -192,6 +193,69 @@ namespace tnbp {
 	  data[3] = ElemT(1.0);
 	  T[m][i] = tci::initialize<TenT>(ctx,bond,data);
 	}
+      }
+      
+      TenT gate = InstructionTensor(ctx,ins);
+      auto rank_tensor = tci::rank(ctx,gate);
+      int num_qubits = rank_tensor/2;
+      if( num_qubits == 1 ) {
+	auto site_a = static_cast<int>(ins.qubits[0].index);
+	auto virtualbond = GetSurroundingBondIndex(site_a,edges);
+	auto num_virtualbond = virtualbond.size();
+	std::vector<IntT> IdxT(num_virtualbond+2);
+	std::vector<IntT> IdxG(2);
+	std::iota(IdxT.begin(),IdxT.end(),0);
+	IdxT[num_virtualbond+0] = -1;
+	IdxT[num_virtualbond+1] = static_cast<IntT>(num_virtualbond)+1;
+	IdxG[0] = static_cast<IntT>(num_virtualbond);
+	IdxG[1] = -1;
+	tci::contract(ctx,T[m][site_a],IdxT,gate,IdxG,T[m][site_a]);
+      } else if ( num_qubits == 2 ) {
+
+	// we first perform svd
+	std::vector<IntT> new_order(4);
+	new_order[0] = 0;
+	new_order[1] = 2;
+	new_order[2] = 1;
+	new_order[3] = 3;
+	tci::transpose(ctx,gate,new_order);
+	TenT A;
+	TenT B;
+	RealTenT D;
+	RankT num_row_bonds = 2;
+	tci::svd(ctx,gate,num_row_bonds,A,D,B);
+	tci::for_each(ctx,D,[](ElemT & elem) {
+	  if( elem > 0.0 ) { elem = std::sqrt(elem); }
+	  else { elem = 0.0; }});
+	tci::diag(ctx,D);
+	std::vector<IntT> IdxG(3);
+	std::vector<IntT> IdxD(2);
+	IdxG[0] = 0;
+	IdxG[1] = 1;
+	IdxG[2] = -1;
+	IdxD[0] = -1;
+	IdxD[1] = 2;
+	tci::contract(ctx,A,IdxG,D,IdxD,A);
+	IdxD[0] = 0;
+	IdxD[1] = -1;
+	IdxG[0] = -1;
+	IdxG[1] = 1;
+	IdxG[2] = 2;
+	tci::contract(ctx,D,IdxD,B,IdxG,B);
+
+	// Assign  A and B on the tensor-product-operators
+	auto site_a = static_cast<int>(ins.qubits[0].index);
+	auto site_b = static_cast<int>(ins.qubits[1].index);
+	auto vb_a = GetSurroundingBondIndex(site_a,edges);
+	auto vb_b = GetSurroundingBondIndex(site_b,edges);
+	auto path = FindShortestPath(edges,site_a,site_b);
+	if( path.size() == size_t(2) ) {
+	  
+	} else {
+	}
+	
+      } else if ( num_qubits == 3 ) {
+	
       }
 
       gate_count++;

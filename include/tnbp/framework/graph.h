@@ -40,7 +40,7 @@ namespace tnbp {
 
   std::vector<int> FindShortestPath(const std::vector<std::pair<int,int>> & I,
                                     int i1, int i2) {
-    std::vector<int> Q = GetLabelFromBond(I);
+    std::vector<int> Q = GetSiteIndexFromBond(I);
     std::vector<std::vector<int>> adj(Q.size());
     for(const auto & edge : I) {
       adj[edge.first].push_back(edge.second);

@@ -10,7 +10,7 @@
 namespace tnbp {
 
   template <typename TenT>
-  void SquareRoot(tci::context_handle_t<TenT> & ctx,
+  void SquareRoot(context_handle_t<TenT> & ctx,
 		  const TenT & T,
 		  int lb,
 		  TenT & S) {
@@ -30,25 +30,22 @@ namespace tnbp {
     tci::for_each(ctx,D,[](ElemT & elem) { elem = std::sqrt(elem); });
     tci::diag(ctx,D);
 
-    auto shape_U = tci::shape(ctx,U);
-    auto shape_V = tci::shape(ctx,V);
-    auto shape_D = tci::shape(ctx,D);
-    auto Idx_U = shape_U;
-    auto Idx_V = shape_V;
-    auto Idx_D = shape_D;
-    auto Rank_U = tci::rank(ctx,U);
-    auto Rank_V = tci::rank(ctx,V);
-    auto Rank_D = tci::rank(ctx,D);
+    auto rank_U = tci::rank(ctx,U);
+    auto rank_V = tci::rank(ctx,V);
+    auto rank_D = tci::rank(ctx,D);
+    auto Idx_U = std::vector<IntT>(rank_U);
+    auto Idx_V = std::vector<IntT>(rank_V);
+    auto Idx_D = std::vector<IntT>(rank_D);
     std::iota(Idx_U.begin(),Idx_U.end(),0);
     Idx_U[Rank_U-1] = -1;
     Idx_D[0] = -1;
     Idx_D[1] = Rank_U-1;
-    tci::contract(ctx,U,D,Idx_U,Idx_D,U);
+    tci::contract(ctx,U,Idx_U,D,Idx_D,U);
     std::iota(Idx_U.begin(),Idx_U.end(),0);
     std::iota(Idx_V.begin(),Idx_V.end(),Rank_U-1);
     Idx_U[Rank_U-1] = -1;
     Idx_V[0] = -1;
-    tci::contract(ctx,U,V,Idx_U,Idx_D,S);
+    tci::contract(ctx,U,Idx_U,V,Idx_D,S);
     
   }
 
@@ -77,37 +74,34 @@ namespace tnbp {
       else elem = ElemT(0.0); });
     tci::diag(ctx,F);
     
-    auto shape_U = tci::shape(ctx,U);
-    auto shape_V = tci::shape(ctx,V);
-    auto shape_D = tci::shape(ctx,D);
-    auto Idx_U = shape_U;
-    auto Idx_V = shape_V;
-    auto Idx_D = shape_D;
     auto Rank_U = tci::rank(ctx,U);
     auto Rank_V = tci::rank(ctx,V);
     auto Rank_D = tci::rank(ctx,D);
+    auto Idx_U = std::vector<bond_label_t<TenT>>(rank_U);
+    auto Idx_V = std::vector<bond_label_t<TenT>>(rank_V);
+    auto Idx_D = std::vector<bond_label_t<TenT>>(rank_D);
     std::iota(Idx_U.begin(),Idx_U.end(),0);
     Idx_U[Rank_U-1] = -1;
     Idx_D[0] = -1;
     Idx_D[1] = Rank_U-1;
     auto W = U;
-    tci::contract(ctx,W,D,Idx_U,Idx_D,W);
+    tci::contract(ctx,W,Idx_U,D,Idx_D,W);
     std::iota(Idx_U.begin(),Idx_U.end(),0);
     std::iota(Idx_V.begin(),Idx_V.end(),Rank_U-1);
     Idx_U[Rank_U-1] = -1;
     Idx_V[0] = -1;
-    tci::contract(ctx,W,V,Idx_U,Idx_D,R);
+    tci::contract(ctx,W,Idx_U,V,Idx_D,R);
 
     std::iota(Idx_U.begin(),Idx_U.end(),0);
     Idx_U[Rank_U-1] = -1;
     Idx_D[0] = -1;
     Idx_D[1] = Rank_U-1;
-    tci::contract(ctx,U,F,Idx_U,Idx_D,U);
+    tci::contract(ctx,U,Idx_U,F,Idx_D,U);
     std::iota(Idx_U.begin(),Idx_U.end(),0);
     std::iota(Idx_V.begin(),Idx_V.end(),Rank_U-1);
     Idx_U[Rank_U-1] = -1;
     Idx_V[0] = -1;
-    tci::contract(ctx,U,V,Idx_U,Idx_D,S);
+    tci::contract(ctx,U,Idx_U,V,Idx_D,S);
   }
 		    
   

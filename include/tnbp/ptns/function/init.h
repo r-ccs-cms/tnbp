@@ -24,9 +24,6 @@ namespace tnbp {
 		 MPI_Comm comm) {
     
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
-    using RealT = typename tci::tensor_traits<TenT>::real_t;
-    using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
-    using RankT = typename tci::tensor_traits<TenT>::rank_t;
     using IntT = typename tci::tensor_traits<TenT>::bond_label_t;
 
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
@@ -71,8 +68,6 @@ namespace tnbp {
 		  MPI_SUM,
 		  comm);
   }
-		
-  
   
 }
 
