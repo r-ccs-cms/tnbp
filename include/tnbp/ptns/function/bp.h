@@ -217,7 +217,7 @@ Belief propagation step for self-consistent iteration
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
     using RankT = typename tci::tensor_traits<TenT>::rank_t;
-    using IntT  = typename tci::tensor_traits<Tent>::bond_label_t;
+    using IntT  = typename tci::tensor_traits<TenT>::bond_label_t;
 
     size_t num_v = SiteIdx.size();
     size_t num_e = EdgeIdx.size();
