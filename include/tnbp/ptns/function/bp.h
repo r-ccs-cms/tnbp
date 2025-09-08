@@ -23,7 +23,8 @@ Belief propagation step for self-consistent iteration
 			 MPI_Comm comm,
 			 std::vector<TenT> & F) {
 
-    using IntT  = typename tci::tensor_traits<Tent>::bond_label_t;
+    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
+    using BondLabelT  = typename tci::tensor_traits<Tent>::bond_label_t;
 
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
@@ -78,8 +79,8 @@ Belief propagation step for self-consistent iteration
 	  AddressA = std::distance(SiteIdx.begin(),itAddressA);
 	  TenT T = V[AddressA];
 	  auto RankA = tci::rank(ctx,T);
-	  std::vector<IntT> IdxA(RankA);
-	  std::vector<IntT> IdxE(2);
+	  std::vector<BondLabelT> IdxA(RankA);
+	  std::vector<BondLabelT> IdxE(2);
 
 	  for(int k=0; k < EdgeIdxA.size(); k++) {
 	    auto itMpA = std::find(EdgeIdx.begin(),EdgeIdx.end(),
@@ -96,18 +97,18 @@ Belief propagation step for self-consistent iteration
 		tci::contract(ctx,T,IdxA,E[MpA],IdxE,T);
 	      }
 	    }
-	    tci::normalize(ctx,T);
+	    ElemT norm_a = tci::normalize(ctx,T);
 	  }
 	  AdagA = V[AddressA];
 	  tci::cplx_conj(ctx,AdagA);
 	  
-	  std::vector<IntT> IdxT(RankA);
+	  std::vector<BondLabelT> IdxT(RankA);
 	  std::iota(IdxA.begin(),IdxA.end(),-RankA);
 	  std::iota(IdxT.begin(),IdxT.end(),-RankA);
 	  IdxT[BondIdxA] = 0;
 	  IdxA[BondIdxA] = 1;
 	  tci::contract(ctx,T,IdxT,AdagA,IdxA,AdagA);
-	  tci::normalize(ctx,AdagA);
+	  ElemT norm_aa = tci::normalize(ctx,AdagA);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
@@ -125,8 +126,8 @@ Belief propagation step for self-consistent iteration
 	  AddressB = std::distance(SiteIdx.begin(),itAddressB);
 	  TenT T = V[AddressB];
 	  auto RankB = tci::rank(ctx,T);
-	  std::vector<IntT> IdxB(RankB);
-	  std::vector<IntT> IdxE(2);
+	  std::vector<BondLabelT> IdxB(RankB);
+	  std::vector<BondLabelT> IdxE(2);
 
 	  for(int k=0; k < EdgeIdxB.size(); k++) {
 	    auto itMpA = std::find(EdgeIdx.begin(),EdgeIdx.end(),
@@ -143,18 +144,18 @@ Belief propagation step for self-consistent iteration
 		tci::contract(ctx,T,IdxB,E[MpB],IdxE,T);
 	      }
 	    }
-	    tci::normalize(ctx,T);
+	    ElemT norm_b = tci::normalize(ctx,T);
 	  }
 	  BdagB = V[AddressB];
 	  tci::cplx_conj(ctx,BdagB);
 	  
-	  std::vector<IntT> IdxT(RankB);
+	  std::vector<BondLabelT> IdxT(RankB);
 	  std::iota(IdxB.begin(),IdxB.end(),-RankB);
 	  std::iota(IdxT.begin(),IdxT.end(),-RankB);
 	  IdxT[BondIdxB] = 0;
 	  IdxA[BondIdxB] = 1;
 	  tci::contract(ctx,T,IdxT,BdagB,IdxB,BdagB);
-	  tci::normalize(ctx,BdagB);
+	  ElemT norm_bb = tci::normalize(ctx,BdagB);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
@@ -217,7 +218,7 @@ Belief propagation step for self-consistent iteration
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
     using RankT = typename tci::tensor_traits<TenT>::rank_t;
-    using IntT  = typename tci::tensor_traits<TenT>::bond_label_t;
+    using BondLabelT  = typename tci::tensor_traits<TenT>::bond_label_t;
 
     size_t num_v = SiteIdx.size();
     size_t num_e = EdgeIdx.size();
@@ -240,8 +241,8 @@ Belief propagation step for self-consistent iteration
 	      EdgeAddress += num_e;
 	    }
 	    TenT F = E[EdgeAddress];
-	    std::vector<IntT> IdxE(2);
-	    std::vector<IntT> IdxV(RankV);
+	    std::vector<BondLabelT> IdxE(2);
+	    std::vector<BondLabelT> IdxV(RankV);
 	    std::iota(IdxV.begin(),IdxV.end(),0);
 	    IdxV[l] = -1;
 	    IdxE[0] = -1;
@@ -252,14 +253,14 @@ Belief propagation step for self-consistent iteration
 	
 	TenT C = V[address];
 	tci::cplx_conj(ctx,C);
-	std::vector<IntT> IdxV(RankV);
-	std::vector<IntT> IdxC(RankV);
+	std::vector<BondLabelT> IdxV(RankV);
+	std::vector<BondLabelT> IdxC(RankV);
 	std::iota(IdxV.begin(),IdxV.end(),-RankV);
 	std::iota(IdxC.begin(),IdxC.end(),-RankV);
 	IdxV[k] = 0;
 	IdxC[k] = 1;
 	tci::contract(ctx,T,IdxV,C,IdxC,T);
-	tci::normalize(ctx,T);
+	ElemT norm_v = tci::normalize(ctx,T);
 
 	auto itEdgeAddress = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				       BondIdx[k]);
@@ -268,7 +269,7 @@ Belief propagation step for self-consistent iteration
 	  EdgeAddress += num_e;
 	}
 	TenT F = E[EdgeAddress];
-	tci::normalize(ctx,F);
+	ElemT norm_f = tci::normalize(ctx,F);
 
 	TenT D;
 	tci::linear_combine(ctx,{T,F},{ElemT(1.0),ElemT(-1.0)},D);

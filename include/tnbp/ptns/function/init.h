@@ -24,7 +24,6 @@ namespace tnbp {
 		 MPI_Comm comm) {
     
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
-    using IntT = typename tci::tensor_traits<TenT>::bond_label_t;
 
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
