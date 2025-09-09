@@ -1,6 +1,6 @@
 // This file is a part of r-ccs-cms/tnbp
 /**
-@file ptns/bptps.h
+@file ptns/tps.h
 @brief The header file to define the tensor product state
 */
 #ifndef TNBP_PTNS_TPS_H
