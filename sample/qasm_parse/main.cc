@@ -1,5 +1,8 @@
 // main.cpp
 #include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
 #include "qasm/any.h"
 
 static void dump(const qasm::Program& p){
@@ -27,35 +30,36 @@ static void dump(const qasm::Program& p){
   }
 }
 
-int main(){
-  const char* qasm2 = R"(OPENQASM 2.0;
-include "qelib1.inc";
-qreg q[3]; creg c[3];
-h q;
-cx q[0], q[1];
-rz(pi/2) q[2];
-measure q[1] -> c[1];
-barrier q[0], q[2];
-)";
+static std::string read_all_stdin() {
+  std::ostringstream oss;
+  oss << std::cin.rdbuf();
+  return oss.str();
+}
 
-  const char* qasm3 = R"(OPENQASM 3;
-include "stdgates.inc";
-qubit[4] q; bit[4] c;
-h q[0:3];
-cx q[0], q[3];
-c[1] = measure q[1];
-bit x = measure q[2];
-barrier q;
-reset q[0];
-)";
+static std::string read_all_file(const std::string& path) {
+  std::ifstream ifs(path);
+  if (!ifs) throw std::runtime_error("Failed to open: " + path);
+  std::ostringstream oss; oss << ifs.rdbuf();
+  return oss.str();
+}
 
-  try{
-    std::cout << "=== V2 ===\n";
-    dump(qasm::parse_any(qasm2));
-    std::cout << "\n=== V3 ===\n";
-    dump(qasm::parse_any(qasm3));
+int main(int argc, char** argv){
+  try {
+    std::string src;
+    if (argc >= 2) {
+      src = read_all_file(argv[1]);     // readin from a file if the filename is written as an argument
+    } else {
+      src = read_all_stdin();           // readin from stdin if the filename is not written
+    }
+
+    qasm::Program p = qasm::parse_any(src);
+    dump(p);
   } catch(const qasm::ParseError& e){
     std::cerr << e.what() << "\n";
+    return 2;
+  } catch(const std::exception& e){
+    std::cerr << "error: " << e.what() << "\n";
     return 1;
   }
+  return 0;
 }
