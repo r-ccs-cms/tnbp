@@ -54,7 +54,7 @@ namespace tnbp {
     std::sort(EdgeIdx.begin(),EdgeIdx.end());
     EdgeIdx.erase(std::unique(EdgeIdx.begin(),EdgeIdx.end()),EdgeIdx.end());
     int NumRankEdges = static_cast<int>(EdgeIdx.size());
-    E.resize(2*NumRankEdges,tci::initialize<TenT>(ctx,{1,1},{ElemT(1.0)});
+    E.resize(2*NumRankEdges,tci::initialize<TenT>(ctx,{1,1},{ElemT(1.0)}));
     Site_To_MpiRank(NumSites,0);
     std::vector<int> Site_To_MpiRank_Send(NumSites,0);
     for(auto const & i : SiteIdx) {
@@ -67,7 +67,24 @@ namespace tnbp {
 		  MPI_SUM,
 		  comm);
   }
-  
+
+  /**
+     Initializer for TensorProductState class
+   */
+  template <typename TenT>
+  friend void Init(context_handle_t<TenT> & ctx,
+		   const std::vector<int> & pdim,
+		   const std::vector<std::pair<int,int>> & I,
+		   MPI_Comm comm,
+		   TensorProductState<TenT> & W,
+		   std::vector<TenT> & E,
+		   std::vector<int> & EdgeIdx) {
+    W.I_ = I;
+    W.comm_ = comm;
+    InitTensorProductState(ctx,I,pdim,W.V_,W.SiteIdx_,
+			   W.Site_To_MpiRank_,
+			   E,EdgeIdx,W.comm_)
+  }
 }
 
 #endif

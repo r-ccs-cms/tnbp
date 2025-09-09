@@ -204,7 +204,7 @@ Belief propagation step for self-consistent iteration
   /**
      Function to check belief propagation condition
    */
-  template <typename TenT, typename RealT>
+  template <typename TenT>
   void BeliefPropagationCondition(context_handle_t<TenT> & ctx,
 				  const std::vector<std::pair<int,int>> & I,
 				  const std::vector<TenT> & V,
@@ -213,9 +213,10 @@ Belief propagation step for self-consistent iteration
 				  const std::vector<TenT> & E,
 				  const std::vector<int> & EdgeIdx,
 				  MPI_Comm comm,
-				  RealT & result) {
+				  real_t<TenT> & result) {
     
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
+    using RealT = typename tci::tensor_traits<TenT>::real_t;
     using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
     using RankT = typename tci::tensor_traits<TenT>::rank_t;
     using BondLabelT  = typename tci::tensor_traits<TenT>::bond_label_t;
@@ -281,6 +282,33 @@ Belief propagation step for self-consistent iteration
     MPI_Allreduce(&result_rank,&result,1,MPI_DOUBLE,MPI_SUM,comm);
   }
 
+
+  /**
+     Function to do the belief propagation for TensorProductState class
+   */
+  template <typename TenT>
+  void BeliefPropagation(context_handle_t<TenT> & ctx,
+			 const TensorProductState<TenT> & W,
+			 const std::vector<std::pair<int,int>> & J,
+			 const std::vector<TenT> & E,
+			 const std::vector<int> & EdgeIdx,
+			 std::vector<TenT> & F) {
+    BeliefPropagation(ctx,W.I_,W.V_,W.SiteIdx_,W.Site_To_MpiRank_,
+		      J,E,EdgeIdx,W.comm_,F);
+  }
+
+  /**
+     Function to evaluate bp condition for TensorProductState class
+   */
+  template <typename TenT>
+  void BeliefPropagationCondition(context_handle_t<TenT> & ctx,
+				  const TensorProductState<TenT> & W,
+				  const std::vector<TenT> & E,
+				  const std::vector<int> & EdgeIdx,
+				  real_t<TenT> & result) {
+    BeliefPropagationCondition(ctx,W.I_,W.V_,W.SiteIdx_,W.Site_To_MpiRank_,
+			       E,EdgeIdx,W.comm_,result);
+  }
   
 
 }

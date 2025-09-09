@@ -66,6 +66,39 @@ namespace tnbp {
      */
     int Q(size_t i) { return iV_[i]; }
 
+    /**
+       Initializer function
+     */
+    template <typename TenT_>
+    friend void Init(context_handle_t<TenT_> & ctx,
+		     const std::vector<int> & pdim,
+		     const std::vector<std::pair<int,int>> & I,
+		     MPI_Comm comm,
+		     TensorProductState<TenT_> & W,
+		     std::vector<TenT_> & E,
+		     std::vector<int> & EdgeIdx);
+
+    /**
+       Function to calculate messenger tensors for belief propagation
+     */
+    template <typename TenT_>
+    friend void BeliefPropagation(context_handle_t<TenT_> & ctx,
+			     const TensorProductState<TenT_> & W,
+			     const std::vector<std::pair<int,int>> & J,
+			     const std::vector<TenT_> & E,
+			     const std::vector<int> & EdgeIdx,
+			     std::vector<TenT_> & F);
+
+    /**
+       Function to evaluate the error from bp condition
+     */
+    template <typename TenT_>
+    friend void BeliefPropagationCondition(context_handle_t<TenT_> & ctx,
+				 const TensorProductState<TenT_> & W,
+				 const std::vector<TenT_> & E,
+				 const std::vector<int> & EdgeIdx,
+				 real_t<TenT_> & result);
+
   private:
 
     std::vector<TenT> V_;
@@ -87,7 +120,6 @@ namespace tnbp {
       this->mpi_size_ = other.mpi_size_;
       this->mpi_rank_ = other.mpi_rank_;
     }
-    
   };
   
 }
