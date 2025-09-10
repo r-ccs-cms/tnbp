@@ -49,12 +49,20 @@ namespace tnbp {
       BondDimV[NumBonds] = PhysicalBondDim[i];
       std::vector<ElemT> DataV(PhysicalBondDim[i],0.0);
       DataV[0] = ElemT(1.0);
-      *itV++ = tci::initialize<TenT>(ctx,BondDimV,DataV);
+      tci::allocate(ctx,BondDimV,*itV);
+      auto itDataV = DataV.begin();
+      tci::for_each(ctx,*itV,[&itDataV](ElemT & elem) {
+	elem = *itDataV++;
+      });
+      itV++;
     }
     std::sort(EdgeIdx.begin(),EdgeIdx.end());
     EdgeIdx.erase(std::unique(EdgeIdx.begin(),EdgeIdx.end()),EdgeIdx.end());
     int NumRankEdges = static_cast<int>(EdgeIdx.size());
-    E.resize(2*NumRankEdges,tci::initialize<TenT>(ctx,{1,1},{ElemT(1.0)}));
+    TenT Eorg;
+    tci::allocate(ctx,{1,1},Eorg);
+    tci::for_each(ctx,Eorg,[](ElemT & elem) { elem = static_cast<ElemT>(1.0); });
+    E.resize(2*NumRankEdges,Eorg);
     Site_To_MpiRank(NumSites,0);
     std::vector<int> Site_To_MpiRank_Send(NumSites,0);
     for(auto const & i : SiteIdx) {
