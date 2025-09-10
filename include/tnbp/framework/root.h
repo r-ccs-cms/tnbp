@@ -43,8 +43,8 @@ namespace tnbp {
     auto rank_V = tci::rank(ctx,V);
     auto rank_D = tci::rank(ctx,D);
     auto Idx_U = std::vector<BondLabelT>(rank_U);
-    auto Idx_V = std::vector<BondLabelT>(rank_V);
-    auto Idx_D = std::vector<IntT>(rank_D);
+    auto Idx_V = std::vector<BondLabelT>(rank_V);    
+    auto Idx_D = std::vector<BondLabelT>(rank_D);
     std::iota(Idx_U.begin(),Idx_U.end(),0);
     Idx_U[Rank_U-1] = -1;
     Idx_D[0] = -1;
