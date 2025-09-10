@@ -164,9 +164,15 @@ namespace tnbp {
   TenT InstructionTensor(context_handle_t<TenT> & ctx,
 			 const qasm::Instruction & ins) {
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
-    std::vector<int> bond(2*OpQubitCount(ins),2);
+    using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
+    std::vector<BondDimT> shape(2*OpQubitCount(ins),2);
+    TenT res;
+    tci::allocate(ctx,shape,res);
     std::vector<ElemT> data = InstructionMatrix(ins);
-    return tci::initialize<TenT>(ctx,bond,data);
+    auto it_data = data.begin();
+    tci::for_each(ctx,res,[&it_data](ElemT & elem) {
+      elem = *it_data++; });
+    return res;
   }
 
   /**
@@ -187,12 +193,12 @@ namespace tnbp {
     using RealT = typename tci::tensor_traits<TenT>::real_t;
     using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
     using RankT = typename tci::tensor_traits<TenT>::rank_t;
-    using IntT = typename tci::tensor_traits<TenT>::bond_label_t;
+    using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
     using BondIdxT = typename tci::tensor_traits<TenT>::bond_idx_t;
     
     auto site = GetSiteIndexFromBond(edges);
-    std::vector<std::vector<TenT>> res(num_gates,std::vector<TenT>(site.size()));
+    std::vector<std::vector<TenT>> T(num_gates,std::vector<TenT>(site.size()));
     int gate_count = 0;
     int m = 0;
     for(auto const & ins : program.instructions) {
@@ -208,7 +214,9 @@ namespace tnbp {
 	  std::vector<ElemT> data(4,ElemT(0.0));
 	  data[0] = ElemT(1.0);
 	  data[3] = ElemT(1.0);
-	  T[m][i] = tci::initialize<TenT>(ctx,bond,data);
+	  tci::allocate(ctx,bond,T[m][i]);
+	  tci::for_each(ctx,T[m][i],[&it_data](ElemT & elem) {
+	    elem = *it_data++; });
 	}
       }
       
@@ -219,12 +227,12 @@ namespace tnbp {
 	auto site_a = static_cast<int>(ins.qubits[0].index);
 	auto virtualbond = GetSurroundingBondIndex(site_a,edges);
 	auto num_virtualbond = virtualbond.size();
-	std::vector<IntT> IdxT(num_virtualbond+2);
-	std::vector<IntT> IdxG(2);
+	std::vector<BondLabelT> IdxT(num_virtualbond+2);
+	std::vector<BondLabelT> IdxG(2);
 	std::iota(IdxT.begin(),IdxT.end(),0);
 	IdxT[num_virtualbond+0] = -1;
-	IdxT[num_virtualbond+1] = static_cast<IntT>(num_virtualbond)+1;
-	IdxG[0] = static_cast<IntT>(num_virtualbond);
+	IdxT[num_virtualbond+1] = static_cast<BondLabelT>(num_virtualbond)+1;
+	IdxG[0] = static_cast<BondLabelT>(num_virtualbond);
 	IdxG[1] = -1;
 	tci::contract(ctx,T[m][site_a],IdxT,gate,IdxG,T[m][site_a]);
       } else if ( num_qubits == 2 ) {
@@ -245,8 +253,8 @@ namespace tnbp {
 	  if( elem > 0.0 ) { elem = std::sqrt(elem); }
 	  else { elem = 0.0; }});
 	tci::diag(ctx,D);
-	std::vector<IntT> IdxG(3);
-	std::vector<IntT> IdxD(2);
+	std::vector<BondLabelT> IdxG(3);
+	std::vector<BondLabelT> IdxD(2);
 	IdxG[0] = 0;
 	IdxG[1] = 1;
 	IdxG[2] = -1;
@@ -275,7 +283,10 @@ namespace tnbp {
 	    
 	    ShapeT dimX(1,vdim*2);
 	    std::vector<ElemT> dataX(2*vdim,RealT(1.0));
-	    X = tci::initialize<TenT>(ctx,dimX,dataX);
+	    tci::allocate(ctx,dimX,X);
+	    auto it_dataX = dataX.begin();
+	    tci::for_each(ctx,X,[&it_dataX](ElemT & elem) {
+	      elem = *it_dataX++; });
 	    tci::diag(ctx,X);
 	    ShapeT shapeX(4);
 	    shapeX[0] = vdim;
@@ -296,8 +307,8 @@ namespace tnbp {
 	  }
 	  auto vb_a = GetSurroundingBondIndex(path[i],edges);
 	  auto rank_X = tci::rank(ctx,X);
-	  std::vector<IntT> IdxA(vb_a.size()+2,1);
-	  std::vector<IntT> IdxX(rank_X);
+	  std::vector<BondLabelT> IdxA(vb_a.size()+2,1);
+	  std::vector<BondLabelT> IdxX(rank_X);
 	  int target_bond_m = static_cast<int>(vb_a.size())+2;
 	  if( i > 0 ) {
 	    target_bond_m = 0;
@@ -353,10 +364,10 @@ namespace tnbp {
 	      new_shapeA[b] = shapeA[b];
 	    }
 	  }
-	  IdxX[kx] = static_cast<IntT>(vb_a.size());
+	  IdxX[kx] = static_cast<BondLabelT>(vb_a.size());
 	  IdxX[kx+1] = -1;
 	  IdxA[vb_a.size()+0] = -1;
-	  IdxA[vb_a.size()+1] = static_cast<IntT>(vb_a.size()+1);
+	  IdxA[vb_a.size()+1] = static_cast<BondLabelT>(vb_a.size()+1);
 	  new_shapeA[vb_a.size()+0] = shapeA[vb_a.size()+0];
 	  new_shapeA[vb_a.size()+1] = shapeA[vb_a.size()+1];
 	  tci::contract(ctx,X,IdxX,T[m][path[i]],IdxA,T[m][path[i]]);
@@ -454,15 +465,15 @@ namespace tnbp {
 	  else             { elem = 0.0; }
 	});
 	tci::diag(ctx,D);
-	std::vector<IntT> IdxGa(3);
-	std::vector<IntT> IdxD(2);
+	std::vector<BondLabelT> IdxGa(3);
+	std::vector<BondLabelT> IdxD(2);
 	IdxGa[0] = 0;
 	IdxGa[1] = 1;
 	IdxGa[2] = -1;
 	IdxD[0] = -1;
 	IdxD[1] = 2;
 	tci::contract(ctx,Ga,IdxGa,D,IdxD,Ga);
-	std::vector<IntT> IdxGv(5);
+	std::vector<BondLabelT> IdxGv(5);
 	IdxD[0] = 0;
 	IdxD[1] = -1;
 	IdxGv[0] = -1;
@@ -479,8 +490,8 @@ namespace tnbp {
 	  else             { elem = 0.0; }
 	});
 	tci::diag(ctx,D);
-	std::vector<IntT> IdxGb(4);
-	std::vector<IntT> IdxGc(3);
+	std::vector<BondLabelT> IdxGb(4);
+	std::vector<BondLabelT> IdxGc(3);
 	IdxGb[0] = 0;
 	IdxGb[1] = 2;
 	IdxGb[2] = 3;
@@ -518,7 +529,11 @@ namespace tnbp {
 	    }
 	    ShapeT dimX(1,vdim*2);
 	    std::vector<ElemT> dataX(2*vdim,RealT(1.0));
-	    X = tci::initialize<TenT>(ctx,dimX,dataX);
+	    tci::allocate(ctx,dimX,X);
+	    auto it_dataX = dataX.begin();
+	    tci::for_each(ctx,X,[&it_dataX](ElemT & elem) {
+	      elem = *it_data++;
+	    });
 	    tci::diag(ctx,X);
 	    ShapeT shapeX(4);
 	    shapeX[0] = vdim;
@@ -535,8 +550,8 @@ namespace tnbp {
 	  }
 	  auto vb_A = GetSurroundingBondIndex(path[i],edges);
 	  auto rank_X = tci::rank(ctx,X);
-	  std::vector<IntT> IdxA(vb_A.size()+2,1);
-	  std::vector<IntT> IdxX(rank_X);
+	  std::vector<BondLabelT> IdxA(vb_A.size()+2,1);
+	  std::vector<BondLabelT> IdxX(rank_X);
 	  int target_bond_m = static_cast<int>(vb_A.size())+2;
 	  if( i > 0 ) {
 	    target_bond_m = 0;
@@ -592,10 +607,10 @@ namespace tnbp {
 	      new_shapeA[b] = shapeA[b];
 	    }
 	  }
-	  IdxX[kx] = static_cast<IntT>(vb_A.size());
+	  IdxX[kx] = static_cast<BondLabelT>(vb_A.size());
 	  IdxX[kx+1] = -1;
 	  IdxA[vb_A.size()+0] = -1;
-	  IdxA[vb_A.size()+1] = static_cast<IntT>(vb_A.size()+1);
+	  IdxA[vb_A.size()+1] = static_cast<BondLabelT>(vb_A.size()+1);
 	  new_shapeA[vb_A.size()+0] = shapeA[vb_a.size()+0];
 	  new_shapeA[vb_A.size()+1] = shapeA[vb_a.size()+1];
 	  tci::contract(ctx,X,IdxX,T[m][path[i]],IdxA,T[m][path[i]]);
@@ -609,6 +624,7 @@ namespace tnbp {
 	gate_count=0;
       }
     } // end for(auto const & ins : p.instructions)
+    return T;
   } // end function
 
 }
