@@ -106,15 +106,35 @@ namespace tnbp {
 
 	TenT X;
 	TenT Y;
-	RealTenT Z;
+	RealTenT Zdiag;
 	RankT num_rows = 1;
 	RealT trunc_err;
 	BondDimT chi_min = 1;
 	BondDimT chi_max = max_dim;
-	tci::trunc_svd(ctx,T,num_rows,X,Z,Y,
+	tci::trunc_svd(ctx,T,num_rows,X,Zdiag,Y,
 		       trunc_err,chi_min,chi_max,err,eps);
-	RealTenT P = Z;
-	tci::for_each(ctx,P,[](ElemT & elem) { elem = std::sqrt(elem); });
+	RealTenT Pdiag = tci::copy(ctx,Zdiag);
+	tci::for_each(ctx,Pdiag,[](RealT & elem) {
+	  elem = std::sqrt(elem); });
+	ShapeT shape_z = tci::shape(ctx,Zdiag);
+	std::vector<ElemT> data_z(shape_z[0]);
+	auto it_data_z = data_z.begin();
+	tci::for_each(ctx,Zdiag,[&it_data_z](const RealT & elem) {
+	  *it_data_z++ = static_cast<ElemT>(elem); });
+	std::vector<ElemT> data_p(shape_z[0]);
+	auto it_data_p = data_p.begin();
+	tci::for_each(ctx,Pdiag,[&it_data_p](const RealT & elem) {
+	  *it_data_p++ = static_cast<ElemT>(elem)});
+	
+	TenT Z; tci::allocate(ctx,shape_z,Z);
+	TenT P; tci::allocate(ctx,shape_z,P);
+	it_data_z = data_z.begin();
+	it_data_p = data_p.begin();
+	tci::for_each(ctx,Z,[&it_data_z](ElemT & elem) {
+	  elem = *it_data_z++; });
+	tci::for_each(ctx,P,[&it_data_p](ElemT & elem) {
+	  elem = *it_data_p++; });
+	
 	tci::diag(ctx,Z);
 	tci::diag(ctx,P);
 	tci::copy(ctx,Z,E[edge_address]);
