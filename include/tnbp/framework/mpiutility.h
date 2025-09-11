@@ -31,6 +31,28 @@ namespace tnbp {
     i_start = j_start;
     i_end = j_end;
   }
+
+  void MpiBcast(std::string &str, int root, MPI_Comm comm) {
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+    
+    // share the size
+    int size = 0;
+    if (rank == root) {
+      size = static_cast<int>(str.size());
+    }
+    MPI_Bcast(&size, 1, MPI_INT, root, comm);
+    
+    // reserve buffer for non-root processs
+    if (rank != root) {
+      str.resize(size);
+    }
+    
+    // share the data
+    if (size > 0) {
+      MPI_Bcast(str.data(), size, MPI_CHAR, root, comm);
+    }
+  }
   
 }
 

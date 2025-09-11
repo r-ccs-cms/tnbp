@@ -24,6 +24,8 @@ namespace tnbp {
 		 MPI_Comm comm) {
     
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
+    using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
+    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
 
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
@@ -45,24 +47,27 @@ namespace tnbp {
       for(auto const & m : BondIdx) {
 	EdgeIdx.push_back(m);
       }
-      std::vector<int> BondDimV(NumBonds+1,1);
+      ShapeT BondDimV(NumBonds+1,1);
       BondDimV[NumBonds] = PhysicalBondDim[i];
       std::vector<ElemT> DataV(PhysicalBondDim[i],0.0);
-      DataV[0] = ElemT(1.0);
-      tci::allocate(ctx,BondDimV,*itV);
+      DataV[0] = static_cast<ElemT>(1.0);
       auto itDataV = DataV.begin();
-      tci::for_each(ctx,*itV,[&itDataV](ElemT & elem) {
-	elem = *itDataV++;
-      });
+      tci::assign_from_container(ctx,BondDimV,itDataV,
+				 [](const CoorsT & coors) {
+				   return coors[0];},*itV);
       itV++;
     }
     std::sort(EdgeIdx.begin(),EdgeIdx.end());
-    EdgeIdx.erase(std::unique(EdgeIdx.begin(),EdgeIdx.end()),EdgeIdx.end());
-    int NumRankEdges = static_cast<int>(EdgeIdx.size());
-    TenT Eorg;
-    tci::allocate(ctx,{1,1},Eorg);
-    tci::for_each(ctx,Eorg,[](ElemT & elem) { elem = static_cast<ElemT>(1.0); });
-    E.resize(2*NumRankEdges,Eorg);
+    EdgeIdx.erase(std::unique(EdgeIdx.begin(),EdgeIdx.end()),
+		  EdgeIdx.end());
+    int NumEdges = static_cast<int>(EdgeIdx.size());
+    TenT Eorig;
+    ShapeT BondDimE(2,1);
+    tci::fill(ctx,BondDimE,static_cast<ElemT>(1.0),Eorig);
+    E.resize(2*NumEdges);
+    for(auto & Em : E) {
+      tci::copy(ctx,Eorig,Em);
+    }
     Site_To_MpiRank(NumSites,0);
     std::vector<int> Site_To_MpiRank_Send(NumSites,0);
     for(auto const & i : SiteIdx) {
