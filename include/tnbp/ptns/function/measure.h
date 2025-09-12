@@ -60,28 +60,34 @@ namespace tnbp {
 	  TenT F = E[edgeidx_address+size_e];
 	  std::vector<BondLabelT> IdxE(2);
 	  std::vector<BondLabelT> IdxF(2);
+	  std::vector<BondLabelT> IdxR(2);
 	  IdxE[0] = 0;
 	  IdxE[1] = -1;
 	  IdxF[0] = -1;
 	  IdxF[1] = 1;
-	  tci::contract(ctx,F,IdxF,E[edgeidx_address+size_e],IdxE,F);
+	  IdxR[0] = 0;
+	  IdxR[1] = 1;
+	  tci::contract(ctx,F,IdxF,E[edgeidx_address+size_e],IdxE,F,IdxR);
 	  std::iota(IdxW.begin(),IdxW.end(),0);
+	  std::iota(IdxC.begin(),IdxC.end(),0);
 	  IdxW[m] = -1;
 	  IdxF[0] = -1;
 	  IdxF[1] = m;
-	  tci::contract(ctx,W,IdxW,F,IdxF,W);
+	  tci::contract(ctx,W,IdxW,F,IdxF,W,IdxC);
 	}
 	TenT R;
 	std::vector<BondLabelT> IdxO(2);
 	std::iota(IdxW.begin(),IdxW.end(),0);
+	std::iota(IdxC.begin(),IdxC.end(),0);
 	IdxW[rank_w-1] = -1;
 	IdxO[0] = rank_w-1;
 	IdxO[1] = -1;
-	tci::contract(ctx,W,IdxW,O[i],IdxO,&R);
+	tci::contract(ctx,W,IdxW,O[i],IdxO,&R,IdxC);
 	std::iota(IdxW.begin(),IdxW.end(),-rank_w);
 	std::iota(IdxC.begin(),IdxC.end(),-rank_w);
-	tci::contract(ctx,W,IdxW,C,IdxC,W);
-	tci::contract(ctx,R,IdxW,C,IdxC,R);
+	std::vector<BondLabelT> IdxM;
+	tci::contract(ctx,W,IdxW,C,IdxC,W,IdxM);
+	tci::contract(ctx,R,IdxW,C,IdxC,R,IdxM);
 	RankT rank_r = tci::rank(ctx,R);
 	CoorsT coors(rank_r,0);
 	ElemT res_r = tci::get_elem(ctx,R,coors);
@@ -165,28 +171,31 @@ namespace tnbp {
 	  A = V[site_address_a];
 	  RankT rank_a = tci::rank(ctx,A);
 	  std::vector<BondLabelT> IdxA(rank_a);
+	  std::vector<BondLabelT> IdxC(rank_a);
 	  for(int k=0; k < bond_idx_a.size(); k++) {
 	    auto it_edge_address = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 					       bond_idx_a[k]);
 	    auto edge_address = std::distance(EdgeIdx.begin(),
 					      it_edge_address);
 	    std::iota(IdxA.begin(),IdxA.end(),0);
+	    std::iota(IdxC.begin(),IdxC.end(),0);
 	    IdxA[k] = -1;
 	    IdxE[0] = -1;
 	    IdxE[1] = k;
-	    tci::contract(ctx,A,IdxA,E[edge_address+size_e],IdxE,A);
+	    tci::contract(ctx,A,IdxA,E[edge_address+size_e],IdxE,A,IdxC);
 	    ElemT norm = tci::normalize(ctx,A);
 	  }
 	  AdagA = A;
 	  tci::cplx_conj(ctx,AdagA);
-	  std::vector<BondLabelT> IdxC(rank_a);
 	  std::iota(IdxA.begin(),IdxA.end(),-rank_a);
 	  std::iota(IdxC.begin(),IdxC.end(),-rank_a);
 	  IdxA[rank_a-1] = 0;
 	  IdxC[rank_a-1] = 1;
 	  IdxA[target_bond_address_a] = 2;
 	  IdxC[target_bond_address_a] = 3;
-	  tci::contract(ctx,A,IdxA,AdagA,IdxC,AdagA);
+	  std::vector<BondLabelT> IdxW(4);
+	  std::iota(IdxW.begin(),IdxW.end(),0);
+	  tci::contract(ctx,A,IdxA,AdagA,IdxC,AdagA,IdxW);
 	}
 
 	if( mpi_type == 3 || mpi_type == 1 ) {
@@ -217,7 +226,9 @@ namespace tnbp {
 	  IdxC[rank_b-1] = 1;
 	  IdxB[target_bond_address_b] = 2;
 	  IdxC[target_bond_address_c] = 3;
-	  tci::contract(ctx,B,IdxB,BdagB,IdxC,BdagB);
+	  std::vector<BondLabelT> IdxW(4);
+	  std::iota(IdxW.begin(),IdxW.end(),0);
+	  tci::contract(ctx,B,IdxB,BdagB,IdxC,BdagB,IdxW);
 	}
 
 	if( mpi_type == 1 ) {
@@ -238,8 +249,9 @@ namespace tnbp {
 	  tci::trace(ctx,AdagA,trace_label,AIA);
 	  tci::trace(ctx,BdagB,trace_label,BIB);
 	  RankT rank_a = tci::rank(ctx,AdagA);
-	  std::vector<BondLabelT> IdxA(rank_a);
+	  std::vector<BondLabelT> IdxA(4);
 	  std::vector<BondLabelT> IdxO(4);
+	  std::vector<BondLabelT> IdxC(4);
 	  IdxA[0] = -1;
 	  IdxA[1] = -2;
 	  IdxA[2] = 2;
@@ -248,17 +260,18 @@ namespace tnbp {
 	  IdxO[1] = 0;
 	  IdxO[2] = -2;
 	  IdxO[3] = 1;
-	  tci::contract(ctx,AdagA,IdxA,O[m],IdxO,AdagA);
+	  tci::contract(ctx,AdagA,IdxA,O[m],IdxO,AdagA,IdxC);
 	  RankT rank_b = tci::rank(ctx,BdagB);
 	  std::vector<BondLabelT> IdxB(rank_b);
 	  std::iota(IdxA.begin(),IdxA.end(),-rank_a);
 	  std::iota(IdxB.begin(),IdxB.end(),-rank_b);
-	  tci::contract(ctx,AdagA,IdxA,BdagB,IdxB,R);
+	  std::vector<BondLabelT> IdxR;
+	  tci::contract(ctx,AdagA,IdxA,BdagB,IdxB,R,IdxR);
 	  std::vector<BondLabelT> IdxAIA(2);
 	  std::vector<BondLabelT> IdxBIB(2);
 	  std::iota(IdxAIA.begin(),IdxAIA.end(),-2);
 	  std::iota(IdxBIB.begin(),IdxBIB.end(),-2);
-	  tci::contract(ctx,AIA,IdxAIA,BIB,IdxBIB,S);
+	  tci::contract(ctx,AIA,IdxAIA,BIB,IdxBIB,S,IdxR);
 	  RankT rank_r = tci::rank(ctx,R);
 	  CoorsT coors(rank_r,0);
 	  ElemT res_r = tci::get_elem(ctx,R,coors);

@@ -22,6 +22,9 @@ namespace tnbp {
     using RankT = typename tci::tensor_traits<TenT>::rank_t;
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
+    using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
+    CtxR ctx_r;
+    tci::create_context(ctx_r);
 
     TenT U;
     TenT V;
@@ -29,22 +32,10 @@ namespace tnbp {
     RankT lb_rt = static_cast<RankT>(lb);
 
     tci::svd(ctx,T,lb_rt,U,S,V);
-    ShapeT shape_D = tci::shape(ctx,S);
-    std::vector<RealT> data_S(shape_D[0]);
-    auto it_S = data_S.begin();
-    tci::to_container(ctx,S,it_S,
-		      [](const CoorsT & coors) {
-			return coors[0]; });
-    std::vector<ElemT> data_D(shape_D[0]);
-    it_S = data_S.begin();
-    for(auto & elem_D : data_D) {
-      elem_D = static_cast<ElemT>(std::sqrt(*it_S++));
-    }
-    auto it_D = data_D.begin();
+    tci::for_each(ctx_r,S,[](RealT & elem){ elem = std::sqrt(elem); });
     TenT D;
-    tci::assign_from_container(ctx,shape_D,it_D,
-			       [](const CoorsT & coors) {
-				 return coors[0]; },D);
+    tci::convert(ctx_r,S,ctx,D);
+    tci::diag(ctx,D);
 
     auto rank_U = tci::rank(ctx,U);
     auto rank_V = tci::rank(ctx,V);
@@ -77,41 +68,26 @@ namespace tnbp {
     using RankT = typename tci::tensor_traits<TenT>::rank_t;
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
+    using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
+    CtxR ctr_r;
+    tci::create_context(ctx_r);
 
     TenT U;
     TenT V;
     RealTenT S;
     RankT lb_rt = static_cast<RankT>(lb);
     tci::svd(ctx,T,lb_rt,U,D,V);
-    ShapeT shape_S = tci::shape(ctx,S);
-    std::vector<RealT> data_S(shape_S[0]);
-    std::vector<ElemT> data_D(shape_S[0]);
-    std::vector<ElemT> data_F(shape_S[0]);
-    auto it_S = data_S.begin();
-    tci::to_container(ctx,S,it_S,
-		      [](const CoorsT & coors) {
-			return coors[0]; });
-    auto it_D = data_D.begin();
-    auto it_F = data_F.begin();
-    for(auto elem : data_S) {
-      if( std::abs(elem) > sv_min ) {
-	*it_D++ = static_cast<ElemT>(std::sqrt(elem));
-	*it_F++ = static_cast<ElemT>(1.0/std::sqrt(elem));
-      } else {
-	*it_D++ = static_cast<ElemT>(0.0);
-	*it_F++ = static_cast<ElemT>(0.0);
-      }
-    }
+    tci::for_each(ctx_r,S,[](RealT & elem){
+      if( elem > sv_min ) { elem = std::sqrt(elem); }
+      else { elem = 0.0; } });
+      elem = std::sqrt(elem); });
     TenT D;
+    tci::convert(ctx_r,S,ctx,D);
+    tci::for_each(ctx_r,S,[](RealT & elem) {
+      if( elem > std::sqrt(sv_min)) { elem = 1.0/elem; }
+      else { elem = 0.0; } });
     TenT F;
-    it_D = data_D.begin();
-    it_F = data_F.begin();
-    tci::assign_from_container(ctx,shape_S,it_D,
-			       [](const CoorsT & coors) {
-				 return coors[0]; },D);
-    tci::assign_from_container(ctx,shape_S,it_F,
-			       [](const CoorsT & coors) {
-				 return coors[0]; },F);
+    tci::convert(ctx_r,S,ctx,F);
     tci::diag(ctx,D);
     tci::diag(ctx,F);
     

@@ -33,6 +33,9 @@ namespace tnbp {
     using RankT = typename tci::tensor_traits<TenT>::rank_t;
     using SizeT = typename tci::tensor_traits<TenT>::ten_size_t;
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
+    using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
+    CtxR ctx_r;
+    tci::create_context(ctx_r);
 
     int mpi_rank; MPI_Comm_rank(comm,mpi_rank);
     int mpi_size; MPI_Comm_size(comm,mpi_size);
@@ -99,11 +102,12 @@ namespace tnbp {
 	TenT T;
 	std::vector<BondLabelT> IdxRa(2);
 	std::vector<BondLabelT> IdxRb(2);
+	std::vector<BondLabelT> IdxRR(2);
 	IdxRa[0] = -1;
 	IdxRa[1] = 0;
 	IdxRb[0] = -1;
 	IdxRb[1] = 1;
-	tci::contract(ctx,Ra,IdxRa,Rb,IdxRb,T);
+	tci::contract(ctx,Ra,IdxRa,Rb,IdxRb,T,IdxRR);
 	auto norm_t = tci::normalize(ctx,T);
 
 	TenT X;
@@ -115,33 +119,12 @@ namespace tnbp {
 	BondDimT chi_max = max_dim;
 	tci::trunc_svd(ctx,T,num_rows,X,S,Y,
 		       trunc_err,chi_min,chi_max,err,eps);
-	SizeT size_s = tci::size(ctx,S);
-	ShapeT shape_s = tci::shape(ctx,S);
-	std::vector<RealT> data_s(size_s);
-	auto it_data_s = data_s.begin();
-	tci::to_container(ctx,S,it_data_s,
-			  [](const CoorsT & coors) {
-			    return coors[0]; });
-	std::vector<ElemT> data_z(size_s);
-	it_data_s = data_s.begin();
-	for(auto & elem_z : data_z) {
-	  elem_z = static_cast<ElemT>(*it_data_s++);
-	}
-	std::vector<ElemT> data_p(size_s);
-	it_data_s = data_s.begin();
-	for(auto & elem_p : data_p) {
-	  elem_p = static_cast<ElemT>(std::sqrt(*it_data_s++));
-	}
+
 	TenT Z;
+	tci::convert(ctx_r,S,ctx,Z);
+	tci::for_each(ctx_r,S,[](RealT & elem){ elem = std::sqrt(elem); });
 	TenT P;
-	it_data_z = data_z.begin();
-	it_data_p = data_p.begin();
-	tci::assign_from_container(ctx,shape_s,it_data_z,
-				   [](const CoorsT & coors) {
-				     return coors[0]; }, Z);
-	tci::assign_from_container(ctx,shape_s,it_data_p,
-				   [](const CoorsT & coors) {
-				     return coors[0]; }, P);
+	tci::convert(ctx_r,S,ctx,P);
 	tci::diag(ctx,Z);
 	tci::diag(ctx,P);
 	tci::copy(ctx,Z,E[edge_address]);
@@ -156,24 +139,30 @@ namespace tnbp {
 	  IdxS[1] = 0;
 	  IdxU[0] = -1;
 	  IdxU[1] = 1;
-	  tci::contract(Sa,IdxS,X,IdxU,T);
+	  IdxT[0] = 0;
+	  IdxT[1] = 1;
+	  tci::contract(Sa,IdxS,X,IdxU,T,IdxT);
 	  IdxT[0] = 0;
 	  IdxT[1] = -1;
 	  IdxP[0] = -1;
 	  IdxP[1] = 1;
-	  tci::contract(T,IdxT,P,IdxP,T);
+	  IdxU[0] = 0;
+	  IdxU[1] = 1;
+	  tci::contract(T,IdxT,P,IdxP,T,IdxU);
 	  auto it_site_address_a = std::find(SiteIdx.begin(),SiteIdx.end(),
 					site_a);
 	  site_address_a = std::distance(SiteIdx.begin(),it_site_address_a);
 
 	  RankT rank_a = tci::rank(ctx,V[site_address_a]);
 	  std::vector<BondLabelT> IdxA(rank_a);
+	  std::vector<BondLabelT> IdxC(rank_a);
 	  std::iota(IdxA.begin(),IdxA.end(),0);
+	  std::iota(IdxC.begin(),IdxC.end(),0);
 	  IdxA[bond_address_a] = -1;
 	  IdxT[0] = -1;
 	  IdxT[1] = bond_address_a;
 	  tci::contract(V[site_address_a],IdxA,T,IdxT,
-			V[site_address_a]);
+			V[site_address_a],IdxC);
 	  auto norm_a = tci::normalize(ctx,V[site_address_a]);
 	}
 
@@ -182,23 +171,29 @@ namespace tnbp {
 	  IdxU[1] = -1;
 	  IdxS[0] = -1;
 	  IdxS[1] = 1;
-	  tci::contract(Y,IdxU,Sb,IdxS,T);
+	  IdxT[0] = 0;
+	  IdxT[1] = 1;
+	  tci::contract(Y,IdxU,Sb,IdxS,T,IdxT);
 	  IdxP[0] = 0;
 	  IdxP[1] = -1;
 	  IdxT[0] = -1;
 	  IdxT[1] = 1;
-	  tci::contract(P,IdxP,T,IdxT,T);
+	  IdxU[0] = 0;
+	  IdxU[1] = 1;
+	  tci::contract(P,IdxP,T,IdxT,T,IdxU);
 	  auto it_site_address_b = std::find(SiteIdx.begin(),SiteIdx.end(),
 					     site_b);
 	  site_address_b = std::distance(SiteIdx.begin(),it_site_address_b);
 	  RankT rank_b = tci::rank(ctx,V[site_address_b]);
 	  std::vector<BondLabelT> IdxB(rank_b);
+	  std::vector<BondLabelT> IdxC(rank_b);
 	  std::iota(IdxB.begin(),IdxB.end(),0);
+	  std::iota(IdxC.begin(),IdxC.end(),0);
 	  IdxB[bond_address_b] = -1;
 	  IdxT[0] = bond_address_b;
 	  IdxT[1] = -1;
 	  tci::contract(T,IdxT,V[site_address_b],IdxB,
-			V[site_address_b]);
+			V[site_address_b],IdxC);
 	  auto norm_b = tci::normalize(ctx,V[site_address_b]);
 	}
       }

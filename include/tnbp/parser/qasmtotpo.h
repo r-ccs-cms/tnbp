@@ -196,6 +196,7 @@ namespace tnbp {
     using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
     using BondIdxT = typename tci::tensor_traits<TenT>::bond_idx_t;
+    using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
     
     auto site = GetSiteIndexFromBond(edges);
     std::vector<std::vector<TenT>> T(num_gates,std::vector<TenT>(site.size()));
@@ -214,9 +215,15 @@ namespace tnbp {
 	  std::vector<ElemT> data(4,ElemT(0.0));
 	  data[0] = ElemT(1.0);
 	  data[3] = ElemT(1.0);
+	  tci::assign_from_container(ctx,bond,it_data,T[m][i],
+				     [](const CoorsT & c) {
+				       return c[0]+2*c[1];
+				     });
+	  /*
 	  tci::allocate(ctx,bond,T[m][i]);
 	  tci::for_each(ctx,T[m][i],[&it_data](ElemT & elem) {
 	    elem = *it_data++; });
+	  */
 	}
       }
       
@@ -229,12 +236,14 @@ namespace tnbp {
 	auto num_virtualbond = virtualbond.size();
 	std::vector<BondLabelT> IdxT(num_virtualbond+2);
 	std::vector<BondLabelT> IdxG(2);
+	std::vector<BondLabelT> IdxR(num_virtualbond+2);
 	std::iota(IdxT.begin(),IdxT.end(),0);
+	std::iota(IdxR.begin(),IdxR.end(),0);
 	IdxT[num_virtualbond+0] = -1;
 	IdxT[num_virtualbond+1] = static_cast<BondLabelT>(num_virtualbond)+1;
 	IdxG[0] = static_cast<BondLabelT>(num_virtualbond);
 	IdxG[1] = -1;
-	tci::contract(ctx,T[m][site_a],IdxT,gate,IdxG,T[m][site_a]);
+	tci::contract(ctx,T[m][site_a],IdxT,gate,IdxG,T[m][site_a],IdxR);
       } else if ( num_qubits == 2 ) {
 
 	// we first perform svd
@@ -255,18 +264,20 @@ namespace tnbp {
 	tci::diag(ctx,D);
 	std::vector<BondLabelT> IdxG(3);
 	std::vector<BondLabelT> IdxD(2);
+	std::vector<BondLabelT> IdxGnew(3);
 	IdxG[0] = 0;
 	IdxG[1] = 1;
 	IdxG[2] = -1;
 	IdxD[0] = -1;
 	IdxD[1] = 2;
-	tci::contract(ctx,A,IdxG,D,IdxD,A);
+	std::iota(IdxGnew.begin(),IdxGnew.end(),0);
+	tci::contract(ctx,A,IdxG,D,IdxD,A,IdxGnew);
 	IdxD[0] = 0;
 	IdxD[1] = -1;
 	IdxG[0] = -1;
 	IdxG[1] = 1;
 	IdxG[2] = 2;
-	tci::contract(ctx,D,IdxD,B,IdxG,B);
+	tci::contract(ctx,D,IdxD,B,IdxG,B,IdxGnew);
 	ShapeT shape_D = tci::shape(ctx,D);
 	auto vdim = shape_D[0];
 
@@ -282,11 +293,11 @@ namespace tnbp {
 	  if( 0 < i && i < path.size()-1 ) {
 	    
 	    ShapeT dimX(1,vdim*2);
-	    std::vector<ElemT> dataX(2*vdim,RealT(1.0));
-	    tci::allocate(ctx,dimX,X);
+	    std::vector<ElemT> dataX(2*vdim,ElemT(1.0));
 	    auto it_dataX = dataX.begin();
-	    tci::for_each(ctx,X,[&it_dataX](ElemT & elem) {
-	      elem = *it_dataX++; });
+	    tci::assign_from_container(ctx,X,it_dataX,
+				       [](const Coors & c) {
+					 return c[0]; });
 	    tci::diag(ctx,X);
 	    ShapeT shapeX(4);
 	    shapeX[0] = vdim;
@@ -370,11 +381,15 @@ namespace tnbp {
 	  IdxA[vb_a.size()+1] = static_cast<BondLabelT>(vb_a.size()+1);
 	  new_shapeA[vb_a.size()+0] = shapeA[vb_a.size()+0];
 	  new_shapeA[vb_a.size()+1] = shapeA[vb_a.size()+1];
-	  tci::contract(ctx,X,IdxX,T[m][path[i]],IdxA,T[m][path[i]]);
+	  std::vector<BondLabelT> IdxP(vb_a.size()+2);
+	  std::iota(IdxP.begin(),IdxP.end(),0);
+	  tci::contract(ctx,X,IdxX,T[m][path[i]],IdxA,T[m][path[i]],IdxP);
 	  tci::reshape(ctx,T[m][path[i]],new_shapeA);
 	}
 	
       } else if ( num_qubits == 3 ) {
+
+	// TODO(2025/09/12) Need to write code compatible to new API
 
 	// choose shortest path
 	auto site_a = static_cast<int>(ins.qubits[0].index);
