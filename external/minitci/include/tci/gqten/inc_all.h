@@ -6,6 +6,7 @@
 #ifndef TCI_GQTEN_INC_ALL_H
 #define TCI_GQTEN_INC_ALL_H
 
+#include "gqten/gqten.h"
 #include "tci/gqten/traits.h"
 
 #endif
