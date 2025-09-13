@@ -1,6 +1,6 @@
 /// This file is a part of r-ccs-cms/tnbp
 /**
-@file tci/traits.h
+@file tci/constructor.h
 @brief header to declare constructors
  */
 #ifndef TCI_CONSTRUCTOR_H
