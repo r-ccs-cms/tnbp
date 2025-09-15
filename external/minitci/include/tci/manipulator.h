@@ -31,13 +31,13 @@ namespace tci {
   void transpose(
        context_handle_t<TenT> &ctx,
        TenT &inout,
-       const List<bond_idx_t<TenT>> &new_order);
+       const std::vector<bond_idx_t<TenT>> &new_order);
 
   template <typename TenT>
   void transpose(
        context_handle_t<TenT> &ctx,
        const TenT &in,
-       const List<bond_idx_t<TenT>> &new_order,
+       const std::vector<bond_idx_t<TenT>> &new_order,
        TenT &out);
 
   template <typename TenT>
@@ -88,14 +88,14 @@ namespace tci {
   void expand(
        context_handle_t<TenT> &ctx,
        TenT &inout,
-       const Map<bond_idx_t<TenT>, bond_dim_t<TenT>> &
+       const std::map<bond_idx_t<TenT>, bond_dim_t<TenT>> &
        bond_idx_increment_map);
 
   template <typename TenT>
   void expand(
        context_handle_t<TenT> &ctx,
        TenT &in,
-       const Map<
+       const std::map<
        bond_idx_t<TenT>, bond_dim_t<TenT>> &
        bond_idx_increment_map,
        TenT &out);
@@ -119,7 +119,7 @@ namespace tci {
   void extract_sub(
        context_handle_t<TenT> &ctx,
        TenT &inout,
-       const List<Pair<
+       const std::vector<std::pair<
        elem_coor_t<TenT>,elem_coor_t<TenT>>> &
        coor_pairs);
 
@@ -127,7 +127,7 @@ namespace tci {
   void extract_sub(
        context_handle_t<TenT> &ctx,
        const TenT &in,
-       const List<Pair<
+       const std::vector<std::pair<
        elem_coor_t<TenT>,
        elem_coor_t<TenT>>> &
        coor_pairs,
@@ -151,14 +151,14 @@ namespace tci {
   template <typename TenT>
   void concatenate(
        context_handle_t<TenT> &ctx,
-       const List<TenT> &ins,
+       const std::vector<TenT> &ins,
        const bond_idx_t<TenT> concat_bdidx,
        TenT &out);
 
   template <typename TenT>
   void stack(
        context_handle_t<TenT> &ctx,
-       const List<TenT> &ins,
+       const std::vector<TenT> &ins,
        const bond_idx_t<TenT> stack_bdidx,
        TenT &out);
 

@@ -53,6 +53,19 @@ namespace tci {
 
   template <typename TenT>
   using context_handle_t = typename tensor_traits<TenT>::context_handle_t;
+
+  /**
+     Alias declaration
+   */
+  template <typename ElemT>
+  using List = std::vector<ElemT>;
+
+  template <typename First, typename Second>
+  using Pair = std::pair<First,Second>;
+
+  template <typename Key, typename Value>
+  using Map = std::map<Key,Value>;
+  
     
 }
 #endif

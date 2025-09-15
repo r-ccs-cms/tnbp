@@ -11,6 +11,7 @@
 #include <unordered_set>
 #include <stdexcept>
 #include <algorithm>
+#include <cstdlib>
 
 #include <string_view>
 #include <cctype>
@@ -32,6 +33,7 @@ namespace tci {
        gqten::tensor<ElemT> &inout) {
     size_t size = inout.Size();
     ElemT * praw = static_cast<ElemT*> calloc(size*size,sizeof(ElemT));
+    if(!praw) throw std::bad_alloc();
     const ElemT * pdiag = inout.GetRaw();
     for(size_t i=0; i < size; i++) {
       praw[i+size*i] = pdiag[i];
@@ -53,7 +55,7 @@ namespace tci {
        gqten::tensor<ElemT> &out) {
     size_t dim = in.Size();
     ElemT * praw = static_cast<ElemT*> calloc(dim*dim,sizeof(ElemT));
-    const ElemT * pdiag = inout.GetRaw();
+    const ElemT * pdiag = in.GetRaw();
     for(size_t i=0; i < dim; i++) {
       praw[i+dim*i] = pdiag[i];
     }
@@ -378,14 +380,14 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void contract(
        context_handle_t<gqten::tensor<ElemT>> &ctx,
        const gqten::tensor<ElemT> &a,
-       const List<bond_label_t<gqten::tensor<ElemT>>> &bd_labs_a,
+       const std::vector<bond_label_t<gqten::tensor<ElemT>>> &bd_labs_a,
        const gqten::tensor<ElemT> &b,
-       const List<bond_label_t<gqten::tensor<ElemT>>> &bd_labs_b,
+       const std::vector<bond_label_t<gqten::tensor<ElemT>>> &bd_labs_b,
        gqten::tensor<ElemT> &c,
-       const List<bond_label_t<gqten::tensor<ElemT>>> &bd_labs_c) {
+       const std::vector<bond_label_t<gqten::tensor<ElemT>>> &bd_labs_c) {
     std::vector<int> labs_a;
     std::vector<int> labs_b;
-    GqtenCntIdxHelper(bd_labs_a,bd_labs_b,bd_labs_c,labs_a,labs_b);
+    GqtenCntLabelHelper(bd_labs_a,bd_labs_b,bd_labs_c,labs_a,labs_b);
     gqten::Contract(&a,&b,labs_a,labs_b,&c);
   }
 
@@ -495,11 +497,11 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        const std::string_view bd_labs_str_a,
        const gqten::tensor<ElemT> &b,
        const std::string_view bd_labs_str_b,
-       gqten::tensor<ElemT> &c
+       gqten::tensor<ElemT> &c,
        const std::string_view bd_labs_str_c) {
     std::vector<int> labs_a;
     std::vector<int> labs_b;
-    MakeGqtenContractLabelsFromString(bd_labs_str_a,bd_labs_str_b,bd_labs_str_c,
+    MakeGqtenContractLabelsFromStrings(bd_labs_str_a,bd_labs_str_b,bd_labs_str_c,
 				      labs_a,labs_b);
     gqten::Contract(&a,&b,labs_a,labs_b,&c);
   }
@@ -517,9 +519,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        const std::vector<gqten::tensor<ElemT>> & ins,
        gqten::tensor<ElemT> & out) {
     std::vector<gqten::tensor<ElemT>*> pins(ins.size());
-    for(auto & ten : pins) {
-      ten = &ins;
-    }
+    for (size_t i = 0; i < ins.size(); ++i) pins[i] = &ins[i];
     std::vector<ElemT> coef(ins.size(),static_cast<ElemT>(1.0));
     gqten::LinearCombine(coef,pins,&out);
   }
@@ -539,9 +539,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        const std::vector<elem_t<gqten::tensor<ElemT>>> &coefs,
        gqten::tensor<ElemT> &out) {
     std::vector<gqten::tensor<ElemT>*> pins(ins.size());
-    for(auto & ten : pins) {
-      ten = &ins;
-    }
+    for (size_t i = 0; i < ins.size(); ++i) pins[i] = &ins[i];
     gqten::LinearCombine(coef,pins,&out);
   }
 
@@ -563,11 +561,11 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        gqten::tensor<ElemT> &u,
        real_ten_t<gqten::tensor<ElemT>> &s_diag,
        gqten::tensor<ElemT> &v_dag) {
-    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::rea_t;
-    RealT * ps_raw;
-    size_t pk;
-    gqten::SVD(&a,num_of_bonds_as_rows,&u,&v_dag,ps_raw,pk);
-    s_diag = gqten::tensor<RealT>({pk},ps_raw);
+    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
+    RealT * ps_raw = nullptr;
+    size_t k;
+    gqten::SVD(&a,num_of_bonds_as_rows,&u,&v_dag,ps_raw,&k);
+    s_diag = gqten::tensor<RealT>({k},ps_raw);
   }
 
   /// rank_t<TenT> & num_of_bonds_as_rows; should be rank_t<TenT> num_of_bonds_as_rows; 
@@ -594,11 +592,22 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        real_t<gqten::tensor<ElemT>> &trunc_err,
        const real_t<gqten::tensor<ElemT>> s_min) {
     using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
-    RealT * ps_raw;
+    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+    RealT * ps_raw = nullptr;
     size_t chi;
-    size_t chi_max;
-    gqten::TruncSVD(&a,num_of_bonds_as_rows,chi_max,
-		    &u,&v_dag,&ps_raw,&chi,&trunc_err,s_min);
+    const auto shape_a = a.Shape();
+    const size_t rank_a = a.Rank();
+    size_t ldims = static_cast<size_t>(num_of_bonds_as_rows);
+    
+    size_t m = 1;
+    size_t n = 1;
+    for(size_t i=0; i < ldims; i++) m *= shape_a[i];
+    for(size_t i=ldims; i < rank_a; i++) n *= shape_a[i];
+    
+    size_t chi_max = std::min(m,n);
+    
+    gqten::TruncSVD(&a,ldims,chi_max,
+		    &u,&v_dag,ps_raw,&chi,&trunc_err,s_min);
     s_diag = gqten::tensor<RealT>({chi},ps_raw);
   }
 
@@ -630,8 +639,9 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
     using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
     RealT * ps_raw;
     size_t chi;
-    gqten::TruncSVD(&a,num_of_bonds_as_rows,chi_max,
-		    &u,&v_dag,&ps_raw,&chi,&trunc_err,s_min);
+    gqten::TruncSVD(&a,static_cast<size_t>(num_of_bonds_as_rows),
+		    static_cast<size_t>(chi_max),
+		    &u,&v_dag,ps_raw,&chi,&trunc_err,s_min);
     s_diag = gqten::tensor<RealT>({chi},ps_raw);
   }
 
@@ -667,11 +677,10 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
     RealT * ps_raw;
     size_t chi;
     gqten::TruncSVD(&a,num_of_bonds_as_rows,chi_max,chi_min,
-		    &u,&v_dag,&ps_raw,chi,&trunc_err,s_min);
+		    &u,&v_dag,ps_raw,chi,&trunc_err,s_min);
     s_diag = gqten::tensor<RealT>({chi},ps_raw);
   }
 
-  /// rank_t<TenT> & num_of_bonds_as_rows; should be rank_t<TenT> num_of_bonds_as_rows; 
   /**
   template <typename TenT>
   void qr(
@@ -777,12 +786,32 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        real_ten_t<gqten::tensor<ElemT>> &w_diag,
        gqten::tensor<ElemT> &v) {
     using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
-    RealT * pw;
-    char jobs = 'V';
-    char uplo = 'U';
-    size_t pn;
-    gqten::EigHerm(&a,num_of_bonds_as_rows,pw,&v,&pn,jobz,uplo);
-    w_diag = gqten::tensor<RealT>({pn},pw);
+    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+
+    const auto shape_a = a.Shape();
+    const size_t rank_a = shape_a.size();
+    const size_t ldims  = static_cast<size_t>(num_of_bonds_as_rows);
+    assert(ldims > 0 && ldims <= rank_a);
+
+    size_t m = 1, ncols = 1;
+    for (size_t i = 0; i < ldims; ++i)       m     *= shape_a[i];
+    for (size_t i = ldims; i < rank_a; ++i)  ncols *= shape_a[i];
+    assert(m == ncols && "eigh: Hermitian matrix must be square after flattening");    
+    
+    RealT * pw = nullptr;
+    ElemT * pv = nullptr;
+    const char jobz = 'V';
+    const char uplo = 'U';
+    size_t n = 0;
+    gqten::EigHerm(&a,ldims,pw,pv,&n,jobz,uplo);
+    w_diag = gqten::tensor<RealT>({n},pw);
+    ShapeT shape_a = a.Shape();
+    ShapeT shape_v(num_of_bonds_as_rows+1);
+    for(size_t k=0; k < ldims; k++) {
+      shape_v[k] = shape_a[k];
+    }
+    shape_v[ldims] = n;
+    v = gqten::tensor<ElemT>(shape_v,pv);
   }
   
   

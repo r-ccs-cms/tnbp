@@ -90,11 +90,11 @@ namespace tci {
   void contract(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const List<bond_label_t<TenT>> &bd_labs_a,
+       const std::vector<bond_label_t<TenT>> &bd_labs_a,
        const TenT &b,
-       const List<bond_label_t<TenT>> &bd_labs_b,
+       const std::vector<bond_label_t<TenT>> &bd_labs_b,
        TenT &c,
-       const List<bond_label_t<TenT>> &bd_labs_c);
+       const std::vector<bond_label_t<TenT>> &bd_labs_c);
 
   template <typename TenT>
   void contract(
@@ -103,20 +103,20 @@ namespace tci {
        const std::string_view bd_labs_str_a,
        const TenT &b,
        const std::string_view bd_labs_str_b,
-       TenT &c
+       TenT &c,
        const std::string_view bd_labs_str_c);
 
   template <typename TenT>
   void linear_combine(
        context_handle_t<TenT> &ctx,
-       const List<TenT> &ins,
+       const std::vector<TenT> &ins,
        TenT &out);
 
   template <typename TenT>
   void linear_combine(
        context_handle_t<TenT> &ctx,
-       const List<TenT> &ins,
-       const List<elem_t<TenT>> &coefs,
+       const std::vector<TenT> &ins,
+       const std::vector<elem_t<TenT>> &coefs,
        TenT &out);
 
   template <typename TenT>

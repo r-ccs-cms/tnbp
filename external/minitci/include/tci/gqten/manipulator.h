@@ -6,6 +6,14 @@
 #ifndef TCI_GQTEN_MANIPULATOR_H
 #define TCI_GQTEN_MANIPULATOR_H
 
+#include <vector>
+#include <map>
+#include <complex>
+#include <cstdlib>     // std::malloc, std::calloc
+#include <utility>     // std::pair
+#include <functional>  // std::invoke
+#include <algorithm>   // std::min
+
 namespace tci {
 
   /**
@@ -136,7 +144,7 @@ namespace tci {
     using CplxT = typename tensor_traits<gqten::tensor<ElemT>>::cplx_t;
     using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
     size_t size = in.Size();
-    CplxT * praw = static_cast<*CplxT> malloc(size*sizeof(CplxT));
+    CplxT * praw = static_cast<CplxT*> std::malloc(size*sizeof(CplxT));
     const ElemT * pvals = in.GetRaw();
     for(size_t k=0; k < size; k++) {
       praw[k] = static:cast<CplxT>(pvals[k]);
@@ -159,7 +167,7 @@ namespace tci {
     using CplxT = typename tensor_traits<gqten::tensor<ElemT>>::cplx_t;
     using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
     size_t size = in.Size();
-    CplxT * praw = static_cast<*CplxT> malloc(size*sizeof(CplxT));
+    CplxT * praw = static_cast<CplxT*> std::malloc(size*sizeof(CplxT));
     const ElemT * pvals = in.GetRaw();
     for(size_t k=0; k < size; k++) {
       praw[k] = static_cast<CplxT>(pvals[k]);
@@ -184,7 +192,7 @@ namespace tci {
     using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
     using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
     size_t size = in.Size();
-    RealT * praw = static_cast<RealT*> malloc(size*sizeof(RealT));
+    RealT * praw = static_cast<RealT*> std::malloc(size*sizeof(RealT));
     const ElemT * pvals = in.GetRaw();
     for(size_t k=0; k < size; k++) {
       praw[k] = gqten::GetReal(pvals[k]);
@@ -207,7 +215,7 @@ namespace tci {
     using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
     using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
     size_t size = in.Size();
-    RealT * praw = static_cast<RealT*> malloc(size*sizeof(RealT));
+    RealT * praw = static_cast<RealT*> std::malloc(size*sizeof(RealT));
     const ElemT * pvals = in.GetRaw();
     for(size_t k=0; k < size; k++) {
       praw[k] = gqten::GetReal(pvals[k]);
@@ -237,7 +245,7 @@ namespace tci {
     using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
     using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
     size_t size = in.Size();
-    RealT * praw = static_cast<RealT*> malloc(size*sizeof(RealT));
+    RealT * praw = static_cast<RealT*> std::malloc(size*sizeof(RealT));
     const ElemT * pvals = in.GetRaw();
     for(size_t k=0; k < size; k++) {
       praw[k] = GetImag(pvals[k]);
@@ -261,7 +269,7 @@ namespace tci {
     using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
     using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
     size_t size = in.Size();
-    RealT * praw = static_cast<RealT*> malloc(size*sizeof(RealT));
+    RealT * praw = static_cast<RealT*> std::malloc(size*sizeof(RealT));
     const ElemT * pvals = in.GetRaw();
     for(size_t k=0; k < size; k++) {
       praw[k] = GetImag(pvals[k]);
@@ -282,7 +290,8 @@ namespace tci {
   void expand(
        context_handle_t<gqten::tensor<ElemT>> &ctx,
        gqten::tensor<ElemT> &inout,
-       const Map<bond_idx_t<gqten::tensor<ElemT>>, bond_dim_t<gqten::tensor<ElemT>>> &
+       const std::map<bond_idx_t<gqten::tensor<ElemT>>,
+       bond_dim_t<gqten::tensor<ElemT>>> &
        bond_idx_increment_map) {
     using BondDimT = typename tensor_traits<gqten::tensor<ElemT>>::bond_dim_t;
     using BondIdxT = typename tensor_traits<gqten::tensor<ElemT>>::bond_idx_t;
@@ -297,7 +306,7 @@ namespace tci {
     for(const auto & d : new_shape) {
       new_size *= d;
     }
-    ElemT * new_praw = static_cast<ElemT*> calloc(new_size,sizeof(ElemT));
+    ElemT * new_praw = static_cast<ElemT*> std::calloc(new_size,sizeof(ElemT));
     gqten::tensor<ElemT> temp(new_shape,new_praw);
     std::vector<BondIdxT> coordinate(inout.Rank());
     for(size_t i=0; i < size; i++) {
@@ -325,8 +334,9 @@ namespace tci {
   void expand(
        context_handle_t<gqten::tensor<ElemT>> &ctx,
        gqten::tensor<ElemT> &in,
-       const Map<
-       bond_idx_t<gqten::tensor<ElemT>>, bond_dim_t<gqten::tensor<ElemT>>> &
+       const std::map<
+       bond_idx_t<gqten::tensor<ElemT>>,
+       bond_dim_t<gqten::tensor<ElemT>>> &
        bond_idx_increment_map,
        gqten::tensor<ElemT> &out) {
     using BondDimT = typename tensor_traits<gqten::tensor<ElemT>>::bond_dim_t;
@@ -342,7 +352,7 @@ namespace tci {
     for(const auto & d : new_shape) {
       new_size *= d;
     }
-    ElemT * new_praw = static_cast<ElemT*> calloc(new_size,sizeof(ElemT));
+    ElemT * new_praw = static_cast<ElemT*> std::calloc(new_size,sizeof(ElemT));
     out = gqten::tensor<ElemT>(new_shape,new_praw);
     std::vector<BondIdxT> coordinate(in.Rank());
     for(size_t i=0; i < size; i++) {
@@ -367,7 +377,9 @@ namespace tci {
   void shrink(
        context_handle_t<gqten::tensor<ElemT>> &ctx,
        gqten::tensor<ElemT> &inout,
-       const bond_idx_elem_coor_pair_map<gqten::tensor<ElemT>> &
+       const std::map<
+       bond_idx_t<gqten::tensor<ElemT>>,
+       bond_dim_t<gqten::tensor<ElemT>>> &
        bd_idx_el_coor_pair_map) {
     using BondDimT = typename tensor_traits<gqten::tensor<ElemT>>::bond_dim_t;
     using BondIdxT = typename tensor_traits<gqten::tensor<ElemT>>::bond_idx_t;
@@ -382,7 +394,7 @@ namespace tci {
     for(const auto & d : new_shape) {
       new_size *= d;
     }
-    ElemT * new_praw = static_cast<ElemT*> calloc(new_size,sizeof(ElemT));
+    ElemT * new_praw = static_cast<ElemT*> std::calloc(new_size,sizeof(ElemT));
     gqten::tensor<ElemT> temp(new_shape,new_praw);
     std::vector<BondIdxT> coordinate(inout.Rank());
     for(size_t i=0; i < new_size; i++) {
@@ -425,7 +437,7 @@ namespace tci {
     for(const auto & d : new_shape) {
       new_size *= d;
     }
-    ElemT * new_praw = static_cast<ElemT*> calloc(new_size,sizeof(ElemT));
+    ElemT * new_praw = static_cast<ElemT*> std::calloc(new_size,sizeof(ElemT));
     out = gqten::tensor<ElemT>(new_shape,new_praw);
     std::vector<BondIdxT> coordinate(in.Rank());
     for(size_t i=0; i < new_size; i++) {
@@ -469,7 +481,7 @@ namespace tci {
     for(const auto d : new_shape) {
       new_size *= d;
     }
-    ElemT * new_praw = static_cast<ElemT*> calloc(new_size,sizeof(ElemT));
+    ElemT * new_praw = static_cast<ElemT*> std::calloc(new_size,sizeof(ElemT));
     gqten::tensor<ElemT> temp(new_shape,new_praw);
     std::vector<BondIdxT> new_coordinate(inout.Rank());
     std::vector<BondIdxT> coordinate(inout.Rank());
@@ -477,7 +489,7 @@ namespace tci {
       size_t itemp = i;
       for(size_t l=0; l < inout.Rank(); l++) {
 	new_coordinate[l] = itemp % new_shape[l];
-	coordinate[l] = new_coordinate[l] + coor_pair[l].first;
+	coordinate[l] = new_coordinate[l] + coor_pairs[l].first;
 	itemp /= new_shape[l];
       }
       temp.SetElem(new_coordinate,inout.GetElem(coordinate));
@@ -500,7 +512,7 @@ namespace tci {
   void extract_sub(
        context_handle_t<gqten::tensor<ElemT>> &ctx,
        const gqten::tensor<ElemT> &in,
-       const List<Pair<
+       const std::vector<Pair<
        elem_coor_t<gqten::tensor<ElemT>>,
        elem_coor_t<gqten::tensor<ElemT>>>> &
        coor_pairs,
@@ -519,7 +531,7 @@ namespace tci {
     for(const auto d : new_shape) {
       new_size *= d;
     }
-    ElemT * new_praw = static_cast<ElemT*> calloc(new_size,sizeof(ElemT));
+    ElemT * new_praw = static_cast<ElemT*> std::calloc(new_size,sizeof(ElemT));
     out = gqten::tensor<ElemT>(new_shape,new_praw);
     std::vector<BondIdxT> new_coordinate(in.Rank());
     std::vector<BondIdxT> coordinate(in.Rank());
@@ -527,7 +539,7 @@ namespace tci {
       size_t itemp = i;
       for(size_t l=0; l < in.Rank(); l++) {
 	new_coordinate[l] = itemp % new_shape[l];
-	coordinate[l] = new_coordinate[l] + coor_pair[l].first;
+	coordinate[l] = new_coordinate[l] + coor_pairs[l].first;
 	itemp /= new_shape[l];
       }
       out.SetElem(new_coordinate,in.GetElem(coordinate));
@@ -650,7 +662,7 @@ namespace tci {
     new_shape[concat_bdidx] = new_cdim;
     new_size *= new_cdim;
 
-    ElemT * new_praw = static_cast<ElemT*> malloc(new_size*sizeof(ElemT));
+    ElemT * new_praw = static_cast<ElemT*> std::malloc(new_size*sizeof(ElemT));
     out = gqten::tensor<ElemT>(new_shape,new_praw);
     std::vector<BondIdxT> new_coordinate(out.Rank());
     std::vector<BondIdxT> coordinate(out.Rank());
@@ -683,7 +695,7 @@ namespace tci {
   template <typename ElemT>
   void stack(
        context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const List<gqten::tensor<ElemT>> &ins,
+       const std::vector<gqten::tensor<ElemT>> &ins,
        const bond_idx_t<gqten::tensor<ElemT>> stack_bdidx,
        gqten::tensor<ElemT> &out) {
     
@@ -694,9 +706,14 @@ namespace tci {
     }
     ShapeT shape = ins[0].Shape();
     ShapeT new_shape(ins[0].Rank()+1);
+    for (size_t l = 0; l < new_shape.size(); ++l) {
+      if (l < stack_bdidx) new_shape[l] = shape[l];
+      else if (l == stack_bdidx) new_shape[l] = static_cast<BondIdxT>(ins.size());
+      else new_shape[l] = shape[l - 1];
+    }
     size_t size = ins[0].Size();
     size_t new_size = ins.size() * size;
-    ElemT * new_praw = static_cast<ElemT*> malloc(new_size*sizeof(ElemT));
+    ElemT * new_praw = static_cast<ElemT*> std::malloc(new_size*sizeof(ElemT));
     out = gqten::tensor<ElemT>(new_shape,new_praw);
     std::vector<BondIdxT> new_coordinate(out.Rank());
     std::vector<BondIdxT> coordinate(ins[0].Rank());
@@ -776,14 +793,16 @@ namespace tci {
     using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
     using CoorsT = typename tensor_traits<gqten::tensor<ElemT>>::elem_coors_t;
     CoorsT coors(inout.Rank());
-    Shape shape = inout.Shape();
+    ShapeT shape = inout.Shape();
     for(size_t i=0; i < inout.Size(); i++) {
       size_t itemp = i;
       for(size_t l=0; l < inout.Rank(); l++) {
 	coors[l] = itemp % shape[l];
 	itemp /= shape[l];
       }
-      std::invoke(f,coors);
+      auto elem = inout.GetElem();
+      std::invoke(f,elem,coors);
+      inout.SetElem(coors,elem);
     }
   }
 
@@ -803,14 +822,16 @@ namespace tci {
     using CoorsT = typename tensor_traits<gqten::tensor<ElemT>>::elem_coors_t;
     gqten::tensor<ElemT> res(in);
     CoorsT coors(res.Rank());
-    Shape shape = res.Shape();
+    ShapeT shape = res.Shape();
     for(size_t i=0; i < res.Size(); i++) {
       size_t itemp = i;
       for(size_t l=0; l < res.Rank(); l++) {
 	coors[l] = itemp % shape[l];
 	itemp /= shape[l];
       }
-      std::invoke(f,coors);
+      auto elem = in.GetElem(coors);
+      std::invoke(f,elem,coors);
+      res.SetElem(coors,elem);
     }
     return res;
   }
