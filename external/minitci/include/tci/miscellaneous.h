@@ -33,7 +33,7 @@ namespace tci {
        context_handle_t<TenT> &ctx,
        const TenT &a,
        const TenT &b,
-       const elem_t<TenT> epsilon);
+       const real_t<TenT> epsilon);
 
   template <typename Ten1T, typename Ten2T>
   void convert(

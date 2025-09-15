@@ -1,0 +1,791 @@
+/// This file is a part of r-ccs-cms/tnbp
+/**
+@file tci/gqten/linalg.h
+@brief header to define TCI linear algebra function for gqten::tensor<ElemT>
+ */
+#ifndef TCI_GQTEN_LINALG_H
+#define TCI_GQTEN_LINALG_H
+
+#include <vector>
+#include <unordered_map>
+#include <unordered_set>
+#include <stdexcept>
+#include <algorithm>
+
+#include <string_view>
+#include <cctype>
+#include <string>
+#include <limits>
+
+
+namespace tci {
+
+  /**
+  template <typename TenT>
+  void diag(
+       context_handle_t<TenT> &ctx,
+       TenT &inout);
+  */
+  template <typename ElemT>
+  void diag(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       gqten::tensor<ElemT> &inout) {
+    size_t size = inout.Size();
+    ElemT * praw = static_cast<ElemT*> calloc(size*size,sizeof(ElemT));
+    const ElemT * pdiag = inout.GetRaw();
+    for(size_t i=0; i < size; i++) {
+      praw[i+size*i] = pdiag[i];
+    }
+    inout = gqten::tensor<ElemT>({size,size},praw);
+  }
+
+  /**
+  template <typename TenT>
+  void diag(
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       TenT &out);
+  */
+  template <typename ElemT>
+  void diag(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &in,
+       gqten::tensor<ElemT> &out) {
+    size_t dim = in.Size();
+    ElemT * praw = static_cast<ElemT*> calloc(dim*dim,sizeof(ElemT));
+    const ElemT * pdiag = inout.GetRaw();
+    for(size_t i=0; i < dim; i++) {
+      praw[i+dim*i] = pdiag[i];
+    }
+    out = gqten::tensor<ElemT>({dim,dim},praw);
+  }
+
+  /**
+  template <typename TenT>
+  real_t<TenT> norm(
+       context_handle_t<TenT> &ctx,
+       const TenT &a);
+  */
+  template <typename ElemT>
+  real_t<gqten::tensor<ElemT>> norm(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &a) {
+    return a.CalcNorm();
+  }
+
+  /**
+  template <typename TenT>
+  real_t<TenT> normalize(
+       context_handle_t<TenT> &ctx,
+       TenT &inout);
+  */
+  template <typename ElemT>
+  real_t<gqten::tensor<ElemT>> normalize(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       gqten::tensor<ElemT> &inout) {
+    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
+    RealT res = inout.Normalize();
+    return res;
+  }
+
+  /**
+  template <typename TenT>
+  real_t<TenT> normalize(
+       context_handle_t<TenT> &ctx,
+       const TenT in,
+       TenT &out);
+  */
+  template <typename ElemT>
+  real_t<gqten::tensor<ElemT>> normalize(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> in,
+       gqten::tensor<ElemT> &out) {
+    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
+    out = in;
+    RealT res = out.Normalize();
+    return res;
+  }
+
+  /**
+  template <typename TenT>
+  void scale(
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
+       const elem_t<TenT> s);
+  */
+  template <typename ElemT>
+  void scale(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       gqten::tensor<ElemT> &inout,
+       const elem_t<gqten::tensor<ElemT>> s) {
+    ElemT value = inout.GetScale();
+    inout.SetScale(value*s);
+  }
+
+  /**
+  template <typename TenT>
+  void scale(
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       const elem_t<TenT> s,
+       TenT &out);
+  */
+  template <typename ElemT>
+  void scale(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &in,
+       const elem_t<gqten::tensor<ElemT>> s,
+       gqten::tensor<ElemT> &out) {
+    out = in;
+    ElemT value = out.GetScale();
+    out.SetScale(value*s);
+  }
+
+  /**
+  template <typename TenT>
+  void trace(
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
+       const bond_idx_pairs_t<TenT> &bdidx_pairs);
+  */
+  template <typename ElemT>
+  void trace(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       gqten::tensor<ElemT> &inout,
+       const bond_idx_pairs_t<gqten::tensor<ElemT>> &bdidx_pairs) {
+    gqten::tensor<ElemT> temp;
+    gqten::Trace(&inout,bdidx_pairs,&temp);
+    inout = std::move(temp);
+  }
+
+  /**
+  template <typename TenT>
+  void trace(
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       const bond_idx_pairs_t<TenT> &bdidx_pairs,
+       TenT &out);
+  */
+  template <typename ElemT>
+  void trace(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &in,
+       const bond_idx_pairs_t<gqten::tensor<ElemT>> &bdidx_pairs,
+       gqten::tensor<ElemT> & out) {
+    gqten::Trace(&in,bdidx_pairs,&out);
+  }
+
+  /**
+  template <typename TenT>
+  void exp(
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
+       const rank_t<TenT> num_of_bonds_as_rows);
+  */
+  template <typename ElemT>
+  void exp(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       gqten::tensor<ElemT> &inout,
+       const rank_t<gqten::tensor<ElemT>> & num_of_bonds_as_rows) {
+    gqten::tensor<ElemT> temp;
+    gqten::ExpHermExact(&inout,num_of_bonds_as_rows,&temp);
+    inout = std::move(temp);
+  }
+
+  /**
+  template <typename TenT>
+  void exp(
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       const rank_t<TenT> num_of_bonds_as_rows,
+       TenT &out);
+  */
+  template <typename ElemT>
+  void exp(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &in,
+       const rank_t<gqten::tensor<ElemT>> & num_of_bonds_as_rows,
+       gqten::tensor<ElemT> &out) {
+    gqten::ExpHermExact(&in,num_of_bonds_as_rows,&out);
+  }
+
+  /**
+  template <typename TenT>
+  void inverse(
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
+       const rank_t<TenT> num_of_bonds_as_rows);
+  */
+  template <typename ElemT>
+  void inverse(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       gqten::tensor<ElemT> &inout,
+       const rank_t<gqten::tensor<ElemT>> & num_of_bonds_as_rows) {
+    gqten::tensor<ElemT> temp;
+    gqten::Inverse(&inout,num_of_bonds_as_rows,&temp);
+    inout = std::move(temp);
+  }
+
+  /**
+  template <typename TenT>
+  void inverse(
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       const rank_t<TenT> num_of_bonds_as_rows,
+       TenT &out);
+  */
+  template <typename ElemT>
+  void inverse(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &in,
+       const rank_t<gqten::tensor<ElemT>> & num_of_bonds_as_rows,
+       gqten::tensor<ElemT> &out) {
+    gqten::Inverse(&in,num_of_bonds_as_rows,&out);
+  }
+
+
+/**
+Find common labels between two set of labels.
+@param[in] Label_A: labels for bonds of tensor A.
+@param[in] Label_B: labels for bonds of tensor B.
+@param[in] Label_C: labels for bonds of tensor C.
+@param[out] Idx_A: 
+@param[out] Idx_B: 
+#### Example
+@code
+std::vector<int> Label_A({1,2,3,5});
+std::vector<int> Label_B({2,4,5,6});
+std::vector<int> Label_C({4,1,3,6});
+CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
+// Idx_A = {1,-1,2,-2}, Idx_B = {-1,0,-2,3}
+@endcode
+*/
+  template <typename ElemT>
+  inline void GqtenCntLabelHelper(
+    const std::vector<bond_label_t<gqten::tensor<ElemT>>> & bond_labs_a,
+    const std::vector<bond_label_t<gqten::tensor<ElemT>>> & bond_labs_b,
+    const std::vector<bond_label_t<gqten::tensor<ElemT>>> & bond_labs_c,
+    std::vector<int> & labs_a,
+    std::vector<int> & labs_b) {
+    const auto nA = bond_labs_a.size();
+    const auto nB = bond_labs_b.size();
+
+    labs_a.resize(nA);
+    labs_b.resize(nB);
+
+    {
+      std::unordered_set<int> seen;
+      for (int x : bond_labs_a) {
+	if (!seen.insert(x).second)
+	  throw std::invalid_argument("bond_labs_a has duplicate label.");
+      }
+    }
+    {
+      std::unordered_set<int> seen;
+      for (int x : bond_labs_b) {
+	if (!seen.insert(x).second)
+	  throw std::invalid_argument("bond_labs_b has duplicate label.");
+      }
+    }
+
+    // --- Find common label between A and B ---
+    std::unordered_set<int> setA(bond_labs_a.begin(), bond_labs_a.end());
+    std::unordered_set<int> setB(bond_labs_b.begin(), bond_labs_b.end());
+    std::vector<int> contracted;
+    contracted.reserve(std::min(nA, nB));
+    for (int x : setA) if (setB.count(x)) contracted.push_back(x);
+
+    // --- find remaining labels for C
+    //   survivorsExpected = (A or B) \ (A and  B)
+  std::unordered_set<int> survivorsExpected = setA;
+  survivorsExpected.insert(setB.begin(), setB.end());
+  for (int x : contracted) survivorsExpected.erase(x);
+
+  // assumption of bond_labs_c
+  //  1) no same labels
+  //  2) set should be equivalent to survivorsExpected
+  {
+    std::unordered_set<int> seen;
+    for (int x : bond_labs_c) {
+      if (!seen.insert(x).second)
+        throw std::invalid_argument("bond_labs_c has duplicate label.");
+    }
+    if (seen != survivorsExpected)
+      throw std::invalid_argument("bond_labs_c does not match the set of survivor labels.");
+  }
+
+  // --- assign labels in the order of bond_labs_c ---
+  std::unordered_map<int,int> posMap; posMap.reserve(bond_labs_c.size());
+  {
+    int nextPos = 0;
+    for (int x : bond_labs_c) posMap.emplace(x, nextPos++);
+  }
+
+  // --- assign negative labels for contraction ---
+  //     order is defined in assending order 
+  std::sort(contracted.begin(), contracted.end());
+  std::unordered_map<int,int> negMap; negMap.reserve(contracted.size());
+  {
+    int k = 1;
+    for (int x : contracted) negMap.emplace(x, -k++);
+  }
+
+  // --- construct labs_a, labs_b ---
+  auto convert_one = [&](const std::vector<int>& in,
+			 std::vector<int>& out) {
+    for (size_t i = 0; i < in.size(); ++i) {
+      int lab = in[i];
+      auto pit = posMap.find(lab);
+      if (pit != posMap.end()) {      // remaining -> positive label
+        out[i] = pit->second;
+      } else {
+        auto nit = negMap.find(lab);
+        if (nit != negMap.end()) {    // contract -> negative label 
+          out[i] = nit->second;
+        } else {
+          // if remaining is absent in C, error
+          throw std::logic_error("Label not found in pos/neg maps (inconsistent inputs).");
+        }
+      }
+    }
+  };
+
+  convert_one(bond_labs_a, labs_a);
+  convert_one(bond_labs_b, labs_b);
+
+  // --- check no same labels in positive labels ---
+  auto check_positive_unique = [](const std::vector<int>& v){
+    std::unordered_set<int> pos;
+    for (int x : v) if (x >= 0) if (!pos.insert(x).second)
+      throw std::invalid_argument("Positive labels duplicated in output labs.");
+  };
+  check_positive_unique(labs_a);
+  check_positive_unique(labs_b);
+}  
+
+  /**
+  template <typename TenT>
+  void contract(
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const List<bond_label_t<TenT>> &bd_labs_a,
+       const TenT &b,
+       const List<bond_label_t<TenT>> &bd_labs_b,
+       TenT &c,
+       const List<bond_label_t<TenT>> &bd_labs_c);
+  */
+  template <typename ElemT>
+  void contract(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &a,
+       const List<bond_label_t<gqten::tensor<ElemT>>> &bd_labs_a,
+       const gqten::tensor<ElemT> &b,
+       const List<bond_label_t<gqten::tensor<ElemT>>> &bd_labs_b,
+       gqten::tensor<ElemT> &c,
+       const List<bond_label_t<gqten::tensor<ElemT>>> &bd_labs_c) {
+    std::vector<int> labs_a;
+    std::vector<int> labs_b;
+    GqtenCntIdxHelper(bd_labs_a,bd_labs_b,bd_labs_c,labs_a,labs_b);
+    gqten::Contract(&a,&b,labs_a,labs_b,&c);
+  }
+
+  /**
+     Helpers for std::string_view
+     (1) ParseBondLabelOne
+   */
+  static inline void ParseBondLabelsOne(
+	std::string_view s,
+	std::unordered_map<std::string,int>& sym2id, // common sybol table
+	int& nextId,                                   // next assigne label 
+	std::vector<int>& out) {
+    auto is_sep = [](char c){
+      return c==',' || std::isspace(static_cast<unsigned char>(c));
+    };
+
+    // Detect whether separator exists
+    bool has_sep = false;
+    for (char c : s) if (is_sep(c)) { has_sep = true; break; }
+    
+    auto push_token = [&](std::string tok){
+    // neglect empty token
+      if (tok.empty()) return;
+      
+      // allow to use it as it is if it is integer
+      char* end=nullptr;
+      long v = std::strtol(tok.c_str(), &end, 10);
+      if (end && *end=='\0') {
+	if (v < std::numeric_limits<int>::min() || v > std::numeric_limits<int>::max())
+	  throw std::out_of_range("label integer out of int range");
+	out.push_back(static_cast<int>(v));
+	return;
+      }
+      // if it is not integer, assign integer using symbol table
+      auto it = sym2id.find(tok);
+      if (it == sym2id.end()) {
+	sym2id.emplace(tok, nextId);
+	out.push_back(nextId++);
+      } else {
+	out.push_back(it->second);
+      }
+    };
+    
+    if (has_sep) {
+      // if there are separator: split token by commma/space
+      std::string cur;
+      cur.reserve(16);
+      for (size_t i=0;i<s.size();++i) {
+	char c = s[i];
+	if (is_sep(c)) { push_token(cur); cur.clear(); }
+	else           { cur.push_back(c); }
+      }
+      push_token(cur);
+    } else {
+      // if there are no separator: one symbol as one label (like "ij")
+      // if you want to use "ab12" as label, it is better to use string with separators
+      for (char c : s) {
+	std::string tok(1, c);
+	push_token(std::move(tok));
+      }
+    }
+  }
+
+  // 2) Parse all labels for A/B/C at once, and obtain std::vector<int> using same map
+  static inline void ParseBondLabelsTriple(
+	 std::string_view a, std::string_view b, std::string_view c,
+	 std::vector<int>& out_a, std::vector<int>& out_b, std::vector<int>& out_c) {
+    std::unordered_map<std::string,int> sym2id;
+    sym2id.reserve(32);
+    int nextId = 0;
+    
+    ParseBondLabelsOne(a, sym2id, nextId, out_a);
+    ParseBondLabelsOne(b, sym2id, nextId, out_b);
+    ParseBondLabelsOne(c, sym2id, nextId, out_c);
+  }
+
+  // 3) Utility wrapper: string_view -> bond_labs -> labs for gqten
+  inline void MakeGqtenContractLabelsFromStrings(
+	 std::string_view bd_labs_str_a,
+	 std::string_view bd_labs_str_b,
+	 std::string_view bd_labs_str_c,
+	 std::vector<int>& labs_a,     // output label for gqten::Contract
+	 std::vector<int>& labs_b      // output label for gqten::Contract
+						 ) {
+    std::vector<int> bond_labs_a, bond_labs_b, bond_labs_c;
+    ParseBondLabelsTriple(bd_labs_str_a, bd_labs_str_b, bd_labs_str_c,
+			  bond_labs_a, bond_labs_b, bond_labs_c);
+
+    // Transform string label for A/B/C to (labs_a, labs_b) for gqten
+    GqtenCntLabelHelper(bond_labs_a, bond_labs_b, bond_labs_c, labs_a, labs_b);
+  }
+  /**
+  template <typename TenT>
+  void contract(
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const std::string_view bd_labs_str_a,
+       const TenT &b,
+       const std::string_view bd_labs_str_b,
+       TenT &c
+       const std::string_view bd_labs_str_c);
+  */
+  template <typename ElemT>
+  void contract(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &a,
+       const std::string_view bd_labs_str_a,
+       const gqten::tensor<ElemT> &b,
+       const std::string_view bd_labs_str_b,
+       gqten::tensor<ElemT> &c
+       const std::string_view bd_labs_str_c) {
+    std::vector<int> labs_a;
+    std::vector<int> labs_b;
+    MakeGqtenContractLabelsFromString(bd_labs_str_a,bd_labs_str_b,bd_labs_str_c,
+				      labs_a,labs_b);
+    gqten::Contract(&a,&b,labs_a,labs_b,&c);
+  }
+
+  /**
+  template <typename TenT>
+  void linear_combine(
+       context_handle_t<TenT> &ctx,
+       const List<TenT> &ins,
+       TenT &out);
+  */
+  template <typename ElemT>
+  void linear_combine(
+       context_handle_t<gqten::tensor<ElemT>> & ctx,
+       const std::vector<gqten::tensor<ElemT>> & ins,
+       gqten::tensor<ElemT> & out) {
+    std::vector<gqten::tensor<ElemT>*> pins(ins.size());
+    for(auto & ten : pins) {
+      ten = &ins;
+    }
+    std::vector<ElemT> coef(ins.size(),static_cast<ElemT>(1.0));
+    gqten::LinearCombine(coef,pins,&out);
+  }
+
+  /**
+  template <typename TenT>
+  void linear_combine(
+       context_handle_t<TenT> &ctx,
+       const List<TenT> &ins,
+       const List<elem_t<TenT>> &coefs,
+       TenT &out);
+  */
+  template <typename ElemT>
+  void linear_combine(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const std::vector<gqten::tensor<ElemT>> &ins,
+       const std::vector<elem_t<gqten::tensor<ElemT>>> &coefs,
+       gqten::tensor<ElemT> &out) {
+    std::vector<gqten::tensor<ElemT>*> pins(ins.size());
+    for(auto & ten : pins) {
+      ten = &ins;
+    }
+    gqten::LinearCombine(coef,pins,&out);
+  }
+
+  /**
+  template <typename TenT>
+  void svd(
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       TenT &u,
+       real_ten_t<TenT> &s_diag,
+       TenT &v_dag);
+  */
+  template <typename ElemT>
+  void svd(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &a,
+       const rank_t<gqten::tensor<ElemT>> &num_of_bonds_as_rows,
+       gqten::tensor<ElemT> &u,
+       real_ten_t<gqten::tensor<ElemT>> &s_diag,
+       gqten::tensor<ElemT> &v_dag) {
+    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::rea_t;
+    RealT * ps_raw;
+    size_t pk;
+    gqten::SVD(&a,num_of_bonds_as_rows,&u,&v_dag,ps_raw,pk);
+    s_diag = gqten::tensor<RealT>({pk},ps_raw);
+  }
+
+  /// rank_t<TenT> & num_of_bonds_as_rows; should be rank_t<TenT> num_of_bonds_as_rows; 
+  /**
+  template <typename TenT>
+  void trunc_svd(
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       TenT &u,
+       real_ten_t<TenT> &s_diag,
+       TenT &v_dag,
+       real_t<TenT> &trunc_err,
+       const real_t<TenT> s_min);
+  */
+  template <typename ElemT>
+  void trunc_svd(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &a,
+       const rank_t<gqten::tensor<ElemT>> &num_of_bonds_as_rows,
+       gqten::tensor<ElemT> &u,
+       real_ten_t<gqten::tensor<ElemT>> &s_diag,
+       gqten::tensor<ElemT> &v_dag,
+       real_t<gqten::tensor<ElemT>> &trunc_err,
+       const real_t<gqten::tensor<ElemT>> s_min) {
+    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
+    RealT * ps_raw;
+    size_t chi;
+    size_t chi_max;
+    gqten::TruncSVD(&a,num_of_bonds_as_rows,chi_max,
+		    &u,&v_dag,&ps_raw,&chi,&trunc_err,s_min);
+    s_diag = gqten::tensor<RealT>({chi},ps_raw);
+  }
+
+  /// rank_t<TenT> & num_of_bonds_as_rows; should be rank_t<TenT> num_of_bonds_as_rows; 
+  /**
+  template <typename TenT>
+  void trunc_svd(
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       TenT &u,
+       real_ten_t<TenT> &s_diag,
+       TenT &v_dag,
+       real_t<TenT> &trunc_err,
+       const bond_dim_t<TenT> chi_max,
+       const real_t<TenT> s_min);
+  */
+  template <typename ElemT>
+  void trunc_svd(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &a,
+       const rank_t<gqten::tensor<ElemT>> &num_of_bonds_as_rows,
+       gqten::tensor<ElemT> &u,
+       real_ten_t<gqten::tensor<ElemT>> &s_diag,
+       gqten::tensor<ElemT> &v_dag,
+       real_t<gqten::tensor<ElemT>> &trunc_err,
+       const bond_dim_t<gqten::tensor<ElemT>> chi_max,
+       const real_t<gqten::tensor<ElemT>> s_min) {
+    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
+    RealT * ps_raw;
+    size_t chi;
+    gqten::TruncSVD(&a,num_of_bonds_as_rows,chi_max,
+		    &u,&v_dag,&ps_raw,&chi,&trunc_err,s_min);
+    s_diag = gqten::tensor<RealT>({chi},ps_raw);
+  }
+
+  /// rank_t<TenT> & num_of_bonds_as_rows; should be rank_t<TenT> num_of_bonds_as_rows; 
+  /**
+  template <typename TenT>
+  void trunc_svd(
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows, TenT &u,
+       real_ten_t<TenT> &s_diag,
+       TenT &v_dag,
+       real_t<TenT> &trunc_err,
+       const bond_dim_t<TenT> chi_min,
+       const bond_dim_t<TenT> chi_max,
+       const real_t<TenT> target_trunc_err,
+       const real_t<TenT> s_min);
+  */
+  template <typename ElemT>
+  void trunc_svd(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &a,
+       const rank_t<gqten::tensor<ElemT>> &num_of_bonds_as_rows,
+       gqten::tensor<ElemT> &u,
+       real_ten_t<gqten::tensor<ElemT>> &s_diag,
+       gqten::tensor<ElemT> &v_dag,
+       real_t<gqten::tensor<ElemT>> &trunc_err,
+       const bond_dim_t<gqten::tensor<ElemT>> chi_min,
+       const bond_dim_t<gqten::tensor<ElemT>> chi_max,
+       const real_t<gqten::tensor<ElemT>> target_trunc_err,
+       const real_t<gqten::tensor<ElemT>> s_min) {
+    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
+    RealT * ps_raw;
+    size_t chi;
+    gqten::TruncSVD(&a,num_of_bonds_as_rows,chi_max,chi_min,
+		    &u,&v_dag,&ps_raw,chi,&trunc_err,s_min);
+    s_diag = gqten::tensor<RealT>({chi},ps_raw);
+  }
+
+  /// rank_t<TenT> & num_of_bonds_as_rows; should be rank_t<TenT> num_of_bonds_as_rows; 
+  /**
+  template <typename TenT>
+  void qr(
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       TenT &q,
+       TenT &r);
+  */
+  template <typename ElemT>
+  void qr(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &a,
+       const rank_t<gqten::tensor<ElemT>> &num_of_bonds_as_rows,
+       gqten::tensor<ElemT> &q,
+       gqten::tensor<ElemT> &r) {
+    gqten::QR(&a,num_of_bonds_as_rows,&q,&r);
+  }
+
+  /**
+  template <typename TenT>
+  void lq(
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       TenT &l,
+       TenT &q);
+  */
+  template <typename ElemT>
+  void lq(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &a,
+       const rank_t<gqten::tensor<ElemT>> &num_of_bonds_as_rows,
+       gqten::tensor<ElemT> &l,
+       gqten::tensor<ElemT> &q) {
+    using RankT = typename tensor_traits<gqten::tensor<ElemT>>::rank_t;
+    using BondLabelT = typename tensor_traits<gqten::tensor<ElemT>>::bond_label_t;
+    RankT num_bonds = a.Rank();
+    RankT num_cols = num_bonds - num_of_bonds_as_rows;
+    std::vector<BondLabelT> trans_labs(num_bonds);
+    for(size_t k=0; k < num_cols; k++) {
+      trans_labs[k] = num_of_bonds_as_rows + k;
+    }
+    for(size_t k=num_cols; k < num_bonds; k++) {
+      trans_labs[k] = k - num_cols;
+    }
+    auto adag = a;
+    adag.Transpose(trans_labs);
+    gqten::QR(&adag,num_cols,&q,&l);
+    std::vector<BondLabelT> q_labs(num_cols+1);
+    std::vector<BondLabelT> l_labs(num_of_bonds_as_rows+1);
+    std::iota(q_labs.begin(),q_labs.end(),-1);
+    q_labs[0] = num_cols;
+    std::iota(l_labs.begin(),l_labs.end(),1);
+    l_labs[num_of_bonds_as_rows] = 0;
+    l.Transpose(l_labs);
+    q.Transpose(q_labs);
+    
+  }
+
+  /**
+  template <typename TenT>
+  void eigvals(
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       cplx_ten_t<TenT> &w_diag);
+  */
+
+  /**
+  template <typename TenT>
+  void eigvalsh(
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       real_ten_t<TenT> &w_diag);
+  */
+
+  /**
+  template <typename TenT>
+  void eig(
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       cplx_ten_t<TenT> &w_diag,
+       cplx_ten_t<TenT> &v);
+  */
+
+  /**
+  template <typename TenT>
+  void eigh(
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       real_ten_t<TenT> &w_diag,
+       TenT &v);
+  */
+  template <typename ElemT>
+  void eigh(
+       context_handle_t<gqten::tensor<ElemT>> &ctx,
+       const gqten::tensor<ElemT> &a,
+       const rank_t<gqten::tensor<ElemT>> &num_of_bonds_as_rows,
+       real_ten_t<gqten::tensor<ElemT>> &w_diag,
+       gqten::tensor<ElemT> &v) {
+    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
+    RealT * pw;
+    char jobs = 'V';
+    char uplo = 'U';
+    size_t pn;
+    gqten::EigHerm(&a,num_of_bonds_as_rows,pw,&v,&pn,jobz,uplo);
+    w_diag = gqten::tensor<RealT>({pn},pw);
+  }
+  
+  
+}
+
+#endif

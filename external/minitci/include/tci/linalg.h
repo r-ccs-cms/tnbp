@@ -24,12 +24,12 @@ namespace tci {
        const TenT &a);
 
   template <typename TenT>
-  elem_t<TenT> normalize(
+  real_t<TenT> normalize(
        context_handle_t<TenT> &ctx,
        TenT &inout);
 
   template <typename TenT>
-  elem_t<TenT> normalize(
+  real_t<TenT> normalize(
        context_handle_t<TenT> &ctx,
        const TenT in,
        TenT &out);

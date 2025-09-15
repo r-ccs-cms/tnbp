@@ -169,7 +169,7 @@ namespace tci {
        Func &&f);
 
   template <typename TenT, typename Func>
-  void for_each(
+  TenT for_each(
        context_handle_t<TenT> &ctx,
        const TenT &in,
        Func &&f);
@@ -181,7 +181,7 @@ namespace tci {
        Func &&f);
 
   template <typename TenT, typename Func>
-  void for_each_with_coors(
+  TenT for_each_with_coors(
        context_handle_t<TenT> &ctx,
        const TenT &in,
        Func &&f);
