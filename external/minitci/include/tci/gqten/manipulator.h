@@ -299,8 +299,9 @@ namespace tci {
     size_t size = inout.Size();
     ShapeT shape = inout.Shape();
     ShapeT new_shape = inout.Shape();
+    
     for(const auto & [k,d] : bond_idx_increment_map) {
-      new_shape[k] = d;
+      new_shape[k] = shape[k] + d;
     }
     size_t new_size = 1;
     for(const auto & d : new_shape) {
@@ -317,7 +318,7 @@ namespace tci {
       }
       temp.SetElem(coordinate,inout.GetElem(coordinate));
     }
-    inout = temp;
+    inout = std::move(temp);
   }
 
   /**
@@ -375,37 +376,54 @@ namespace tci {
   */
   template <typename ElemT>
   void shrink(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout,
+       context_handle_t<gqten::tensor<ElemT>>& /*ctx*/,
+       gqten::tensor<ElemT>& inout,
        const std::map<
        bond_idx_t<gqten::tensor<ElemT>>,
-       bond_dim_t<gqten::tensor<ElemT>>> &
+       std::pair<elem_coor_t<gqten::tensor<ElemT>>,
+                 elem_coor_t<gqten::tensor<ElemT>>>>&
        bd_idx_el_coor_pair_map) {
-    using BondDimT = typename tensor_traits<gqten::tensor<ElemT>>::bond_dim_t;
-    using BondIdxT = typename tensor_traits<gqten::tensor<ElemT>>::bond_idx_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
-    size_t size = inout.Size();
-    ShapeT shape = inout.Shape();
-    ShapeT new_shape = inout.Shape();
-    for(const auto & [k,d] : bond_idx_increment_map) {
-      new_shape[k] = d;
+    using Traits   = tensor_traits<gqten::tensor<ElemT>>;
+    using BondIdxT = typename Traits::bond_idx_t;   // size_t
+    using ShapeT   = typename Traits::shape_t;
+    
+    const ShapeT shape = inout.Shape();
+    const size_t rank  = shape.size();
+    
+    ShapeT new_shape = shape;
+    for (const auto& [axis, range] : bd_idx_el_coor_pair_map) {
+      const BondIdxT a = static_cast<BondIdxT>(axis);
+      if (a >= rank) throw std::out_of_range("shrink: axis out of range");
+      const auto [first, second] = range;
+      if (first > second || second > shape[a])
+	throw std::out_of_range("shrink: invalid [first,second) for axis");
+      new_shape[a] = static_cast<BondIdxT>(second - first);
     }
+    
     size_t new_size = 1;
-    for(const auto & d : new_shape) {
-      new_size *= d;
-    }
-    ElemT * new_praw = static_cast<ElemT*> std::calloc(new_size,sizeof(ElemT));
-    gqten::tensor<ElemT> temp(new_shape,new_praw);
-    std::vector<BondIdxT> coordinate(inout.Rank());
-    for(size_t i=0; i < new_size; i++) {
-      size_t itemp = i;
-      for(size_t l=0; l < inout.Rank(); l++) {
-	coordinate[l] = itemp % new_shape[l];
-	itemp /= new_shape[l];
+    for (auto d : new_shape) new_size *= d;
+    ElemT* raw = static_cast<ElemT*>(std::calloc(new_size, sizeof(ElemT)));
+    if (!raw) throw std::bad_alloc();
+    gqten::tensor<ElemT> out(new_shape, raw);
+    
+    std::vector<BondIdxT> src(rank), dst(rank);
+    for (size_t i = 0; i < new_size; ++i) {
+      size_t t = i;
+      for (size_t ax = 0; ax < rank; ++ax) {
+	dst[ax] = static_cast<BondIdxT>(t % new_shape[ax]);
+	t      /= new_shape[ax];
       }
-      temp.SetElem(coordinate,inout.GetElem(coordinate));
+      for (size_t ax = 0; ax < rank; ++ax) {
+	if (auto it = bd_idx_el_coor_pair_map.find(ax); it != bd_idx_el_coor_pair_map.end()) {
+	  src[ax] = static_cast<BondIdxT>(dst[ax] + it->second.first);
+	} else {
+	  src[ax] = dst[ax];
+	}
+      }
+      out.SetElem(dst, inout.GetElem(src));
     }
-    inout = temp;
+    
+    inout = std::move(out);
   }
 
   /**
@@ -417,37 +435,19 @@ namespace tci {
        bd_idx_el_coor_pair_map,
        TenT &out);
   */
+  
   template <typename ElemT>
   void shrink(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
-       const bond_idx_elem_coor_pair_map<gqten::tensor<ElemT>> &
+       context_handle_t<gqten::tensor<ElemT>>& /*ctx*/,
+       const gqten::tensor<ElemT>& in,
+       const std::map<
+       bond_idx_t<gqten::tensor<ElemT>>,
+       std::pair<elem_coor_t<gqten::tensor<ElemT>>,
+                 elem_coor_t<gqten::tensor<ElemT>>>>&
        bd_idx_el_coor_pair_map,
-       gqten::tensor<ElemT> &out) {
-    using BondDimT = typename tensor_traits<gqten::tensor<ElemT>>::bond_dim_t;
-    using BondIdxT = typename tensor_traits<gqten::tensor<ElemT>>::bond_idx_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
-    size_t size = in.Size();
-    ShapeT shape = in.Shape();
-    ShapeT new_shape = in.Shape();
-    for(const auto & [k,d] : bond_idx_increment_map) {
-      new_shape[k] = d;
-    }
-    size_t new_size = 1;
-    for(const auto & d : new_shape) {
-      new_size *= d;
-    }
-    ElemT * new_praw = static_cast<ElemT*> std::calloc(new_size,sizeof(ElemT));
-    out = gqten::tensor<ElemT>(new_shape,new_praw);
-    std::vector<BondIdxT> coordinate(in.Rank());
-    for(size_t i=0; i < new_size; i++) {
-      size_t itemp = i;
-      for(size_t l=0; l < in.Rank(); l++) {
-	coordinate[l] = itemp % new_shape[l];
-	itemp /= new_shape[l];
-      }
-      out.SetElem(coordinate,in.GetElem(coordinate));
-    }
+       gqten::tensor<ElemT> & out) {
+    out = in;
+    shrink(*(context_handle_t<gqten::tensor<ElemT>>*)nullptr, out, bd_idx_el_coor_pair_map);
   }
 
   /**
@@ -467,36 +467,21 @@ namespace tci {
        elem_coor_t<gqten::tensor<ElemT>>,
        elem_coor_t<gqten::tensor<ElemT>>> &
        coor_pairs) {
-    using BondDimT = typename tensor_traits<gqten::tensor<ElemT>>::bond_dim_t;
-    using BondIdxT = typename tensor_traits<gqten::tensor<ElemT>>::bond_idx_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
-    size_t size = inout.Size();
-    ShapeT shape = inout.Shape();
-    ShapeT new_shape = inout.Shape();
-    auto it_new_shape = new_shape.begin();
-    for(const auto & [kmin,kmax] : coor_pairs) {
-      *it_new_shape++ = kmax-kmin;
-    }
-    size_t new_size = 1;
-    for(const auto d : new_shape) {
-      new_size *= d;
-    }
-    ElemT * new_praw = static_cast<ElemT*> std::calloc(new_size,sizeof(ElemT));
-    gqten::tensor<ElemT> temp(new_shape,new_praw);
-    std::vector<BondIdxT> new_coordinate(inout.Rank());
-    std::vector<BondIdxT> coordinate(inout.Rank());
-    for(size_t i=0; i < new_size; i++) {
-      size_t itemp = i;
-      for(size_t l=0; l < inout.Rank(); l++) {
-	new_coordinate[l] = itemp % new_shape[l];
-	coordinate[l] = new_coordinate[l] + coor_pairs[l].first;
-	itemp /= new_shape[l];
-      }
-      temp.SetElem(new_coordinate,inout.GetElem(coordinate));
-    }
-    inout = temp;
-  }
 
+    using TenT     = gqten::tensor<ElemT>;
+    using BondIdxT = bond_idx_t<TenT>;
+
+    std::map<BondIdxT, std::pair<elem_coor_t<TenT>, elem_coor_t<TenT>>> m;
+    m.clear();
+    for (BondIdxT ax = 0; ax < coor_pairs.size(); ++ax) {
+      const auto& [lo, hi] = coor_pairs[ax];
+      if (lo != 0 || hi != inout.Shape()[ax]) {
+	m.emplace(ax, std::make_pair(lo, hi));
+      }
+    }
+    shrink(ctx, inout, m);
+  }
+  
   /**
   template <typename TenT>
   void extract_sub(
@@ -517,33 +502,8 @@ namespace tci {
        elem_coor_t<gqten::tensor<ElemT>>>> &
        coor_pairs,
        gqten::tensor<ElemT> &out) {
-    using BondDimT = typename tensor_traits<gqten::tensor<ElemT>>::bond_dim_t;
-    using BondIdxT = typename tensor_traits<gqten::tensor<ElemT>>::bond_idx_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
-    size_t size = in.Size();
-    ShapeT shape = in.Shape();
-    ShapeT new_shape = in.Shape();
-    auto it_new_shape = new_shape.begin();
-    for(const auto & [kmin,kmax] : coor_pairs) {
-      *it_new_shape++ = kmax-kmin;
-    }
-    size_t new_size = 1;
-    for(const auto d : new_shape) {
-      new_size *= d;
-    }
-    ElemT * new_praw = static_cast<ElemT*> std::calloc(new_size,sizeof(ElemT));
-    out = gqten::tensor<ElemT>(new_shape,new_praw);
-    std::vector<BondIdxT> new_coordinate(in.Rank());
-    std::vector<BondIdxT> coordinate(in.Rank());
-    for(size_t i=0; i < new_size; i++) {
-      size_t itemp = i;
-      for(size_t l=0; l < in.Rank(); l++) {
-	new_coordinate[l] = itemp % new_shape[l];
-	coordinate[l] = new_coordinate[l] + coor_pairs[l].first;
-	itemp /= new_shape[l];
-      }
-      out.SetElem(new_coordinate,in.GetElem(coordinate));
-    }
+    out = in;
+    extract_sub(ctx, out, coor_pairs);
   }
 
   /**
