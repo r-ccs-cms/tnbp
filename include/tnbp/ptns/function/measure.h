@@ -47,8 +47,10 @@ namespace tnbp {
 	auto it_siteidx_address = std::find(SiteIdx.begin(),SiteIdx.end(),
 					    Site[site_address]);
 	auto siteidx_address = std::distance(SiteIdx.begin(),it_siteidx_address);
-	TenT W = V[siteidx_address];
-	TenT Wdag = V[siteidx_address];
+	TenT W;
+	tci::copy(ctx,V[siteidx_address],W);
+	TenT Wdag;
+	tci::copy(ctx,V[siteidx_address],Wdag);
 	tci::cplx_conj(ctx,Wdag);
 	RankT rank_w = tci::rank(ctx,W);
 	std::vector<BondLabelT> IdxW(rank_w);
@@ -57,7 +59,8 @@ namespace tnbp {
 	for(size_t m=0; m < BondIdx.size(); m++) {
 	  auto it_edgeidx_address = std::find(EdgeIdx.begin(),EdgeIdx.end(),BondIdx[m]);
 	  auto edgeidx_address = std::distance(EdgeIdx.begin(),it_edgeidx_address);
-	  TenT F = E[edgeidx_address+size_e];
+	  TenT F;
+	  tci::copy(ctx,E[edgeidx_address+size_e],F);
 	  std::vector<BondLabelT> IdxE(2);
 	  std::vector<BondLabelT> IdxF(2);
 	  std::vector<BondLabelT> IdxR(2);
@@ -168,7 +171,7 @@ namespace tnbp {
 	if( mpi_type == 3 || mpi_type == 2 ) {
 	  auot it_site_address_a = std::find(SiteIdx.begin(),SiteIdx.end(),site_a);
 	  site_address_a = std::distance(SiteIdx.begin(),it_site_address_a);
-	  A = V[site_address_a];
+	  tci::copy(ctx,V[site_address_a],A);
 	  RankT rank_a = tci::rank(ctx,A);
 	  std::vector<BondLabelT> IdxA(rank_a);
 	  std::vector<BondLabelT> IdxC(rank_a);
@@ -185,7 +188,7 @@ namespace tnbp {
 	    tci::contract(ctx,A,IdxA,E[edge_address+size_e],IdxE,A,IdxC);
 	    ElemT norm = tci::normalize(ctx,A);
 	  }
-	  AdagA = A;
+	  tci::copy(ctx,A,AdagA);
 	  tci::cplx_conj(ctx,AdagA);
 	  std::iota(IdxA.begin(),IdxA.end(),-rank_a);
 	  std::iota(IdxC.begin(),IdxC.end(),-rank_a);
@@ -202,7 +205,7 @@ namespace tnbp {
 	  auto it_site_address_b = std::find(SiteIdx.begin(),SiteIdx.end(),
 					     site_b);
 	  site_address_b = std::distance(SiteIdx.begin(),it_site_address_b);
-	  B = V[site_address_b];
+	  tci::copy(ctx,V[site_address_b],B);
 	  RankT rank_b = tci::rank(ctx,B);
 	  std::vector<BondLabelT> IdxB(rank_b);
 	  for(int k=0; k < bond_Idx_b.size(); k++) {
@@ -217,7 +220,7 @@ namespace tnbp {
 	    tci::contrat(ctx,B,IdxB,E[edge_address+size_e],IdxE,B);
 	    ElemT norm = tci::normalize(ctx,B);
 	  }
-	  BdagB = B;
+	  tci::copy(ctx,B,BdagB);
 	  tci::cplx_conj(ctx,BdagB);
 	  std::vector<BondLabelT> IdxC(rank_b);
 	  std::iota(IdxB.begin(),IdxB.end(),-rank_b);
@@ -232,11 +235,11 @@ namespace tnbp {
 	}
 
 	if( mpi_type == 1 ) {
-	  MpiSend(BdagB,mpi_rank_a,comm);
+	  MpiSend(ctx,BdagB,mpi_rank_a,comm);
 	}
 
 	if( mpi_type == 2 ) {
-	  MpiRecv(BdagB,mpi_rank_b,comm);
+	  MpiRecv(ctx,BdagB,mpi_rank_b,comm);
 	}
 
 	if( mpi_type == 2 || mpi_type == 3 ) {

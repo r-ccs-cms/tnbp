@@ -7,6 +7,7 @@ struct Option {
   std::string backend("ibm_kobe");
   std::string circuit("circuit.qasm");
   std::vector<int> num_gates;
+  size_t max_bp_iterations = 50;
 };
 
 Option generate_options(int argc, char *argv[]) {
@@ -25,6 +26,9 @@ Option generate_options(int argc, char *argv[]) {
       while (std::getline(ss, token, ',')) {
 	option.num_gates.push_back(std::stoi(token));
       }
+    }
+    if ( std::string(argv[i]) == "--max_bp_iterations" ) {
+      option.max_bp_iterations = std::atoi(argv[++i]);
     }
   }
   return option;

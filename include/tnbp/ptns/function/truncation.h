@@ -141,14 +141,14 @@ namespace tnbp {
 	  IdxU[1] = 1;
 	  IdxT[0] = 0;
 	  IdxT[1] = 1;
-	  tci::contract(Sa,IdxS,X,IdxU,T,IdxT);
+	  tci::contract(ctx,Sa,IdxS,X,IdxU,T,IdxT);
 	  IdxT[0] = 0;
 	  IdxT[1] = -1;
 	  IdxP[0] = -1;
 	  IdxP[1] = 1;
 	  IdxU[0] = 0;
 	  IdxU[1] = 1;
-	  tci::contract(T,IdxT,P,IdxP,T,IdxU);
+	  tci::contract(ctx,T,IdxT,P,IdxP,T,IdxU);
 	  auto it_site_address_a = std::find(SiteIdx.begin(),SiteIdx.end(),
 					site_a);
 	  site_address_a = std::distance(SiteIdx.begin(),it_site_address_a);
@@ -161,7 +161,7 @@ namespace tnbp {
 	  IdxA[bond_address_a] = -1;
 	  IdxT[0] = -1;
 	  IdxT[1] = bond_address_a;
-	  tci::contract(V[site_address_a],IdxA,T,IdxT,
+	  tci::contract(ctx,V[site_address_a],IdxA,T,IdxT,
 			V[site_address_a],IdxC);
 	  auto norm_a = tci::normalize(ctx,V[site_address_a]);
 	}
@@ -173,14 +173,14 @@ namespace tnbp {
 	  IdxS[1] = 1;
 	  IdxT[0] = 0;
 	  IdxT[1] = 1;
-	  tci::contract(Y,IdxU,Sb,IdxS,T,IdxT);
+	  tci::contract(ctx,Y,IdxU,Sb,IdxS,T,IdxT);
 	  IdxP[0] = 0;
 	  IdxP[1] = -1;
 	  IdxT[0] = -1;
 	  IdxT[1] = 1;
 	  IdxU[0] = 0;
 	  IdxU[1] = 1;
-	  tci::contract(P,IdxP,T,IdxT,T,IdxU);
+	  tci::contract(ctx,P,IdxP,T,IdxT,T,IdxU);
 	  auto it_site_address_b = std::find(SiteIdx.begin(),SiteIdx.end(),
 					     site_b);
 	  site_address_b = std::distance(SiteIdx.begin(),it_site_address_b);
@@ -192,7 +192,7 @@ namespace tnbp {
 	  IdxB[bond_address_b] = -1;
 	  IdxT[0] = bond_address_b;
 	  IdxT[1] = -1;
-	  tci::contract(T,IdxT,V[site_address_b],IdxB,
+	  tci::contract(ctx,T,IdxT,V[site_address_b],IdxB,
 			V[site_address_b],IdxC);
 	  auto norm_b = tci::normalize(ctx,V[site_address_b]);
 	}

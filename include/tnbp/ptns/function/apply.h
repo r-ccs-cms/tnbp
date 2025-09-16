@@ -12,11 +12,16 @@ namespace tnbp {
      Attach tensor product operator to tensor product state
    */
   template <typename TenT>
-  void Apply(context_handle_t<TenT> & ctx,
-	     std::vector<TenT> & V,
-	     const std::vector<int> & SiteIdx,
-	     const std::vector<TenT> & O) {
-    
+  void AbsorbTPO(context_handle_t<TenT> & ctx,
+		 const std::vector<TenT> & O,
+		 const std::vector<std::pair<int,int>> & Edge,
+		 std::vector<TenT> & V,
+		 const std::vector<int> & SiteIdx,
+		 const std::vector<int> & Site_To_MpiRank,
+		 std::vector<TenT> & E,
+		 const std::vector<int> & EdgeIdx,
+		 MPI_Comm comm) {
+
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
     using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
@@ -25,7 +30,6 @@ namespace tnbp {
 
     for(int address=0; address < SiteIdx.size(); address++) {
       int site = SiteIdx[address];
-      TenT W;
       RankT rank_v = tci::rank(ctx,V[address]);
       RankT rank_o = tci::rank(ctx,O[site]);
       RankT num_vb = rank_v-1;
@@ -50,7 +54,109 @@ namespace tnbp {
       tci::contract(ctx,O[site],label_o,V[address],label_v,V[address],label_r);
       tci::reshape(ctx,V[address],new_shape_v);
     }
+
+    size_t num_e = EdgeIdx.size();
+    std::vector<int> Idx_I(2);
+    std::vector<int> Idx_E(2);
+    std::vector<int> Idx_T(4);
+    Idx_E[0] = 0;
+    Idx_E[1] = 2;
+    Idx_I[0] = 1;
+    Idx_I[1] = 3;
+    std::iota(Idx_T.begin(),Idx_T.end(),0);
+
+    for(size_t address=0; address < num_e; address++) {
+      int site_a = Edge[EdgeIdx[address]].first;
+      int site_b = Edge[EdgeIdx[address]].second;
+      int mpi_rank_a = Site_To_MpiRank[site_a];
+      int mpi_rank_b = Site_To_MpiRank[site_b];
+      
+      if( mpi_rank_a == mpi_rank ) {
+
+	std::vector<int> bond = GetSurroundingBondIndex(site_a,Edge);
+	
+	int target_edge = 0;
+	int target_bond = 0;
+	for(size_t k=0; k < bond.size(); k++) {
+	  if( ( Edge[bond[k]].first == site_a ) &&
+	      ( Edge[bond[k]].second == site_b ) ) {
+	    target_edge = bond[k];
+	    target_bond = k;
+	    break;
+	  } else if ( (Edge[bond[k]].first == site_b ) &&
+		      (Edge[bond[k]].second == site_a ) ) {
+	    target_edge = bond[k];
+	    target_bond = k;
+	    break;
+	  }
+	}
+
+	auto shape_O = tci::shape(ctx,O[site_a]);
+	auto shape_E = tci::shape(ctx,E[address]);
+	ShapeT shape_I(2,shape_O[target_bond]);
+	ShapeT shape_N(2,shape_I[0]*shape_E[0]);
+	std::vector<ElemT> data_I(shape_O[target_bond]*shape_O[target_bond],
+				  static_cast<ElemT>(0.0));
+	for(size_t k=0; k < shape_O[target_bond]; k++) {
+	  data_I[k+shape_O[target_bond]*k] = static_cast<ElemT>(1.0);
+	}
+	TenT I;
+	auto it_data_I = data_I.begin();
+	tci::assign_from_container(ctx,shape_I,it_data_I,
+				   [&shape_I](const auto & coor){
+				     return coor[0] + shape_I[0] * coor[1];
+				   },I);
+	TenT T;
+	tci::contract(ctx,E[address],Idx_E,I,Idx_I,T,Idx_T);
+	tci::reshape(ctx,T,shape_N,E[address]);
+	tci::contract(ctx,E[address+num_e],Idx_E,I,Idx_I,T,Idx_T);
+	tci::reshape(ctx,T,shape_N,E[address+num_e]);
+	
+      } else if ( mpi_rank_b == mpi_rank ) {
+
+	std::vector<int> bond = GetSurroundingBondIndex(site_b,Edge);
+
+	int target_edge = 0;
+	int target_bond = 0;
+	for(size_t k=0; k < bond.size(); k++) {
+	  if( ( Edge[bond[k]].first == site_b ) &&
+	      ( Edge[bond[k]].second == site_a ) ) {
+	    target_edge = bond[k];
+	    target_bond = k;
+	    break;
+	  } else if ( (Edge[bond[k]].first == site_a ) &&
+		      (Edge[bond[k]].second == site_b ) ) {
+	    target_edge = bond[k];
+	    target_bond = k;
+	    break;
+	  }
+	}
+	
+	auto shape_O = tci::shape(ctx,O[site_b]);
+	auto shape_E = tci::shape(ctx,E[address]);
+	ShapeT shape_I(2,shape_O[target_bond]);
+	ShapeT shape_N(2,shape_I[0]*shape_E[0]);
+	std::vector<ElemT> data_I(shape_O[target_bond]*shape_O[target_bond],
+				  static_cast<ElemT>(0.0));
+	for(size_t k=0; k < shape_O[target_bond]; k++) {
+	  data_I[k+shape_O[target_bond]*k] = static_cast<ElemT>(1.0);
+	}
+	TenT I;
+	auto it_data_I = data_I.begin();
+	tci::assign_from_container(ctx,shape_I,it_data_I,
+				   [&shape_I](const auto & coor){
+				     return coor[0] + shape_I[0] * coor[1];
+				   },I);
+	TenT T;
+	tci::contract(ctx,E[address],Idx_E,I,Idx_I,T,Idx_T);
+	tci::reshape(ctx,T,shape_N,E[address]);
+	tci::contract(ctx,E[address+num_e],Idx_E,I,Idx_I,T,Idx_T);
+	tci::reshape(ctx,T,shape_N,E[address+num_e]);
+      }
+    }
   }
+  
+  
 }
 
 #endif

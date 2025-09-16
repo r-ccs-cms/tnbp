@@ -77,7 +77,8 @@ Belief propagation step for self-consistent iteration
 	if( type == 3 || type == 2 ) {
 	  auto itAddressA = std::find(SiteIdx.begin(),SiteIdx.end(),SiteA);
 	  AddressA = std::distance(SiteIdx.begin(),itAddressA);
-	  TenT T = V[AddressA];
+	  TenT T;
+	  tci::copy(ctx,V[AddressA],T);
 	  auto RankA = tci::rank(ctx,T);
 	  std::vector<BondLabelT> IdxA(RankA);
 	  std::vector<BondLabelT> IdxE(2);
@@ -101,7 +102,7 @@ Belief propagation step for self-consistent iteration
 	    }
 	    ElemT norm_a = tci::normalize(ctx,T);
 	  }
-	  AdagA = V[AddressA];
+	  tci::copy(ctx,V[AddressA],AdagA);
 	  tci::cplx_conj(ctx,AdagA);
 	  
 	  std::vector<BondLabelT> IdxT(RankA);
@@ -117,9 +118,9 @@ Belief propagation step for self-consistent iteration
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
 	  if( I[TargetEdgeIdx].first == SiteA ) {
-	    F[MpT] = AdagA;
+	    tci::copy(ctx,AdagA,F[MpT]);
 	  } else {
-	    F[MpT+size_e] = AdagA;
+	    tci::copy(ctx,AdagA,F[MpT+size_e]);
 	  }
 	  
 	}
@@ -128,7 +129,8 @@ Belief propagation step for self-consistent iteration
 
 	  auto itAddressB = std::find(SiteIdx.begin(),SiteIdx.end(),SiteB);
 	  AddressB = std::distance(SiteIdx.begin(),itAddressB);
-	  TenT T = V[AddressB];
+	  TenT T;
+	  tci::copy(ctx,V[AddressB],T);
 	  auto RankB = tci::rank(ctx,T);
 	  std::vector<BondLabelT> IdxB(RankB);
 	  std::vector<BondLabelT> IdxE(2);
@@ -152,7 +154,7 @@ Belief propagation step for self-consistent iteration
 	    }
 	    ElemT norm_b = tci::normalize(ctx,T);
 	  }
-	  BdagB = V[AddressB];
+	  tci::copy(ctx,V[AddressB],BdagB);
 	  tci::cplx_conj(ctx,BdagB);
 	  
 	  std::vector<BondLabelT> IdxT(RankB);
@@ -168,40 +170,40 @@ Belief propagation step for self-consistent iteration
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
 	  if( I[TargetEdgeIdx].first == SiteB ) {
-	    F[MpT] = BdagB;
+	    tci::copy(ctx,BdagB,F[MpT]);
 	  } else {
-	    F[MpT+size_e] = BdagB;
+	    tci::copy(ctx,BdagB,F[MpT+size_e]);
 	  }
 	  
 	}
 
 	if( type == 1 ) {
-	  MpiSend(&BdagB,MpiRankA,comm);
+	  MpiSend(ctx,BdagB,MpiRankA,comm);
 	}
 	if( type == 2 ) {
-	  MpiRedv(&BdagB,MpiRankB,comm);
+	  MpiRecv(ctx,BdagB,MpiRankB,comm);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
 	  if( I[TargetEdgeIdx].first == SiteB ) {
-	    F[MpT] = BdagB;
+	    tci::copy(ctx,BdagB,F[MpT]);
 	  } else {
-	    F[MpT+size_e] = BdagB;
+	    tci::copy(ctx,BdagB,F[MpT+size_e]);
 	  }
 	}
 
 	if( type == 2 ) {
-	  MpiSend(AdagA,MpiRankB,comm);
+	  MpiSend(ctx,AdagA,MpiRankB,comm);
 	}
 	if( type == 1 ) {
-	  MpiRecv(AdagA,MpiRankA,comm);
+	  MpiRecv(ctx,AdagA,MpiRankA,comm);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
 	  if( I[TargetEdgeIdx].first == SiteA ) {
-	    F[MpT] = AdagA;
+	    tci::copy(ctx,AdagA,F[MpT]);
 	  } else {
-	    F[MpT+size_e] = AdagA;
+	    tci::copy(ctx,AdagA,F[MpT+size_e]);
 	  }
 	}
 	
@@ -239,7 +241,8 @@ Belief propagation step for self-consistent iteration
     for(size_t address=0; address < SiteIdx.size(); address++) {
       std::vector<int> BondIdx = GetSurroundingBondIdx(SiteIdx[address],I);
       for(size_t k=0; k < BondIdx.size(); k++) {
-	TenT T = V[address];
+	TenT T;
+	tci::copy(ctx,V[address],T);
 	auto RankV = tci::rank(ctx,T);
 	for(size_t l=0; l < BondIdx.size(); l++) {
 	  if( l != k ) {
@@ -249,7 +252,8 @@ Belief propagation step for self-consistent iteration
 	    if( I[BondIdx[l]].first == SiteIdx[address] ) {
 	      EdgeAddress += num_e;
 	    }
-	    TenT F = E[EdgeAddress];
+	    TenT F;
+	    tci::copy(ctx,E[EdgeAddress],F);
 	    std::vector<BondLabelT> IdxE(2);
 	    std::vector<BondLabelT> IdxV(RankV);
 	    std::vector<BondLabelT> IdxV_res(RankV);
@@ -262,7 +266,8 @@ Belief propagation step for self-consistent iteration
 	  }
 	} // end for(size_t l=0; l < BondIdx.size(); l++)
 	
-	TenT C = V[address];
+	TenT C;
+	tci::copy(ctx,V[address],C);
 	tci::cplx_conj(ctx,C);
 	std::vector<BondLabelT> IdxV(RankV);
 	std::vector<BondLabelT> IdxC(RankV);
@@ -280,7 +285,8 @@ Belief propagation step for self-consistent iteration
 	if( I[BondIdx[k]].second == SiteIdx[address] ) {
 	  EdgeAddress += num_e;
 	}
-	TenT F = E[EdgeAddress];
+	TenT F;
+	tci::copy(ctx,E[EdgeAddress],F);
 	ElemT norm_f = tci::normalize(ctx,F);
 
 	TenT D;

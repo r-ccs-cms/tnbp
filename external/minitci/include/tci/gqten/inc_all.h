@@ -8,6 +8,11 @@
 
 #include "gqten/gqten.h"
 #include "tci/gqten/traits.h"
+#include "tci/gqten/getter.h"
+#include "tci/gqten/constructor.h"
+#include "tci/gqten/manipulator.h"
+#include "tci/gqten/linalg.h"
+#include "tci/gqten/miscellaneous.h"
 
 #endif
 
