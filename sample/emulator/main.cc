@@ -98,8 +98,50 @@ int main(int argc, char * argv[]) {
   /**
      Measurement
    */
-  auto ops = pauli::load_sparse_pauli_op<ElemT>(option.sparsepauli);
+  auto spo = pauli::load_sparse_pauli_op<ElemT>(option.sparsepauli);
+  std::vector<Tensor> exOp;
+  std::vector<std::vector<int>> exSite;
+  tnbp::SparsePauliToTensorOp(ctx,spo,exOp,exSite);
+  std::vector<Tensor> exOp_one;
+  std::vector<int> exSite_one;
+  std::vector<Tensor> exOp_two;
+  std::vector<std::pair<int,int>> exPair_two;
+  ClassifyOps(edges,exOp,exSite,
+	      exOp_one,exSite_one,
+	      exOp_two,exPair_two);
+
+  std::vector<ElemT> exVal_one =
+    tnbp::Measure(ctx,edges,V,SiteIdx,Site_To_MpiRank,
+		  E,EdgeIdx,comm,exSite_one,exOp_one);
+
+  int meas_count = 0;
+  for(int site_address=0; site_address < exSite_one.size(); site_address++) {
+    if( mpi_rank == Site_To_MpiRank[exSite_one[site_address]] ) {
+      std::cout << " Expectation value of single site operator at site "
+		<< exSite_one[site_address]
+		<< " " << exVal_one[meas_count] << std::endl;
+      meas_count++;
+    }
+  }
+
+  std::vector<ElemT> exVal_two_rank =
+    tnbp::Measure(ctx,edges,V,SiteIdx,Site_To_MpiRank,
+		  E,EdgeIdx,comm,exPair_two,exOp_two_rank);
+  std::vector<ElemT> exVal_two(exPair_two.size());
   
+  MPI_Datatype DataT = GetMpiType<ElemT>();
+  MPI_Allreduce(exVal_two_rank.data(),exVal_two.data(),
+		exVal_two.size(),DataT,MPI_SUM,comm);
+
+  if( mpi_rank == mpi_master ) {
+    for(int edge_address=0; edge_address < exPair_two.size(); edge_address++) {
+      std::cout << " Expectation value of two site operator at sites ("
+		<< exPair_two[edge_address].first
+		<< "," << exPair_two[edge_address].second
+		<< ") "
+		<< exVal_two[edge_address] << std::endl;
+    }
+  }
   
   return 0;
 }

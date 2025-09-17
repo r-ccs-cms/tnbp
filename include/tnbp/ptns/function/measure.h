@@ -34,7 +34,7 @@ namespace tnbp {
     size_t size_e = EdgeIdx.size();
 
     size_t num_meas = 0;
-    for(int site_address=0; site_address < Site; site_address++) {
+    for(int site_address=0; site_address < Site.size(); site_address++) {
       if( mpi_rank == Site_To_MpiRank[Site[site_address]] ) {
 	num_meas++;
       }
