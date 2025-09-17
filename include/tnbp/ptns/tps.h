@@ -6,6 +6,8 @@
 #ifndef TNBP_PTNS_TPS_H
 #define TNBP_PTNS_TPS_H
 
+#include "framework/typedef.h"
+
 namespace tnbp {
 
   template <typename TenT>

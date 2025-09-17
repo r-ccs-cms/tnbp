@@ -6,6 +6,10 @@
 #ifndef TNBP_PTNS_FUNCTION_BP_H
 #define TNBP_PTNS_FUNCTION_BP_H
 
+#include "tnbp/framework/typedef.h"
+#include "tnbp/framework/graph.h"
+#include "tnbp/framework/mpiutility.h"
+
 namespace tnbp {
 
 /**

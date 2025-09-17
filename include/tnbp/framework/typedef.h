@@ -8,6 +8,10 @@
 
 #include "tci/tci.h"
 
+#include <vector>
+#include <utility>
+#include <map>
+
 namespace tnbp {
 
   template <typename TenT>

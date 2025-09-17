@@ -6,6 +6,8 @@
 #ifndef TNBP_PTNS_FUNCTION_TRUNCATION_H
 #define TNBP_PTNS_FUNCTION_TRUNCATION_H
 
+#include "tnbp/framework/root.h"
+
 namespace tnbp {
 
   /**

@@ -8,6 +8,7 @@
 
 #include "tnbp/ptns/inc_all.h"
 #include "tnbp/lattice/inc_all.h"
+#include "tnbp/device/inc_all.h"
 #include "tnbp/parser/inc_all.h"
 
 #endif
