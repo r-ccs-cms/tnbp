@@ -27,18 +27,19 @@ namespace tci {
        context_handle_t<TenT> &ctx,
        TenT &inout);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void diag(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout) {
+       context_handle_t<TenT> &ctx,
+       TenT &inout) {
     size_t size = inout.Size();
-    ElemT * praw = static_cast<ElemT*>(calloc(size*size,sizeof(ElemT)));
+    elem_t<TenT> * praw = static_cast<elem_t<TenT>*>(calloc(size*size,sizeof(elem_t<TenT>)));
     if(!praw) throw std::bad_alloc();
-    const ElemT * pdiag = inout.GetRaw();
+    const elem_t<TenT> * pdiag = inout.GetRaw();
     for(size_t i=0; i < size; i++) {
       praw[i+size*i] = pdiag[i];
     }
-    inout = gqten::tensor<ElemT>({size,size},praw);
+    inout = TenT({size,size},praw);
   }
 
   /**
@@ -48,18 +49,19 @@ namespace tci {
        const TenT &in,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void diag(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
-       gqten::tensor<ElemT> &out) {
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       TenT &out) {
     size_t dim = in.Size();
-    ElemT * praw = static_cast<ElemT*>(calloc(dim*dim,sizeof(ElemT)));
-    const ElemT * pdiag = in.GetRaw();
+    elem_t<TenT> * praw = static_cast<elem_t<TenT>*>(calloc(dim*dim,sizeof(elem_t<TenT>)));
+    const elem_t<TenT> * pdiag = in.GetRaw();
     for(size_t i=0; i < dim; i++) {
       praw[i+dim*i] = pdiag[i];
     }
-    out = gqten::tensor<ElemT>({dim,dim},praw);
+    out = TenT({dim,dim},praw);
   }
 
   /**
@@ -68,10 +70,11 @@ namespace tci {
        context_handle_t<TenT> &ctx,
        const TenT &a);
   */
-  template <typename ElemT>
-  real_t<gqten::tensor<ElemT>> norm(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &a) {
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
+  real_t<TenT> norm(
+       context_handle_t<TenT> &ctx,
+       const TenT &a) {
     return a.CalcNorm();
   }
 
@@ -81,11 +84,12 @@ namespace tci {
        context_handle_t<TenT> &ctx,
        TenT &inout);
   */
-  template <typename ElemT>
-  real_t<gqten::tensor<ElemT>> normalize(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout) {
-    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
+  real_t<TenT> normalize(
+       context_handle_t<TenT> &ctx,
+       TenT &inout) {
+    using RealT = typename tensor_traits<TenT>::real_t;
     RealT res = inout.Normalize();
     return res;
   }
@@ -97,12 +101,13 @@ namespace tci {
        const TenT in,
        TenT &out);
   */
-  template <typename ElemT>
-  real_t<gqten::tensor<ElemT>> normalize(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> in,
-       gqten::tensor<ElemT> &out) {
-    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
+  real_t<TenT> normalize(
+       context_handle_t<TenT> &ctx,
+       const TenT in,
+       TenT &out) {
+    using RealT = typename tensor_traits<TenT>::real_t;
     out = in;
     RealT res = out.Normalize();
     return res;
@@ -115,12 +120,13 @@ namespace tci {
        TenT &inout,
        const elem_t<TenT> s);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void scale(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout,
-       const elem_t<gqten::tensor<ElemT>> s) {
-    ElemT value = inout.GetScale();
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
+       const elem_t<TenT> s) {
+    elem_t<TenT> value = inout.GetScale();
     inout.SetScale(value*s);
   }
 
@@ -132,14 +138,15 @@ namespace tci {
        const elem_t<TenT> s,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void scale(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
-       const elem_t<gqten::tensor<ElemT>> s,
-       gqten::tensor<ElemT> &out) {
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       const elem_t<TenT> s,
+       TenT &out) {
     out = in;
-    ElemT value = out.GetScale();
+    elem_t<TenT> value = out.GetScale();
     out.SetScale(value*s);
   }
 
@@ -150,13 +157,14 @@ namespace tci {
        TenT &inout,
        const bond_idx_pairs_t<TenT> &bdidx_pairs);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void trace(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout,
-       const List<Pair<bond_idx_t<gqten::tensor<ElemT>>,
-       bond_idx_t<gqten::tensor<ElemT>>>> & bdidx_pairs) {
-    gqten::tensor<ElemT> temp;
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
+       const List<Pair<bond_idx_t<TenT>,
+       bond_idx_t<TenT>>> & bdidx_pairs) {
+    TenT temp;
     gqten::Trace(&inout,bdidx_pairs,&temp);
     inout = std::move(temp);
   }
@@ -169,13 +177,14 @@ namespace tci {
        const bond_idx_pairs_t<TenT> &bdidx_pairs,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void trace(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
-       const List<Pair<bond_idx_t<gqten::tensor<ElemT>>,
-       bond_idx_t<gqten::tensor<ElemT>>>> & bdidx_pairs,
-       gqten::tensor<ElemT> & out) {
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       const List<Pair<bond_idx_t<TenT>,
+       bond_idx_t<TenT>>> & bdidx_pairs,
+       TenT & out) {
     gqten::Trace(&in,bdidx_pairs,&out);
   }
 
@@ -186,12 +195,13 @@ namespace tci {
        TenT &inout,
        const rank_t<TenT> num_of_bonds_as_rows);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void exp(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout,
-       const rank_t<gqten::tensor<ElemT>> & num_of_bonds_as_rows) {
-    gqten::tensor<ElemT> temp;
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
+       const rank_t<TenT> & num_of_bonds_as_rows) {
+    TenT temp;
     gqten::ExpHermExact(&inout,num_of_bonds_as_rows,&temp);
     inout = std::move(temp);
   }
@@ -204,12 +214,13 @@ namespace tci {
        const rank_t<TenT> num_of_bonds_as_rows,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void exp(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
-       const rank_t<gqten::tensor<ElemT>> & num_of_bonds_as_rows,
-       gqten::tensor<ElemT> &out) {
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       const rank_t<TenT> & num_of_bonds_as_rows,
+       TenT &out) {
     gqten::ExpHermExact(&in,num_of_bonds_as_rows,&out);
   }
 
@@ -220,12 +231,13 @@ namespace tci {
        TenT &inout,
        const rank_t<TenT> num_of_bonds_as_rows);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void inverse(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout,
-       const rank_t<gqten::tensor<ElemT>> & num_of_bonds_as_rows) {
-    gqten::tensor<ElemT> temp;
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
+       const rank_t<TenT> & num_of_bonds_as_rows) {
+    TenT temp;
     gqten::Inverse(&inout,num_of_bonds_as_rows,&temp);
     inout = std::move(temp);
   }
@@ -238,12 +250,13 @@ namespace tci {
        const rank_t<TenT> num_of_bonds_as_rows,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void inverse(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
-       const rank_t<gqten::tensor<ElemT>> & num_of_bonds_as_rows,
-       gqten::tensor<ElemT> &out) {
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       const rank_t<TenT> & num_of_bonds_as_rows,
+       TenT &out) {
     gqten::Inverse(&in,num_of_bonds_as_rows,&out);
   }
 
@@ -257,18 +270,18 @@ Find common labels between two set of labels.
 @param[out] Idx_B: 
 #### Example
 @code
-std::vector<int> Label_A({1,2,3,5});
-std::vector<int> Label_B({2,4,5,6});
-std::vector<int> Label_C({4,1,3,6});
+List<BondLabelT> Label_A({1,2,3,5});
+List<BondLabelT> Label_B({2,4,5,6});
+List<BondLabelT> Label_C({4,1,3,6});
 CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
 // Idx_A = {1,-1,2,-2}, Idx_B = {-1,0,-2,3}
 @endcode
 */
   template <typename BondLabelT>
   inline void GqtenCntLabelHelper(
-    const std::vector<BondLabelT> & bond_labs_a,
-    const std::vector<BondLabelT> & bond_labs_b,
-    const std::vector<BondLabelT> & bond_labs_c,
+    const List<BondLabelT> & bond_labs_a,
+    const List<BondLabelT> & bond_labs_b,
+    const List<BondLabelT> & bond_labs_c,
     std::vector<int> & labs_a,
     std::vector<int> & labs_b) {
     const auto nA = bond_labs_a.size();
@@ -378,15 +391,16 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        TenT &c,
        const List<bond_label_t<TenT>> &bd_labs_c);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void contract(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &a,
-       const std::vector<bond_label_t<gqten::tensor<ElemT>>> &bd_labs_a,
-       const gqten::tensor<ElemT> &b,
-       const std::vector<bond_label_t<gqten::tensor<ElemT>>> &bd_labs_b,
-       gqten::tensor<ElemT> &c,
-       const std::vector<bond_label_t<gqten::tensor<ElemT>>> &bd_labs_c) {
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const List<bond_label_t<TenT>> &bd_labs_a,
+       const TenT &b,
+       const List<bond_label_t<TenT>> &bd_labs_b,
+       TenT &c,
+       const List<bond_label_t<TenT>> &bd_labs_c) {
     std::vector<int> labs_a;
     std::vector<int> labs_b;
     GqtenCntLabelHelper(bd_labs_a,bd_labs_b,bd_labs_c,labs_a,labs_b);
@@ -459,9 +473,9 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   template <typename BondLabelT>
   static inline void ParseBondLabelsTriple(
 	 std::string_view a, std::string_view b, std::string_view c,
-	 std::vector<BondLabelT>& out_a,
-	 std::vector<BondLabelT>& out_b,
-	 std::vector<BondLabelT>& out_c) {
+	 List<BondLabelT>& out_a,
+	 List<BondLabelT>& out_b,
+	 List<BondLabelT>& out_c) {
     std::unordered_map<std::string,BondLabelT> sym2id;
     sym2id.reserve(32);
     BondLabelT nextId = 0;
@@ -497,14 +511,15 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        TenT &c
        const std::string_view bd_labs_str_c);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void contract(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &a,
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
        const std::string_view bd_labs_str_a,
-       const gqten::tensor<ElemT> &b,
+       const TenT &b,
        const std::string_view bd_labs_str_b,
-       gqten::tensor<ElemT> &c,
+       TenT &c,
        const std::string_view bd_labs_str_c) {
     std::vector<int> labs_a;
     std::vector<int> labs_b;
@@ -520,14 +535,15 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        const List<TenT> &ins,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void linear_combine(
-       context_handle_t<gqten::tensor<ElemT>> & ctx,
-       const std::vector<gqten::tensor<ElemT>> & ins,
-       gqten::tensor<ElemT> & out) {
-    std::vector<gqten::tensor<ElemT>*> pins(ins.size());
+       context_handle_t<TenT> & ctx,
+       const List<TenT> & ins,
+       TenT & out) {
+    std::vector<TenT*> pins(ins.size());
     for (size_t i = 0; i < ins.size(); ++i) pins[i] = &ins[i];
-    std::vector<ElemT> coef(ins.size(),static_cast<ElemT>(1.0));
+    std::vector<elem_t<TenT>> coef(ins.size(),static_cast<elem_t<TenT>>(1.0));
     gqten::LinearCombine(coef,pins,&out);
   }
 
@@ -539,13 +555,14 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        const List<elem_t<TenT>> &coefs,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void linear_combine(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const std::vector<gqten::tensor<ElemT>> &ins,
-       const std::vector<elem_t<gqten::tensor<ElemT>>> &coefs,
-       gqten::tensor<ElemT> &out) {
-    std::vector<gqten::tensor<ElemT>*> pins(ins.size());
+       context_handle_t<TenT> &ctx,
+       const List<TenT> &ins,
+       const List<elem_t<TenT>> &coefs,
+       TenT &out) {
+    std::vector<TenT*> pins(ins.size());
     for (size_t i = 0; i < ins.size(); ++i) pins[i] = &ins[i];
     gqten::LinearCombine(coefs,pins,&out);
   }
@@ -560,15 +577,16 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        real_ten_t<TenT> &s_diag,
        TenT &v_dag);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void svd(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &a,
-       const rank_t<gqten::tensor<ElemT>> &num_of_bonds_as_rows,
-       gqten::tensor<ElemT> &u,
-       real_ten_t<gqten::tensor<ElemT>> &s_diag,
-       gqten::tensor<ElemT> &v_dag) {
-    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       TenT &u,
+       real_ten_t<TenT> &s_diag,
+       TenT &v_dag) {
+    using RealT = typename tensor_traits<TenT>::real_t;
     RealT * ps_raw = nullptr;
     size_t k;
     gqten::SVD(&a,num_of_bonds_as_rows,&u,&v_dag,ps_raw,&k);
@@ -588,18 +606,19 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        real_t<TenT> &trunc_err,
        const real_t<TenT> s_min);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void trunc_svd(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &a,
-       const rank_t<gqten::tensor<ElemT>> &num_of_bonds_as_rows,
-       gqten::tensor<ElemT> &u,
-       real_ten_t<gqten::tensor<ElemT>> &s_diag,
-       gqten::tensor<ElemT> &v_dag,
-       real_t<gqten::tensor<ElemT>> &trunc_err,
-       const real_t<gqten::tensor<ElemT>> s_min) {
-    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       TenT &u,
+       real_ten_t<TenT> &s_diag,
+       TenT &v_dag,
+       real_t<TenT> &trunc_err,
+       const real_t<TenT> s_min) {
+    using RealT = typename tensor_traits<TenT>::real_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
     RealT * ps_raw = nullptr;
     size_t chi;
     const auto shape_a = a.Shape();
@@ -616,7 +635,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
     gqten::TruncSVD(&a,ldims,chi_max,
 		    &u,&v_dag,ps_raw,
 		    &chi,&trunc_err,s_min);
-    s_diag = gqten::tensor<RealT>({static_cast<int>(chi)},ps_raw);
+    s_diag = gqten::tensor<RealT>({static_cast<int32_t>(chi)},ps_raw);
   }
 
   /// rank_t<TenT> & num_of_bonds_as_rows; should be rank_t<TenT> num_of_bonds_as_rows; 
@@ -633,24 +652,25 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        const bond_dim_t<TenT> chi_max,
        const real_t<TenT> s_min);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void trunc_svd(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &a,
-       const rank_t<gqten::tensor<ElemT>> &num_of_bonds_as_rows,
-       gqten::tensor<ElemT> &u,
-       real_ten_t<gqten::tensor<ElemT>> &s_diag,
-       gqten::tensor<ElemT> &v_dag,
-       real_t<gqten::tensor<ElemT>> &trunc_err,
-       const bond_dim_t<gqten::tensor<ElemT>> chi_max,
-       const real_t<gqten::tensor<ElemT>> s_min) {
-    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       TenT &u,
+       real_ten_t<TenT> &s_diag,
+       TenT &v_dag,
+       real_t<TenT> &trunc_err,
+       const bond_dim_t<TenT> chi_max,
+       const real_t<TenT> s_min) {
+    using RealT = typename tensor_traits<TenT>::real_t;
     RealT * ps_raw;
     size_t chi;
     gqten::TruncSVD(&a,static_cast<size_t>(num_of_bonds_as_rows),
 		    static_cast<size_t>(chi_max),
 		    &u,&v_dag,ps_raw,&chi,&trunc_err,s_min);
-    s_diag = gqten::tensor<RealT>({static_cast<int>(chi)},ps_raw);
+    s_diag = gqten::tensor<RealT>({static_cast<int32_t>(chi)},ps_raw);
   }
 
   /// rank_t<TenT> & num_of_bonds_as_rows; should be rank_t<TenT> num_of_bonds_as_rows; 
@@ -690,7 +710,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
 		    static_cast<size_t>(chi_max),
 		    static_cast<size_t>(chi_min),
 		    &u,&v_dag,ps_raw,&chi,&trunc_err,s_min);
-    s_diag = gqten::tensor<RealT>({static_cast<int>(chi)},ps_raw);
+    s_diag = gqten::tensor<RealT>({static_cast<int32_t>(chi)},ps_raw);
   }
 
   /**
@@ -722,18 +742,19 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        TenT &l,
        TenT &q);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void lq(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &a,
-       const rank_t<gqten::tensor<ElemT>> &num_of_bonds_as_rows,
-       gqten::tensor<ElemT> &l,
-       gqten::tensor<ElemT> &q) {
-    using RankT = typename tensor_traits<gqten::tensor<ElemT>>::rank_t;
-    using BondLabelT = typename tensor_traits<gqten::tensor<ElemT>>::bond_label_t;
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       TenT &l,
+       TenT &q) {
+    using RankT = typename tensor_traits<TenT>::rank_t;
+    using BondLabelT = typename tensor_traits<TenT>::bond_label_t;
     RankT num_bonds = a.Rank();
     RankT num_cols = num_bonds - num_of_bonds_as_rows;
-    std::vector<BondLabelT> trans_labs(num_bonds);
+    List<BondLabelT> trans_labs(num_bonds);
     for(size_t k=0; k < num_cols; k++) {
       trans_labs[k] = num_of_bonds_as_rows + k;
     }
@@ -743,8 +764,8 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
     auto adag = a;
     adag.Transpose(trans_labs);
     gqten::QR(&adag,num_cols,&q,&l);
-    std::vector<BondLabelT> q_labs(num_cols+1);
-    std::vector<BondLabelT> l_labs(num_of_bonds_as_rows+1);
+    List<BondLabelT> q_labs(num_cols+1);
+    List<BondLabelT> l_labs(num_of_bonds_as_rows+1);
     std::iota(q_labs.begin(),q_labs.end(),-1);
     q_labs[0] = num_cols;
     std::iota(l_labs.begin(),l_labs.end(),1);
@@ -791,15 +812,16 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        real_ten_t<TenT> &w_diag,
        TenT &v);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void eigh(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &a,
-       const rank_t<gqten::tensor<ElemT>> &num_of_bonds_as_rows,
-       real_ten_t<gqten::tensor<ElemT>> &w_diag,
-       gqten::tensor<ElemT> &v) {
-    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       real_ten_t<TenT> &w_diag,
+       TenT &v) {
+    using RealT = typename tensor_traits<TenT>::real_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
 
     const auto shape_a = a.Shape();
     const size_t rank_a = shape_a.size();
@@ -812,7 +834,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
     assert(m == ncols && "eigh: Hermitian matrix must be square after flattening");    
     
     RealT * pw = nullptr;
-    ElemT * pv = nullptr;
+    elem_t<TenT> * pv = nullptr;
     const char jobz = 'V';
     const char uplo = 'U';
     size_t n = 0;
@@ -823,7 +845,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
       shape_v[k] = shape_a[k];
     }
     shape_v[ldims] = n;
-    v = gqten::tensor<ElemT>(shape_v,pv);
+    v = TenT(shape_v,pv);
   }
   
   

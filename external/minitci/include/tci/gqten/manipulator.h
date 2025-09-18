@@ -24,12 +24,13 @@ namespace tci {
        const elem_coors_t<TenT> &coors,
        const elem_t<TenT> el);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void set_elem(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &a,
-       const elem_coors_t<gqten::tensor<ElemT>> &coors,
-       const elem_t<gqten::tensor<ElemT>> el) {
+       context_handle_t<TenT> &ctx,
+       TenT &a,
+       const elem_coors_t<TenT> &coors,
+       const elem_t<TenT> el) {
     a.SetElem(coors,el);
   }
 
@@ -40,11 +41,12 @@ namespace tci {
        TenT &inout,
        const shape_t<TenT> &new_shape);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void reshape(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout,
-       const shape_t<gqten::tensor<ElemT>> &new_shape) {
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
+       const shape_t<TenT> &new_shape) {
     inout.Reshape(new_shape);
   }
 
@@ -56,12 +58,13 @@ namespace tci {
        const shape_t<TenT> &new_shape,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void reshape(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
-       const shape_t<gqten::tensor<ElemT>> &new_shape,
-       gqten::tensor<ElemT> &out) {
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       const shape_t<TenT> &new_shape,
+       TenT &out) {
     out = in;
     out.Reshape(new_shape);
   }
@@ -73,11 +76,12 @@ namespace tci {
        TenT &inout,
        const List<bond_idx_t<TenT>> &new_order);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void transpose(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout,
-       const std::vector<bond_idx_t<gqten::tensor<ElemT>>> &new_order) {
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
+       const List<bond_idx_t<TenT>> &new_order) {
     inout.Transpose(new_order);
   }
 
@@ -89,12 +93,13 @@ namespace tci {
        const List<bond_idx_t<TenT>> &new_order,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void transpose(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
-       const std::vector<bond_idx_t<gqten::tensor<ElemT>>> &new_order,
-       gqten::tensor<ElemT> &out) {
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       const List<bond_idx_t<TenT>> &new_order,
+       TenT &out) {
     out = in;
     out.Transpose(new_order);
   }
@@ -105,10 +110,11 @@ namespace tci {
        context_handle_t<TenT> &ctx,
        TenT &inout);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void cplx_conj(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout) {
+       context_handle_t<TenT> &ctx,
+       TenT &inout) {
     inout.Conjugate();
   }
 
@@ -119,11 +125,12 @@ namespace tci {
        const TenT &in,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void cplx_conj(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
-       gqten::tensor<ElemT> &out) {
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       TenT &out) {
     out = in;
     out.Conjugate();
   }
@@ -135,17 +142,18 @@ namespace tci {
        const TenT &in,
        cplx_ten_t<TenT> &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void to_cplx(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
-       cplx_ten_t<gqten::tensor<ElemT>> &out) {
-    using CplxTenT = typename tensor_traits<gqten::tensor<ElemT>>::cplx_ten_t;
-    using CplxT = typename tensor_traits<gqten::tensor<ElemT>>::cplx_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       cplx_ten_t<TenT> &out) {
+    using CplxTenT = typename tensor_traits<TenT>::cplx_ten_t;
+    using CplxT = typename tensor_traits<TenT>::cplx_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
     size_t size = in.Size();
     CplxT * praw = static_cast<CplxT*>(std::malloc(size*sizeof(CplxT)));
-    const ElemT * pvals = in.GetRaw();
+    const elem_t<TenT> * pvals = in.GetRaw();
     for(size_t k=0; k < size; k++) {
       praw[k] = static_cast<CplxT>(pvals[k]);
     }
@@ -159,16 +167,17 @@ namespace tci {
        context_handle_t<TenT> &ctx,
        const TenT &in);
   */
-  template <typename ElemT>
-  cplx_ten_t<gqten::tensor<ElemT>> to_cplx(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in) {
-    using CplxTenT = typename tensor_traits<gqten::tensor<ElemT>>::cplx_ten_t;
-    using CplxT = typename tensor_traits<gqten::tensor<ElemT>>::cplx_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
+  cplx_ten_t<TenT> to_cplx(
+       context_handle_t<TenT> &ctx,
+       const TenT &in) {
+    using CplxTenT = typename tensor_traits<TenT>::cplx_ten_t;
+    using CplxT = typename tensor_traits<TenT>::cplx_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
     size_t size = in.Size();
     CplxT * praw = static_cast<CplxT*>(std::malloc(size*sizeof(CplxT)));
-    const ElemT * pvals = in.GetRaw();
+    const elem_t<TenT> * pvals = in.GetRaw();
     for(size_t k=0; k < size; k++) {
       praw[k] = static_cast<CplxT>(pvals[k]);
     }
@@ -183,17 +192,18 @@ namespace tci {
        const TenT &in,
        real_ten_t<TenT> &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void real(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
-       real_ten_t<gqten::tensor<ElemT>> &out) {
-    using RealTenT = typename tensor_traits<gqten::tensor<ElemT>>::real_ten_t;
-    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       real_ten_t<TenT> &out) {
+    using RealTenT = typename tensor_traits<TenT>::real_ten_t;
+    using RealT = typename tensor_traits<TenT>::real_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
     size_t size = in.Size();
     RealT * praw = static_cast<RealT*>(std::malloc(size*sizeof(RealT)));
-    const ElemT * pvals = in.GetRaw();
+    const elem_t<TenT> * pvals = in.GetRaw();
     for(size_t k=0; k < size; k++) {
       praw[k] = gqten::GetReal(pvals[k]);
     }
@@ -207,16 +217,17 @@ namespace tci {
        context_handle_t<TenT> &ctx,
        const TenT &in);
   */
-  template <typename ElemT>
-  real_ten_t<gqten::tensor<ElemT>> real(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in) {
-    using RealTenT = typename tensor_traits<gqten::tensor<ElemT>>::real_ten_t;
-    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
+  real_ten_t<TenT> real(
+       context_handle_t<TenT> &ctx,
+       const TenT &in) {
+    using RealTenT = typename tensor_traits<TenT>::real_ten_t;
+    using RealT = typename tensor_traits<TenT>::real_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
     size_t size = in.Size();
     RealT * praw = static_cast<RealT*>(std::malloc(size*sizeof(RealT)));
-    const ElemT * pvals = in.GetRaw();
+    const elem_t<TenT> * pvals = in.GetRaw();
     for(size_t k=0; k < size; k++) {
       praw[k] = gqten::GetReal(pvals[k]);
     }
@@ -236,17 +247,18 @@ namespace tci {
        const TenT &in,
        real_ten_t<TenT> &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void imag(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
-       real_ten_t<gqten::tensor<ElemT>> &out) {
-    using RealTenT = typename tensor_traits<gqten::tensor<ElemT>>::real_ten_t;
-    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       real_ten_t<TenT> &out) {
+    using RealTenT = typename tensor_traits<TenT>::real_ten_t;
+    using RealT = typename tensor_traits<TenT>::real_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
     size_t size = in.Size();
     RealT * praw = static_cast<RealT*>(std::malloc(size*sizeof(RealT)));
-    const ElemT * pvals = in.GetRaw();
+    const elem_t<TenT> * pvals = in.GetRaw();
     for(size_t k=0; k < size; k++) {
       praw[k] = GetImag(pvals[k]);
     }
@@ -261,16 +273,17 @@ namespace tci {
        context_handle_t<TenT> &ctx,
        const TenT &in);
   */
-  template <typename ElemT>
-  real_ten_t<gqten::tensor<ElemT>> imag(
-	context_handle_t<gqten::tensor<ElemT>> &ctx,
-	const gqten::tensor<ElemT> &in) {
-    using RealTenT = typename tensor_traits<gqten::tensor<ElemT>>::real_ten_t;
-    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
+  real_ten_t<TenT> imag(
+	context_handle_t<TenT> &ctx,
+	const TenT &in) {
+    using RealTenT = typename tensor_traits<TenT>::real_ten_t;
+    using RealT = typename tensor_traits<TenT>::real_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
     size_t size = in.Size();
     RealT * praw = static_cast<RealT*>(std::malloc(size*sizeof(RealT)));
-    const ElemT * pvals = in.GetRaw();
+    const elem_t<TenT> * pvals = in.GetRaw();
     for(size_t k=0; k < size; k++) {
       praw[k] = GetImag(pvals[k]);
     }
@@ -286,16 +299,17 @@ namespace tci {
        const Map<bond_idx_t<TenT>, bond_dim_t<TenT>> &
        bond_idx_increment_map);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void expand(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout,
-       const std::map<bond_idx_t<gqten::tensor<ElemT>>,
-       bond_dim_t<gqten::tensor<ElemT>>> &
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
+       const Map<bond_idx_t<TenT>,
+       bond_dim_t<TenT>> &
        bond_idx_increment_map) {
-    using BondDimT = typename tensor_traits<gqten::tensor<ElemT>>::bond_dim_t;
-    using BondIdxT = typename tensor_traits<gqten::tensor<ElemT>>::bond_idx_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+    using BondDimT = typename tensor_traits<TenT>::bond_dim_t;
+    using BondIdxT = typename tensor_traits<TenT>::bond_idx_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
     size_t size = inout.Size();
     ShapeT shape = inout.Shape();
     ShapeT new_shape = inout.Shape();
@@ -307,8 +321,8 @@ namespace tci {
     for(const auto & d : new_shape) {
       new_size *= d;
     }
-    ElemT * new_praw = static_cast<ElemT*>(std::calloc(new_size,sizeof(ElemT)));
-    gqten::tensor<ElemT> temp(new_shape,new_praw);
+    elem_t<TenT> * new_praw = static_cast<elem_t<TenT>*>(std::calloc(new_size,sizeof(elem_t<TenT>)));
+    TenT temp(new_shape,new_praw);
     std::vector<BondIdxT> coordinate(inout.Rank());
     for(size_t i=0; i < size; i++) {
       size_t itemp = i;
@@ -331,18 +345,19 @@ namespace tci {
        bond_idx_increment_map,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void expand(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &in,
-       const std::map<
-       bond_idx_t<gqten::tensor<ElemT>>,
-       bond_dim_t<gqten::tensor<ElemT>>> &
+       context_handle_t<TenT> &ctx,
+       TenT &in,
+       const Map<
+       bond_idx_t<TenT>,
+       bond_dim_t<TenT>> &
        bond_idx_increment_map,
-       gqten::tensor<ElemT> &out) {
-    using BondDimT = typename tensor_traits<gqten::tensor<ElemT>>::bond_dim_t;
-    using BondIdxT = typename tensor_traits<gqten::tensor<ElemT>>::bond_idx_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+       TenT &out) {
+    using BondDimT = typename tensor_traits<TenT>::bond_dim_t;
+    using BondIdxT = typename tensor_traits<TenT>::bond_idx_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
     size_t size = in.Size();
     ShapeT shape = in.Shape();
     ShapeT new_shape = in.Shape();
@@ -353,8 +368,8 @@ namespace tci {
     for(const auto & d : new_shape) {
       new_size *= d;
     }
-    ElemT * new_praw = static_cast<ElemT*>(std::calloc(new_size,sizeof(ElemT)));
-    out = gqten::tensor<ElemT>(new_shape,new_praw);
+    elem_t<TenT> * new_praw = static_cast<elem_t<TenT>*>(std::calloc(new_size,sizeof(elem_t<TenT>)));
+    out = TenT(new_shape,new_praw);
     std::vector<BondIdxT> coordinate(in.Rank());
     for(size_t i=0; i < size; i++) {
       size_t itemp = i;
@@ -374,16 +389,17 @@ namespace tci {
        const bond_idx_elem_coor_pair_map<TenT> &
        bd_idx_el_coor_pair_map);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void shrink(
-       context_handle_t<gqten::tensor<ElemT>>& /*ctx*/,
-       gqten::tensor<ElemT>& inout,
-       const std::map<
-       bond_idx_t<gqten::tensor<ElemT>>,
-       std::pair<elem_coor_t<gqten::tensor<ElemT>>,
-                 elem_coor_t<gqten::tensor<ElemT>>>>&
+       context_handle_t<TenT>& /*ctx*/,
+       TenT& inout,
+       const Map<
+       bond_idx_t<TenT>,
+       Pair<elem_coor_t<TenT>,
+            elem_coor_t<TenT>>>&
        bd_idx_el_coor_pair_map) {
-    using Traits   = tensor_traits<gqten::tensor<ElemT>>;
+    using Traits   = tensor_traits<TenT>;
     using BondIdxT = typename Traits::bond_idx_t;   // size_t
     using ShapeT   = typename Traits::shape_t;
     
@@ -402,9 +418,9 @@ namespace tci {
     
     size_t new_size = 1;
     for (auto d : new_shape) new_size *= d;
-    ElemT* raw = static_cast<ElemT*>(std::calloc(new_size, sizeof(ElemT)));
+    elem_t<TenT>* raw = static_cast<elem_t<TenT>*>(std::calloc(new_size, sizeof(elem_t<TenT>)));
     if (!raw) throw std::bad_alloc();
-    gqten::tensor<ElemT> out(new_shape, raw);
+    TenT out(new_shape, raw);
     
     std::vector<BondIdxT> src(rank), dst(rank);
     for (size_t i = 0; i < new_size; ++i) {
@@ -436,18 +452,19 @@ namespace tci {
        TenT &out);
   */
   
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void shrink(
-       context_handle_t<gqten::tensor<ElemT>>& /*ctx*/,
-       const gqten::tensor<ElemT>& in,
-       const std::map<
-       bond_idx_t<gqten::tensor<ElemT>>,
-       std::pair<elem_coor_t<gqten::tensor<ElemT>>,
-                 elem_coor_t<gqten::tensor<ElemT>>>>&
+       context_handle_t<TenT>& /*ctx*/,
+       const TenT& in,
+       const Map<
+       bond_idx_t<TenT>,
+       Pair<elem_coor_t<TenT>,
+            elem_coor_t<TenT>>>&
        bd_idx_el_coor_pair_map,
-       gqten::tensor<ElemT> & out) {
+       TenT & out) {
     out = in;
-    shrink(*(context_handle_t<gqten::tensor<ElemT>>*)nullptr, out, bd_idx_el_coor_pair_map);
+    shrink(*(context_handle_t<TenT>*)nullptr, out, bd_idx_el_coor_pair_map);
   }
 
   /**
@@ -459,19 +476,19 @@ namespace tci {
        elem_coor_t<TenT>,elem_coor_t<TenT>>> &
        coor_pairs);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void extract_sub(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout,
-       const std::vector<std::pair<
-       elem_coor_t<gqten::tensor<ElemT>>,
-       elem_coor_t<gqten::tensor<ElemT>>>> &
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
+       const List<std::pair<
+       elem_coor_t<TenT>,
+       elem_coor_t<TenT>>> &
        coor_pairs) {
 
-    using TenT     = gqten::tensor<ElemT>;
     using BondIdxT = bond_idx_t<TenT>;
 
-    std::map<BondIdxT, std::pair<elem_coor_t<TenT>, elem_coor_t<TenT>>> m;
+    Map<BondIdxT, Pair<elem_coor_t<TenT>, elem_coor_t<TenT>>> m;
     m.clear();
     for (BondIdxT ax = 0; ax < coor_pairs.size(); ++ax) {
       const auto& [lo, hi] = coor_pairs[ax];
@@ -493,15 +510,16 @@ namespace tci {
        coor_pairs,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void extract_sub(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
        const std::vector<Pair<
-       elem_coor_t<gqten::tensor<ElemT>>,
-       elem_coor_t<gqten::tensor<ElemT>>>> &
+       elem_coor_t<TenT>,
+       elem_coor_t<TenT>>> &
        coor_pairs,
-       gqten::tensor<ElemT> &out) {
+       TenT &out) {
     out = in;
     extract_sub(ctx, out, coor_pairs);
   }
@@ -514,14 +532,15 @@ namespace tci {
        const TenT &sub,
        const elem_coors_t<TenT> &begin_pt);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void replace_sub(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout,
-       const gqten::tensor<ElemT> &sub,
-       const elem_coors_t<gqten::tensor<ElemT>> &begin_pt) {
-    using BondIdxT = typename tensor_traits<gqten::tensor<ElemT>>::bond_idx_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
+       const TenT &sub,
+       const elem_coors_t<TenT> &begin_pt) {
+    using BondIdxT = typename tensor_traits<TenT>::bond_idx_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
     size_t size = inout.Size();
     size_t sub_size = sub.Size();
     ShapeT shape = inout.Shape();
@@ -548,15 +567,16 @@ namespace tci {
        const elem_coors_t<TenT> &begin_pt,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void replace_sub(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
-       const gqten::tensor<ElemT> &sub,
-       const elem_coors_t<gqten::tensor<ElemT>> &begin_pt,
-       gqten::tensor<ElemT> &out) {
-    using BondIdxT = typename tensor_traits<gqten::tensor<ElemT>>::bond_idx_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
+       const TenT &sub,
+       const elem_coors_t<TenT> &begin_pt,
+       TenT &out) {
+    using BondIdxT = typename tensor_traits<TenT>::bond_idx_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
     out = in;
     size_t size = in.Size();
     size_t sub_size = sub.Size();
@@ -583,15 +603,16 @@ namespace tci {
        const bond_idx_t<TenT> concat_bdidx,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void concatenate(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const std::vector<gqten::tensor<ElemT>> &ins,
-       const bond_idx_t<gqten::tensor<ElemT>> concat_bdidx,
-       gqten::tensor<ElemT> &out) {
+       context_handle_t<TenT> &ctx,
+       const std::vector<TenT> &ins,
+       const bond_idx_t<TenT> concat_bdidx,
+       TenT &out) {
 
-    using BondIdxT = typename tensor_traits<gqten::tensor<ElemT>>::bond_idx_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+    using BondIdxT = typename tensor_traits<TenT>::bond_idx_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
     if( ins.size() == 0 ) {
       return;
     }
@@ -622,8 +643,8 @@ namespace tci {
     new_shape[concat_bdidx] = new_cdim;
     new_size *= new_cdim;
 
-    ElemT * new_praw = static_cast<ElemT*>(std::malloc(new_size*sizeof(ElemT)));
-    out = gqten::tensor<ElemT>(new_shape,new_praw);
+    elem_t<TenT> * new_praw = static_cast<elem_t<TenT>*>(std::malloc(new_size*sizeof(elem_t<TenT>)));
+    out = TenT(new_shape,new_praw);
     std::vector<BondIdxT> new_coordinate(out.Rank());
     std::vector<BondIdxT> coordinate(out.Rank());
     for(size_t m=0; m < init_pt.size(); m++) {
@@ -652,15 +673,16 @@ namespace tci {
        const bond_idx_t<TenT> stack_bdidx,
        TenT &out);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void stack(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const std::vector<gqten::tensor<ElemT>> &ins,
-       const bond_idx_t<gqten::tensor<ElemT>> stack_bdidx,
-       gqten::tensor<ElemT> &out) {
+       context_handle_t<TenT> &ctx,
+       const std::vector<TenT> &ins,
+       const bond_idx_t<TenT> stack_bdidx,
+       TenT &out) {
     
-    using BondIdxT = typename tensor_traits<gqten::tensor<ElemT>>::bond_idx_t;
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
+    using BondIdxT = typename tensor_traits<TenT>::bond_idx_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
     if( ins.size() == 0 ) {
       return;
     }
@@ -673,8 +695,8 @@ namespace tci {
     }
     size_t size = ins[0].Size();
     size_t new_size = ins.size() * size;
-    ElemT * new_praw = static_cast<ElemT*>(std::malloc(new_size*sizeof(ElemT)));
-    out = gqten::tensor<ElemT>(new_shape,new_praw);
+    elem_t<TenT> * new_praw = static_cast<elem_t<TenT>*>(std::malloc(new_size*sizeof(elem_t<TenT>)));
+    out = TenT(new_shape,new_praw);
     std::vector<BondIdxT> new_coordinate(out.Rank());
     std::vector<BondIdxT> coordinate(ins[0].Rank());
     for(size_t m=0; m < ins.size(); m++) {
@@ -705,13 +727,14 @@ namespace tci {
        TenT &inout,
        Func &&f);
   */
-  template <typename ElemT, typename Func>
+  template <typename TenT, typename Func>
+  requires is_gqten_tensor_v<TenT>
   void for_each(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout,
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
        Func &&f) {
     for(size_t i=0; i < inout.Size(); i++) {
-      ElemT elem = inout.GetElem();
+      elem_t<TenT> elem = inout.GetElem();
       std::invoke(f, elem);
       inout.SetElem(elem);
     }
@@ -724,14 +747,15 @@ namespace tci {
        const TenT &in,
        Func &&f);
   */
-  template <typename ElemT, typename Func>
-  gqten::tensor<ElemT> for_each(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
+  template <typename TenT, typename Func>
+  requires is_gqten_tensor_v<TenT>
+  TenT for_each(
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
        Func &&f) {
-    gqten::tensor<ElemT> res(in);
+    TenT res(in);
     for(size_t i=0; i < res.Size(); i++) {
-      ElemT elem = res.GetElem();
+      elem_t<TenT> elem = res.GetElem();
       std::invoke(f, elem);
       res.SetElem(elem);
     }
@@ -745,13 +769,14 @@ namespace tci {
        TenT &inout,
        Func &&f);
   */
-  template <typename ElemT, typename Func>
+  template <typename TenT, typename Func>
+  requires is_gqten_tensor_v<TenT>
   void for_each_with_coors(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       gqten::tensor<ElemT> &inout,
+       context_handle_t<TenT> &ctx,
+       TenT &inout,
        Func &&f) {
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
-    using CoorsT = typename tensor_traits<gqten::tensor<ElemT>>::elem_coors_t;
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
+    using CoorsT = typename tensor_traits<TenT>::elem_coors_t;
     CoorsT coors(inout.Rank());
     ShapeT shape = inout.Shape();
     for(size_t i=0; i < inout.Size(); i++) {
@@ -773,14 +798,15 @@ namespace tci {
        const TenT &in,
        Func &&f);
   */
-  template <typename ElemT, typename Func>
-  gqten::tensor<ElemT>  for_each_with_coors(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &in,
+  template <typename TenT, typename Func>
+  requires is_gqten_tensor_v<TenT>
+  TenT  for_each_with_coors(
+       context_handle_t<TenT> &ctx,
+       const TenT &in,
        Func &&f) {
-    using ShapeT = typename tensor_traits<gqten::tensor<ElemT>>::shape_t;
-    using CoorsT = typename tensor_traits<gqten::tensor<ElemT>>::elem_coors_t;
-    gqten::tensor<ElemT> res(in);
+    using ShapeT = typename tensor_traits<TenT>::shape_t;
+    using CoorsT = typename tensor_traits<TenT>::elem_coors_t;
+    TenT res(in);
     CoorsT coors(res.Rank());
     ShapeT shape = res.Shape();
     for(size_t i=0; i < res.Size(); i++) {

@@ -1,7 +1,7 @@
 /// This file is a part of r-ccs-cms/tnbp
 /**
 @file tci/gqten/getter.h
-@brief header to define TCI getters for gqten::tensor<ElemT>
+@brief header to define TCI getters for TenT
 */
 #ifndef TCI_GQTEN_GETTER_H
 #define TCI_GQTEN_GETTER_H
@@ -12,53 +12,58 @@
 namespace tci {
 
   // rank
-  template <typename ElemT>
-  inline rank_t<gqten::tensor<ElemT>> rank(
-      context_handle_t<gqten::tensor<ElemT>>& /*ctx*/,
-      const gqten::tensor<ElemT>& a) {
+  template <typename TenT>
+  inline rank_t<TenT> rank(
+      context_handle_t<TenT>& /*ctx*/,
+      const TenT& a) {
     return a.Rank();
   }
 
   // shape
-  template <typename ElemT>
-  inline shape_t<gqten::tensor<ElemT>> shape(
-      context_handle_t<gqten::tensor<ElemT>>& /*ctx*/,
-      const gqten::tensor<ElemT>& a) {
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
+  inline shape_t<TenT> shape(
+      context_handle_t<TenT>& /*ctx*/,
+      const TenT& a) {
     return a.Shape();
   }
 
   // size (number of elements)
-  template <typename ElemT>
-  inline ten_size_t<gqten::tensor<ElemT>> size(
-      context_handle_t<gqten::tensor<ElemT>>& /*ctx*/,
-      const gqten::tensor<ElemT>& a) {
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
+  inline ten_size_t<TenT> size(
+      context_handle_t<TenT>& /*ctx*/,
+      const TenT& a) {
     return a.Size();
   }
 
   // size in bytes
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   inline std::size_t size_bytes(
-      context_handle_t<gqten::tensor<ElemT>>& /*ctx*/,
-      const gqten::tensor<ElemT>& a) {
-    return static_cast<std::size_t>(a.Size()) * sizeof(ElemT);
+      context_handle_t<TenT>& /*ctx*/,
+      const TenT& a) {
+    return static_cast<std::size_t>(a.Size()) * sizeof(elem_t<TenT>);
   }
 
   // get_elem (out-param)
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   inline void get_elem(
-      context_handle_t<gqten::tensor<ElemT>>& /*ctx*/,
-      const gqten::tensor<ElemT>& a,
-      const elem_coors_t<gqten::tensor<ElemT>>& coors,
-      elem_t<gqten::tensor<ElemT>>& elem) {
+      context_handle_t<TenT>& /*ctx*/,
+      const TenT& a,
+      const elem_coors_t<TenT>& coors,
+      elem_t<TenT>& elem) {
     elem = a.GetElem(coors);
   }
 
   // get_elem (by value)
-  template <typename ElemT>
-  inline elem_t<gqten::tensor<ElemT>> get_elem(
-      context_handle_t<gqten::tensor<ElemT>>& /*ctx*/,
-      const gqten::tensor<ElemT>& a,
-      const elem_coors_t<gqten::tensor<ElemT>>& coors) {
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
+  inline elem_t<TenT> get_elem(
+      context_handle_t<TenT>& /*ctx*/,
+      const TenT& a,
+      const elem_coors_t<TenT>& coors) {
     return a.GetElem(coors);
   }
 
