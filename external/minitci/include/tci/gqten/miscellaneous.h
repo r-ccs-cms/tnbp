@@ -53,7 +53,7 @@ namespace tci {
        Func &&coors2idx) {
     auto shape = a.Shape();
     if( shape.empty() ) {
-      a.GetScale(*first);
+      *first = a.GetScale();
       return;
     }
 

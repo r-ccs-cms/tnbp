@@ -262,7 +262,7 @@ namespace tnbp {
 	RealTenT S;
 	RankT num_row_bonds = 2;
 	tci::svd(ctx,gate,num_row_bonds,A,S,B);
-	tci::for_each(ctx_r,S,[](ElemT & elem) {
+	tci::for_each(ctx_r,S,[](RealT & elem) {
 	  if( elem > 0.0 ) { elem = std::sqrt(elem); }
 	  else { elem = 0.0; }});
 	TenT D;
@@ -479,7 +479,7 @@ namespace tnbp {
 	TenT Gv; // temporary
 	RankT num_row_bonds = 2;
 	tci::svd(ctx,gate,num_row_bonds,Ga,S,Gv);
-	tci::for_each(ctx_r,S,[](ElemT & elem) {
+	tci::for_each(ctx_r,S,[](RealT & elem) {
 	  if( elem > 0.0 ) { elem = std::sqrt(elem); }
 	  else             { elem = 0.0; }
 	});
@@ -510,7 +510,7 @@ namespace tnbp {
 	ShapeT shape_Dab = tci::shape(ctx,D);
 	num_row_bonds = 3;
 	tci::svd(ctx,Gv,num_row_bonds,Gb,S,Gc);
-	tci::for_each(ctx,S,[](ElemT & elem) {
+	tci::for_each(ctx,S,[](RealT & elem) {
 	  if( elem > 0.0 ) { elem = std::sqrt(elem); }
 	  else             { elem = 0.0; }
 	});

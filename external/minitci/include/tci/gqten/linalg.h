@@ -39,7 +39,8 @@ namespace tci {
     for(size_t i=0; i < size; i++) {
       praw[i+size*i] = pdiag[i];
     }
-    inout = TenT({size,size},praw);
+    inout = TenT({static_cast<int32_t>(size),
+	static_cast<int32_t>(size)},praw);
   }
 
   /**
@@ -563,7 +564,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        const List<elem_t<TenT>> &coefs,
        TenT &out) {
     std::vector<TenT*> pins(ins.size());
-    for (size_t i = 0; i < ins.size(); ++i) pins[i] = &ins[i];
+    for (size_t i = 0; i < ins.size(); ++i) *pins[i] = ins[i];
     gqten::LinearCombine(coefs,pins,&out);
   }
 
@@ -590,7 +591,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
     RealT * ps_raw = nullptr;
     size_t k;
     gqten::SVD(&a,num_of_bonds_as_rows,&u,&v_dag,ps_raw,&k);
-    s_diag = gqten::tensor<RealT>({k},ps_raw);
+    s_diag = gqten::tensor<RealT>({static_cast<int32_t>(k)},ps_raw);
   }
 
   /// rank_t<TenT> & num_of_bonds_as_rows; should be rank_t<TenT> num_of_bonds_as_rows; 

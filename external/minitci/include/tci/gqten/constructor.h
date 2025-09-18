@@ -124,8 +124,11 @@ inline void assign_from_container(
   Func&& coors2idx,
   TenT& a) {
   if (shape.empty()) {
-    // For scaler 
-    a = TenT({}, init_elems_begin);
+    // For scaler
+    elem_t<TenT> * data = static_cast<elem_t<TenT>*>(
+		    std::malloc(static_cast<size_t>(1)));
+    *data = *init_elems_begin;
+    a = TenT(shape, data);
     return;
   }
 

@@ -13,8 +13,9 @@ namespace tnbp {
 
   template <typename ElemT>
   std::vector<pauli::LocalOp> PauliTerm_to_LocalOps(const pauli::Term<ElemT> & sop) {
-    std::vector<pauli::LocalOp> res(sop.size());
-    res = string_to_non_identity_localops(sop.pauli_string);
+    std::vector<pauli::LocalOp> res;
+    res = pauli::string_to_non_identity_localops(sop.pauli_string);
+    return res;
   }
   
   template <typename ElemT>
@@ -54,7 +55,8 @@ namespace tnbp {
     auto it_tensor = res_tensor.begin();
     auto it_qubits = res_qubits.begin();
     for(const auto & term : sparse_pauli) {
-      std::vector<pauli::LocalOp> localop = PauliTerm_to_LocalOp(term);
+      std::vector<pauli::LocalOp> localop =
+	PauliTerm_to_LocalOps<ElemT>(term);
       std::vector<int> qubits;
       TenT opten;
       TenT tempo;

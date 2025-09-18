@@ -734,9 +734,9 @@ namespace tci {
        TenT &inout,
        Func &&f) {
     for(size_t i=0; i < inout.Size(); i++) {
-      elem_t<TenT> elem = inout.GetElem();
+      elem_t<TenT> elem = inout.GetElem(i);
       std::invoke(f, elem);
-      inout.SetElem(elem);
+      inout.SetElem(i,elem);
     }
   }
 

@@ -11,10 +11,10 @@
 
 #include "option.h"
 
-#ifdef USE_COMPLEX
-using Tensor = typename gqten::tensor<gqten::Cplx_16>;
+#ifdef USE_SINGLE
+using Tensor = typename gqten::tensor<std::complex<float>>;
 #else
-using Tensor = typename gqten::tensor<gqten::Real_8>;
+using Tensor = typename gqten::tensor<std::complex<double>>;
 #endif
 
 using Elem = typename tci::tensor_traits<Tensor>::elem_t;
