@@ -668,20 +668,21 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        const real_t<TenT> target_trunc_err,
        const real_t<TenT> s_min);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void trunc_svd(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &a,
-       const rank_t<gqten::tensor<ElemT>> &num_of_bonds_as_rows,
-       gqten::tensor<ElemT> &u,
-       real_ten_t<gqten::tensor<ElemT>> &s_diag,
-       gqten::tensor<ElemT> &v_dag,
-       real_t<gqten::tensor<ElemT>> &trunc_err,
-       const bond_dim_t<gqten::tensor<ElemT>> chi_min,
-       const bond_dim_t<gqten::tensor<ElemT>> chi_max,
-       const real_t<gqten::tensor<ElemT>> target_trunc_err,
-       const real_t<gqten::tensor<ElemT>> s_min) {
-    using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       TenT &u,
+       real_ten_t<TenT> &s_diag,
+       TenT &v_dag,
+       real_t<TenT> &trunc_err,
+       const bond_dim_t<TenT> chi_min,
+       const bond_dim_t<TenT> chi_max,
+       const real_t<TenT> target_trunc_err,
+       const real_t<TenT> s_min) {
+    using RealT = typename tensor_traits<TenT>::real_t;
     RealT * ps_raw;
     size_t chi;
     gqten::TruncSVD(&a,static_cast<size_t>(num_of_bonds_as_rows),
@@ -701,13 +702,14 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        TenT &q,
        TenT &r);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void qr(
-       context_handle_t<gqten::tensor<ElemT>> &ctx,
-       const gqten::tensor<ElemT> &a,
-       const rank_t<gqten::tensor<ElemT>> &num_of_bonds_as_rows,
-       gqten::tensor<ElemT> &q,
-       gqten::tensor<ElemT> &r) {
+       context_handle_t<TenT> &ctx,
+       const TenT &a,
+       const rank_t<TenT> &num_of_bonds_as_rows,
+       TenT &q,
+       TenT &r) {
     gqten::QR(&a,num_of_bonds_as_rows,&q,&r);
   }
 

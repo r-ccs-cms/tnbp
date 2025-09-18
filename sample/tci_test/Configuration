@@ -11,7 +11,7 @@ AEL_PATH=/Users/sirakawa/Physics/Package/GraceQ/tensor-ng-dev/tensor-ng-dev/exte
 CCCOM=mpicxx
 
 # flags for compile: include path to openmp. The following is the case using homebrew's llvm on Mac
-CCFLAGS= -std=c++17 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3
+CCFLAGS= -std=c++20 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3
 
 # flags for linking
 SYSLIB= -L/opt/homebrew/opt/openblas/lib -llapack -lblas

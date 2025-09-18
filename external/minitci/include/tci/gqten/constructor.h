@@ -157,22 +157,24 @@ inline gqten::tensor<ElemT> assign_from_container(
 
 //========================== random (2 形) =========================
 
-template <typename ElemT, typename RandNumGen>
+template <typename TenT, typename RandNumGen>
+requires is_gqten_tensor_v<TenT>
 inline void random(
-  context_handle_t<gqten::tensor<ElemT>> & ctx,
-  const shape_t<gqten::tensor<ElemT>>& shape,
+  context_handle_t<TenT> & ctx,
+  const shape_t<TenT>& shape,
   RandNumGen& gen,
-  gqten::tensor<ElemT>& a) {
-  a = gqten::tensor<ElemT>(shape);
+  TenT & a) {
+  a = TenT(shape);
   a.Random(3, {}, gen);
 }
 
-template <typename ElemT, typename RandNumGen>
-inline gqten::tensor<ElemT> random(
-  context_handle_t<gqten::tensor<ElemT>> & ctx,
-  const shape_t<gqten::tensor<ElemT>> & shape,
+template <typename TenT, typename RandNumGen>
+requires is_gqten_tensor_v<TenT>
+inline TenT random(
+  context_handle_t<TenT> & ctx,
+  const shape_t<TenT> & shape,
   RandNumGen & gen) {
-  gqten::tensor<ElemT> a;
+  TenT a;
   random(ctx, shape, gen, a);
   return a;
 }

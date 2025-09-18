@@ -22,7 +22,7 @@ int main(int argc, char * argv[]) {
   Option option = generate_option(argc,argv);
 
   ContextHandle ctx;
-  tci::create_context(ctx);
+  tci::create_context<Tensor>(ctx);
 
   std::mt19937 engine(option.seed);
   Shape shape = option.shape;

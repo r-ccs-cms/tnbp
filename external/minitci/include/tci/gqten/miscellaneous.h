@@ -13,8 +13,10 @@ namespace tci {
   template <typename ContextHandleT>
   void create_context(ContextHandleT &ctx);
   */
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   inline void create_context(
-    gqten_handle &ctx) {
+    context_handle_t<TenT> &ctx) {
     ctx.text = std::string("created");
   }
 
@@ -23,9 +25,10 @@ namespace tci {
   template <typename ContextHandleT>
   void destroy_context(ContextHandleT &ctx);
   */
-  template <typename ElemT>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   void destroy_context(
-     gqten_handle &ctx) {
+    context_handle_t<TenT> &ctx) {
     ctx.text = std::string("destroied");
   }
 
