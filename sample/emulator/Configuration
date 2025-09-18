@@ -5,7 +5,7 @@ TCI_PATH=../../external/minitci/
 TCL_PATH=/Users/sirakawa/Physics/Package/GraceQ/tensor-ng-dev/tensor-ng-dev
 
 # Path to additional external library
-AEL_PATH=/Users/sirakawa/Physics/Package/GraceQ/tensor-ng-dev/tensor-ng-dev/external/hptt
+HPTT_PATH=/Users/sirakawa/Physics/Package/GraceQ/tensor-ng-dev/tensor-ng-dev/external/hptt
 
 # Path to tnbp library
 TNBP_PATH=../../
