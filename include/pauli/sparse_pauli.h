@@ -17,13 +17,12 @@ namespace pauli {
     std::string pauli_string; // e.g. "ZIIX"
   };
 
-  // string trim (easy version)
+  // delete spaces 
   inline void trim_inplace(std::string& s) {
-    auto not_space = [](unsigned char c){ return !std::isspace(c); };
-    auto it1 = std::find_if(s.begin(), s.end(), not_space);
-    auto it2 = std::find_if(s.rbegin(), s.rend(), not_space).base();
-    if (it1 < it2) s = std::string(it1, it2);
-    else s.clear();
+    auto is_ns = [](unsigned char c){ return !std::isspace(c); };
+    auto b = std::find_if(s.begin(), s.end(), is_ns);
+    auto e = std::find_if(s.rbegin(), s.rend(), is_ns).base();
+    if (b < e) s.assign(b, e); else s.clear();
   }
   
   // get extension (no dot / e.g. "txt")

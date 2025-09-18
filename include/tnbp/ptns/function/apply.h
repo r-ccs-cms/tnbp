@@ -28,6 +28,9 @@ namespace tnbp {
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
     using RankT = typename tci::tensor_traits<TenT>::rank_t;
 
+    int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
+    int mpi_size; MPI_Comm_size(comm,&mpi_size);
+
     for(int address=0; address < SiteIdx.size(); address++) {
       int site = SiteIdx[address];
       RankT rank_v = tci::rank(ctx,V[address]);
@@ -50,7 +53,7 @@ namespace tnbp {
       label_o[num_vb] = static_cast<BondLabelT>(2*num_vb+1);
       label_o[num_vb+1] = static_cast<BondLabelT>(-1);
       label_r[2*num_vb] = static_cast<BondLabelT>(2*num_vb+1);
-      new_shape_v[k] = shape_o[num_vb];
+      new_shape_v[num_vb] = shape_o[num_vb];
       tci::contract(ctx,O[site],label_o,V[address],label_v,
 		    V[address],label_r);
       tci::reshape(ctx,V[address],new_shape_v);

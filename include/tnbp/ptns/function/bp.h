@@ -29,7 +29,7 @@ Belief propagation step for self-consistent iteration
 
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using RealT = typename tci::tensor_traits<TenT>::real_t;
-    using BondLabelT  = typename tci::tensor_traits<Tent>::bond_label_t;
+    using BondLabelT  = typename tci::tensor_traits<TenT>::bond_label_t;
 
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
@@ -56,9 +56,8 @@ Belief propagation step for self-consistent iteration
 	std::vector<int> EdgeIdxB = GetSurroundingBondIndex(SiteB,I);
 	int TargetEdgeIdx = 0;
 	int BondIdxA = 0;
-	int BondIdxB = 0;
 
-	for(int k=0; k < EdgeA.size(); k++) {
+	for(int k=0; k < EdgeIdxA.size(); k++) {
 	  if( (I[EdgeIdxA[k]].first == SiteA)
 	      && ( I[EdgeIdxA[k]].second == SiteB ) ) {
 	    TargetEdgeIdx = EdgeIdxA[k];
@@ -98,7 +97,7 @@ Belief propagation step for self-consistent iteration
 	      std::iota(IdxA_res.begin(),IdxA_res.end(),0);
 	      IdxA[k] = static_cast<BondLabelT>(-1);
 	      IdxE[0] = static_cast<BondLabelT>(-1);
-	      IdxE[1] = static_cast<BondLabelT(k);
+	      IdxE[1] = static_cast<BondLabelT>(k);
 	      if( I[EdgeIdxA[k]].first == SiteA ) {
 		tci::contract(ctx,T,IdxA,E[MpA+size_e],IdxE,T,IdxA_res);
 	      } else {
@@ -142,7 +141,7 @@ Belief propagation step for self-consistent iteration
 	  List<BondLabelT> IdxB_res(RankB);
 
 	  for(int k=0; k < EdgeIdxB.size(); k++) {
-	    auto itMpA = std::find(EdgeIdx.begin(),EdgeIdx.end(),
+	    auto itMpB = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				   EdgeIdxB[k]);
 	    int MpB = std::distance(EdgeIdx.begin(),itMpB);
 	    if( k != BondIdxB ) {
@@ -168,7 +167,7 @@ Belief propagation step for self-consistent iteration
 	  std::iota(IdxT.begin(),IdxT.end(),-RankB);
 	  std::iota(IdxN.begin(),IdxN.end(),0);
 	  IdxT[BondIdxB] = static_cast<BondLabelT>(0);
-	  IdxA[BondIdxB] = static_cast<BondLabelT>(1);
+	  IdxB[BondIdxB] = static_cast<BondLabelT>(1);
 	  tci::contract(ctx,T,IdxT,BdagB,IdxB,BdagB,IdxN);
 	  RealT norm_bb = tci::normalize(ctx,BdagB);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
@@ -239,12 +238,12 @@ Belief propagation step for self-consistent iteration
     size_t num_v = SiteIdx.size();
     size_t num_e = EdgeIdx.size();
     size_t num_total_edges = I.size();
-    RealT result_volume = 1.0/(2.0*total_edges);
+    RealT result_volume = 1.0/(2.0*num_total_edges);
     RealT result_rank = 0.0;
     result = 0.0;
 
     for(size_t address=0; address < SiteIdx.size(); address++) {
-      std::vector<int> BondIdx = GetSurroundingBondIdx(SiteIdx[address],I);
+      std::vector<int> BondIdx = GetSurroundingBondIndex(SiteIdx[address],I);
       for(size_t k=0; k < BondIdx.size(); k++) {
 	TenT T;
 	tci::copy(ctx,V[address],T);

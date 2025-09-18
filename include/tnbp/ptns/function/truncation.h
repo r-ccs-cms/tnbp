@@ -39,8 +39,8 @@ namespace tnbp {
     CtxR ctx_r;
     tci::create_context(ctx_r);
 
-    int mpi_rank; MPI_Comm_rank(comm,mpi_rank);
-    int mpi_size; MPI_Comm_size(comm,mpi_size);
+    int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
+    int mpi_size; MPI_Comm_size(comm,&mpi_size);
     size_t num_e = EdgeIdx.size();
 
     TenT Ra;
@@ -77,7 +77,7 @@ namespace tnbp {
 	  }
 	  if( ( I[bond_a[k]].first == site_b ) &&
 	      ( I[bond_a[k]].second == site_a ) ) {
-	    target_edge == bond_a[k];
+	    target_edge = bond_a[k];
 	    bond_address_a = k;
 	    direction = 1;
 	    break;
@@ -94,11 +94,11 @@ namespace tnbp {
 	int edge_address = std::distance(EdgeIdx.begin(),it_edge_address);
 
 	if( direction == 0 ) {
-	  SquareRootAndInverse(E[edge_address],Ra,Sa,eps);
-	  SquareRootAndInverse(E[edge_address+num_e],Rb,Sb,eps);
+	  SquareRootAndInverse(ctx,E[edge_address],Ra,Sa,eps);
+	  SquareRootAndInverse(ctx,E[edge_address+num_e],Rb,Sb,eps);
 	} else {
-	  SquareRootAndInverse(E[edge_address+num_e],Ra,Sa,eps);
-	  SquareRootAndInverse(E[edge_address],Rb,Sb,eps);
+	  SquareRootAndInverse(ctx,E[edge_address+num_e],Ra,Sa,eps);
+	  SquareRootAndInverse(ctx,E[edge_address],Rb,Sb,eps);
 	}
 
 	TenT T;

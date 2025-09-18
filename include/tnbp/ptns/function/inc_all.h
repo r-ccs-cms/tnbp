@@ -8,5 +8,8 @@
 
 #include "tnbp/ptns/function/init.h"
 #include "tnbp/ptns/function/bp.h"
+#include "tnbp/ptns/function/apply.h"
+#include "tnbp/ptns/function/truncation.h"
+#include "tnbp/ptns/function/measure.h"
 
 #endif

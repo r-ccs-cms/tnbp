@@ -6,7 +6,9 @@
 #ifndef TNBP_PTNS_FUNCTION_INIT_H
 #define TNBP_PTNS_FUNCTION_INIT_H
 
-namespace tnbp {
+#include "tnbp/framework/graph.h"
+
+namespace tnbp {  
 
   /**
      Standard initializer to setup labels and tensors
@@ -69,7 +71,7 @@ namespace tnbp {
     for(auto & Em : E) {
       tci::copy(ctx,Eorig,Em);
     }
-    Site_To_MpiRank(NumSites,0);
+    Site_To_MpiRank.resize(NumSites,0);
     std::vector<int> Site_To_MpiRank_Send(NumSites,0);
     for(const auto & i : SiteIdx) {
       Site_To_MpiRank_Send[i] = mpi_rank;
@@ -86,18 +88,18 @@ namespace tnbp {
      Initializer for TensorProductState class
    */
   template <typename TenT>
-  friend void Init(context_handle_t<TenT> & ctx,
-		   const std::vector<int> & pdim,
-		   const std::vector<std::pair<int,int>> & I,
-		   MPI_Comm comm,
-		   TensorProductState<TenT> & W,
-		   std::vector<TenT> & E,
-		   std::vector<int> & EdgeIdx) {
+  void Init(context_handle_t<TenT> & ctx,
+	    const std::vector<int> & pdim,
+	    const std::vector<std::pair<int,int>> & I,
+	    MPI_Comm comm,
+	    TensorProductState<TenT> & W,
+	    std::vector<TenT> & E,
+	    std::vector<int> & EdgeIdx) {
     W.I_ = I;
     W.comm_ = comm;
     InitTensorProductState(ctx,I,pdim,W.V_,W.SiteIdx_,
 			   W.Site_To_MpiRank_,
-			   E,EdgeIdx,W.comm_)
+			   E,EdgeIdx,W.comm_);
   }
 }
 

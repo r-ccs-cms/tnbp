@@ -23,7 +23,7 @@ namespace tnbp {
 			    const std::vector<int> & Site,
 			    const std::vector<TenT> & O) {
 
-    using ElemT = typename tci:;tensor_traits<TenT>::elem_t;
+    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
     using RankT = typename tci::tensor_traits<TenT>::rank_t;
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
@@ -42,7 +42,7 @@ namespace tnbp {
 
     std::vector<elem_t<TenT>> result(num_meas,elem_t<TenT>(0.0));
 
-    for(int site_address=0; site_address < Site; site_address++) {
+    for(int site_address=0; site_address < Site.size(); site_address++) {
       if( mpi_rank == Site_To_MpiRank[Site[site_address]] ) {
 	auto it_siteidx_address = std::find(SiteIdx.begin(),SiteIdx.end(),
 					    Site[site_address]);
@@ -85,17 +85,17 @@ namespace tnbp {
 	IdxW[rank_w-1] = static_cast<BondLabelT>(-1);
 	IdxO[0] = static_cast<BondLabelT>(rank_w-1);
 	IdxO[1] = static_cast<BondLabelT>(-1);
-	tci::contract(ctx,W,IdxW,O[i],IdxO,&R,IdxC);
+	tci::contract(ctx,W,IdxW,O[site_address],IdxO,&R,IdxC);
 	std::iota(IdxW.begin(),IdxW.end(),-rank_w);
 	std::iota(IdxC.begin(),IdxC.end(),-rank_w);
 	List<BondLabelT> IdxM;
-	tci::contract(ctx,W,IdxW,C,IdxC,W,IdxM);
-	tci::contract(ctx,R,IdxW,C,IdxC,R,IdxM);
+	tci::contract(ctx,W,IdxW,Wdag,IdxC,W,IdxM);
+	tci::contract(ctx,R,IdxW,Wdag,IdxC,R,IdxM);
 	RankT rank_r = tci::rank(ctx,R);
 	CoorsT coors(rank_r,0);
 	ElemT res_r = tci::get_elem(ctx,R,coors);
 	ElemT res_w = tci::get_elem(ctx,W,coors);
-	results[site_address] = res_r / res_w;
+	result[site_address] = res_r / res_w;
       }
     }
   }
@@ -127,6 +127,8 @@ namespace tnbp {
 
     size_t size_e = EdgeIdx.size();
 
+    std::vector<ElemT> result(I.size(),ElemT(0.0));
+
     for(int m=0; m < Edge.size(); m++) {
       int site_a = Edge[m].first;
       int site_b = Edge[m].second;
@@ -157,9 +159,10 @@ namespace tnbp {
 	    target_bond_address_a = k;
 	  }
 	}
-	auto it_target_bond_address_b = std::find(bond_idx_b.begin(),bond_idx_b.end(),
+	auto it_target_bond_address_b = std::find(bond_idx_b.begin(),
+						  bond_idx_b.end(),
 						  target_edge_address);
-	target_bond_address_b = std::distance(bond_idx_b.egin(),
+	target_bond_address_b = std::distance(bond_idx_b.begin(),
 					      it_target_bond_address_b);
 	int site_address_a = 0;
 	int site_address_b = 0;
@@ -170,7 +173,7 @@ namespace tnbp {
 	List<BondLabelT> IdxE(2);
 
 	if( mpi_type == 3 || mpi_type == 2 ) {
-	  auot it_site_address_a = std::find(SiteIdx.begin(),SiteIdx.end(),site_a);
+	  auto it_site_address_a = std::find(SiteIdx.begin(),SiteIdx.end(),site_a);
 	  site_address_a = std::distance(SiteIdx.begin(),it_site_address_a);
 	  tci::copy(ctx,V[site_address_a],A);
 	  RankT rank_a = tci::rank(ctx,A);
@@ -209,7 +212,7 @@ namespace tnbp {
 	  tci::copy(ctx,V[site_address_b],B);
 	  RankT rank_b = tci::rank(ctx,B);
 	  List<BondLabelT> IdxB(rank_b);
-	  for(int k=0; k < bond_Idx_b.size(); k++) {
+	  for(int k=0; k < bond_idx_b.size(); k++) {
 	    auto it_edge_address = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 					     bond_idx_b[k]);
 	    auto edge_address = std::distance(EdgeIdx.begin(),
@@ -218,7 +221,7 @@ namespace tnbp {
 	    IdxB[k] = static_cast<BondLabelT>(-1);
 	    IdxE[0] = static_cast<BondLabelT>(-1);
 	    IdxE[1] = static_cast<BondLabelT>(k);
-	    tci::contrat(ctx,B,IdxB,E[edge_address+size_e],IdxE,B);
+	    tci::contract(ctx,B,IdxB,E[edge_address+size_e],IdxE,B);
 	    RealT norm = tci::normalize(ctx,B);
 	  }
 	  tci::copy(ctx,B,BdagB);
@@ -229,7 +232,7 @@ namespace tnbp {
 	  IdxB[rank_b-1] = 0;
 	  IdxC[rank_b-1] = 1;
 	  IdxB[target_bond_address_b] = 2;
-	  IdxC[target_bond_address_c] = 3;
+	  IdxC[target_bond_address_b] = 3;
 	  List<BondLabelT> IdxW(4);
 	  std::iota(IdxW.begin(),IdxW.end(),0);
 	  tci::contract(ctx,B,IdxB,BdagB,IdxC,BdagB,IdxW);
@@ -279,8 +282,8 @@ namespace tnbp {
 	  RankT rank_r = tci::rank(ctx,R);
 	  CoorsT coors(rank_r,0);
 	  ElemT res_r = tci::get_elem(ctx,R,coors);
-	  ElemT res_s = tci::get_elem(ctx,W,coors);
-	  res[m] = res_r/res_s;
+	  ElemT res_s = tci::get_elem(ctx,S,coors);
+	  result[m] = res_r/res_s;
 	}
       }
     }

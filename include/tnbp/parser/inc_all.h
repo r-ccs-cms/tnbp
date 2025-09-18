@@ -7,5 +7,6 @@
 #define TNBP_PARSER_INC_ALL_H
 
 #include "tnbp/parser/qasmtotpo.h"
+#include "tnbp/parser/paulitotpo.h"
 
 #endif

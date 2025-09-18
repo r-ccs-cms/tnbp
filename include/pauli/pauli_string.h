@@ -13,14 +13,6 @@ namespace pauli {
     char op;           // 'I' | 'X' | 'Y' | 'Z'
   };
   
-  // delete spaces 
-  inline void trim_inplace(std::string& s) {
-    auto is_ns = [](unsigned char c){ return !std::isspace(c); };
-    auto b = std::find_if(s.begin(), s.end(), is_ns);
-    auto e = std::find_if(s.rbegin(), s.rend(), is_ns).base();
-    if (b < e) s.assign(b, e); else s.clear();
-  }
-  
   // Example whether string is composed of I/X/Y/Z, and make all of letters capital
   inline void normalize_pauli_label(std::string& s) {
     trim_inplace(s);

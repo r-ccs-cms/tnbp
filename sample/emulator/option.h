@@ -4,11 +4,12 @@
 #include <vector>
 
 struct Option {
-  std::string backend("ibm_kobe");
-  std::string circuit("circuit.qasm");
-  std::string sparsepauli("sparsepauliop.txt");
+  std::string backend = "ibm_kobe";
+  std::string circuit = "circuit.qasm";
+  std::string sparsepauli = "sparsepauliop.txt";
   std::vector<int> num_gates;
   size_t max_bp_iterations = 50;
+  double tolerance = 1.0e-4;
 };
 
 Option generate_options(int argc, char *argv[]) {

@@ -6,6 +6,8 @@
 #ifndef TNBP_FRAMEWORK_MPIUTILITY_H
 #define TNBP_FRAMEWORK_MPIUTILITY_H
 
+#include "mpi.h"
+
 namespace tnbp {
 
   void get_range(int size, int rank, int & i_start, int & i_end)

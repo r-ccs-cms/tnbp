@@ -6,7 +6,8 @@
 #ifndef TNBP_PTNS_TPS_H
 #define TNBP_PTNS_TPS_H
 
-#include "framework/typedef.h"
+#include "tnbp/framework/typedef.h"
+#include "tnbp/framework/mpiutility.h"
 
 namespace tnbp {
 
@@ -40,7 +41,7 @@ namespace tnbp {
     TensorProductState(const TensorProductState & other) :
       V_(other.V_), I_(other.I_), SiteIdx_(other.SiteIdx_),
       Site_To_MpiRank_(other.Site_To_MpiRank_),
-      comm_(other.comm), mpi_size_(other.mpi_size_),
+      comm_(other.comm_), mpi_size_(other.mpi_size_),
       mpi_rank_(other.mpi_rank_) {}
 
     /**
@@ -51,7 +52,7 @@ namespace tnbp {
     /**
        Copy operator
      */
-    TensorProductState & operator = (const TensorProductOperator & other) {
+    TensorProductState & operator = (const TensorProductState & other) {
       if( this != &other ) {
 	copy(other);
       }
@@ -66,7 +67,7 @@ namespace tnbp {
     /**
        Site Index
      */
-    int Q(size_t i) { return iV_[i]; }
+    int Q(size_t i) { return SiteIdx_[i]; }
 
     /**
        Initializer function

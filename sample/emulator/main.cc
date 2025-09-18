@@ -7,6 +7,7 @@
 #include "qasm/any.h"
 #include "qasm/utility.h"
 #include "pauli/sparse_pauli.h"
+#include "tnbp/tnbp.h"
 
 #include "option.h"
 
@@ -28,26 +29,27 @@ int main(int argc, char * argv[]) {
   int mpi_size; MPI_Comm_size(comm,&mpi_size);
   int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
   
-  Option options =generate_option(argc,argv);
+  Option options =generate_options(argc,argv);
 
   std::string qasm_source;
   if( mpi_rank == mpi_master ) {
-    qasm_source = qasm::read_all_file(option.circuit);
+    qasm_source = qasm::read_all_file(options.circuit);
   }
-  MpiBcast(qasmsource,mpi_master,comm);
+  tnbp::MpiBcast(qasm_source,mpi_master,comm);
   qasm::Program qasm_program = qasm::parse_any(qasm_source);
 
   ContextHandle ctx;
-  tci::create_context(ctx);
+  tci::create_context<Tensor>(ctx);
   std::vector<std::pair<int,int>> edges;
   std::vector<std::vector<std::pair<int,int>>> layer_edges;
   
-  if( option.device == std::string("ibm_kobe") ) {
+  if( options.backend == std::string("ibm_kobe") ) {
     edges = tnbp::bond_ibm_kobe();
     layer_edges = tnbp::parallel_bond_ibm_kobe();
   }
   
-  auto TPO = tnbp::QasmToTPO(ctx,qasm_program,edges,option.num_gates);
+  auto TPO = tnbp::QasmToTPO<Tensor>(ctx,qasm_program,edges,
+				     options.num_gates);
 
   std::vector<int> qubit = tnbp::GetSiteIndexFromBond(edges);
   std::vector<Tensor> V;
@@ -63,11 +65,12 @@ int main(int argc, char * argv[]) {
 			       E,EdgeIdx,comm);
   
 
+  Real tolerance;
   for(size_t t=0; t < TPO.size(); t++) {
     /**
        Attach operator tensor to site tensor
      */
-    tnbp::AbsrbTPO(
+    tnbp::AbsorbTPO(
 	  ctx,TPO[t],edges,
 	  V,SiteIdx,Site_To_MpiRank,E,EdgeIdx,
 	  comm);
@@ -75,12 +78,14 @@ int main(int argc, char * argv[]) {
     /**
        Perform belief propagation loop
      */
-    for(size_t k=0; k < option.max_bp_iterations; k++) {
-      tnbp::BeliefPropagation(
-	    ctx,edges,V,SiteIdx,
-	    Site_To_MpiRank,
-	    layer_edges,E,EdgeIdx,
-	    comm,F);
+    for(size_t k=0; k < options.max_bp_iterations; k++) {
+      for(size_t p=0; p < layer_edges.size(); p++) {
+	tnbp::BeliefPropagation(
+	      ctx,edges,V,SiteIdx,
+	      Site_To_MpiRank,
+	      layer_edges[p],E,EdgeIdx,
+	      comm,F);
+      }
       auto itE = E.begin();
       for(const auto & et : F) {
 	tci::copy(ctx,et,*itE++);
@@ -89,7 +94,7 @@ int main(int argc, char * argv[]) {
 	    ctx,edges,V,SiteIdx,
 	    Site_To_MpiRank,E,EdgeIdx,
 	    comm,tolerance);
-      if( tolerance < option.tolerance ) {
+      if( tolerance < options.tolerance ) {
 	break;
       }
     }
@@ -98,7 +103,7 @@ int main(int argc, char * argv[]) {
   /**
      Measurement
    */
-  auto spo = pauli::load_sparse_pauli_op<ElemT>(option.sparsepauli);
+  auto spo = pauli::load_sparse_pauli_op<Elem>(options.sparsepauli);
   std::vector<Tensor> exOp;
   std::vector<std::vector<int>> exSite;
   tnbp::SparsePauliToTensorOp(ctx,spo,exOp,exSite);
@@ -106,11 +111,11 @@ int main(int argc, char * argv[]) {
   std::vector<int> exSite_one;
   std::vector<Tensor> exOp_two;
   std::vector<std::pair<int,int>> exPair_two;
-  ClassifyOps(edges,exOp,exSite,
+  tnbp::ClassifyOps(ctx,edges,exOp,exSite,
 	      exOp_one,exSite_one,
 	      exOp_two,exPair_two);
 
-  std::vector<ElemT> exVal_one =
+  std::vector<Elem> exVal_one =
     tnbp::Measure(ctx,edges,V,SiteIdx,Site_To_MpiRank,
 		  E,EdgeIdx,comm,exSite_one,exOp_one);
 
@@ -124,12 +129,12 @@ int main(int argc, char * argv[]) {
     }
   }
 
-  std::vector<ElemT> exVal_two_rank =
+  std::vector<Elem> exVal_two_rank =
     tnbp::Measure(ctx,edges,V,SiteIdx,Site_To_MpiRank,
-		  E,EdgeIdx,comm,exPair_two,exOp_two_rank);
-  std::vector<ElemT> exVal_two(exPair_two.size());
+		  E,EdgeIdx,comm,exPair_two,exOp_two);
+  std::vector<Elem> exVal_two(exPair_two.size());
   
-  MPI_Datatype DataT = GetMpiType<ElemT>();
+  MPI_Datatype DataT = tnbp::GetMpiType<Elem>();
   MPI_Allreduce(exVal_two_rank.data(),exVal_two.data(),
 		exVal_two.size(),DataT,MPI_SUM,comm);
 

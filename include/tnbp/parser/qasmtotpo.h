@@ -7,7 +7,7 @@
 #define TNBP_PARSER_QASMTOTPO_H
 
 #include <cmath>
-#include "qasm/ir.hpp"
+#include "qasm/ir.h"
 
 namespace tnbp {
 
@@ -135,22 +135,22 @@ namespace tnbp {
    */
   inline int OpQubitCount(const qasm::Instruction & ins) {
     switch (ins.op) {
-    case Op::U3: case Op::U2: case Op::U1:
-    case Op::RX: case Op::RY: case Op::RZ:
-    case Op::H:  case Op::X:  case Op::Y:  case Op::Z:
-    case Op::S:  case Op::SDG: case Op::T: case Op::TDG:
-    case Op::ID:
+    case qasm::Op::U3: case qasm::Op::U2: case qasm::Op::U1:
+    case qasm::Op::RX: case qasm::Op::RY: case qasm::Op::RZ:
+    case qasm::Op::H:  case qasm::Op::X:  case qasm::Op::Y:  case qasm::Op::Z:
+    case qasm::Op::S:  case qasm::Op::SDG: case qasm::Op::T: case qasm::Op::TDG:
+    case qasm::Op::ID:
       return 1;
-    case Op::CX: case Op::CZ: case Op::SWAP:
+    case qasm::Op::CX: case qasm::Op::CZ: case qasm::Op::SWAP:
       return 2;
-    case Op::CCX: case Op::CSWAP:
+    case qasm::Op::CCX: case qasm::Op::CSWAP:
       return 3;
-    case Op::MEASURE:
+    case qasm::Op::MEASURE:
       return 1;
-    case Op::RESET:
+    case qasm::Op::RESET:
       return 1;
-    case Op::BARRIER:
-    case Op::CUSTOM:
+    case qasm::Op::BARRIER:
+    case qasm::Op::CUSTOM:
       return ins.qubits.size(); // 可変長は実データ依存
     }
     return ins.qubits.size();
@@ -167,10 +167,10 @@ namespace tnbp {
     using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
     std::vector<BondDimT> shape(2*OpQubitCount(ins),2);
-    std::vector<ElemT> data = InstructionMatrix(ins);
+    std::vector<ElemT> data = InstructionMatrix<ElemT>(ins);
     auto it_data = data.begin();
     TenT res;
-    tci::asign_from_container(
+    tci::assign_from_container(
 	 ctx,shape,it_data,
 	 [&shape](const CoorsT & coor) {
 	   return address_from_coor(shape,coor);
@@ -203,10 +203,10 @@ namespace tnbp {
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
     using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
     CtxR ctx_r;
-    tci::create_context(ctx_r);
+    tci::create_context<RealTenT>(ctx_r);
     
     auto site = GetSiteIndexFromBond(edges);
-    std::vector<std::vector<TenT>> T(num_gates,
+    std::vector<std::vector<TenT>> T(num_gates.size(),
 		std::vector<TenT>(site.size()));
     int gate_count = 0;
     int m = 0;
@@ -223,6 +223,7 @@ namespace tnbp {
 	  std::vector<ElemT> data(4,ElemT(0.0));
 	  data[0] = ElemT(1.0);
 	  data[3] = ElemT(1.0);
+	  auto it_data = data.begin();
 	  tci::assign_from_container(ctx,bond,it_data,
 	      [&bond](const CoorsT & c) {
 		return address_from_coor(bond,c);
@@ -230,7 +231,7 @@ namespace tnbp {
 	}
       }
       
-      TenT gate = InstructionTensor(ctx,ins);
+      TenT gate = InstructionTensor<TenT>(ctx,ins);
       auto rank_tensor = tci::rank(ctx,gate);
       int num_qubits = rank_tensor/2;
       if( num_qubits == 1 ) {
@@ -301,7 +302,7 @@ namespace tnbp {
 	    std::vector<ElemT> dataX(2*vdim,ElemT(1.0));
 	    auto it_dataX = dataX.begin();
 	    tci::assign_from_container(ctx,dimX,it_dataX,
-		      [](const Coors & c) {
+		      [](const CoorsT & c) {
 			return c[0]; },X);
 	    tci::diag(ctx,X);
 	    ShapeT shapeX(4);
@@ -600,7 +601,7 @@ namespace tnbp {
 	  int target_bond_p = vb_A.size()+2;
 	  if( i < path.size()-1 ) {
 	    target_bond_p = 0;
-	    for(austo const & k : vb_a) {
+	    for(auto const & k : vb_A) {
 	      if( edges[k].first == path[i]
 		  && edges[k].second == path[i+1] ) {
 		break;
