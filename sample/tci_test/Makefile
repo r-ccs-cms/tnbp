@@ -1,5 +1,7 @@
 include Configuration
-TNBP_INCLUDE_DIR=$(TNBP_PATH)/include
+TCI_INCLUDE_DIR=$(TCI_PATH)/include
+TCL_INCLUDE_DIR=$(TCL_PATH)/include
+AEL_INCLUDE_DIR=$(AEL_PATH)/include
 LIBFLAGS= $(SYSLIB)
 MAKEFILES= Makefile Configuration
 # header file
@@ -12,10 +14,10 @@ OBJECTS=
 .SUFFIXES:
 .SUFFIXES: .h .cc .o
 .cc.o:  $*.cc
-	$(CCCOM) -c $(CCFLAGS) -I$(TNBP_INCLUDE_DIR) $<
+	$(CCCOM) -c $(CCFLAGS) -I$(TCI_INCLUDE_DIR) -I$(TCL_INCLUDE_DIR) -I$(AEL_INCLUDE_DIR) $<
 ###############################################################
-parser: clean main.o $(OBJECTS)
-	$(CCCOM) $(CCFLAGS) -o parser main.o $(OBJECTS) $(LIBFLAGS)
+test: clean main.o $(OBJECTS)
+	$(CCCOM) $(CCFLAGS) -o test main.o $(OBJECTS) $(LIBFLAGS)
 
 clean:
 	rm -f *.o

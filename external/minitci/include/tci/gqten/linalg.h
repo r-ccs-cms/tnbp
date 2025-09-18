@@ -32,7 +32,7 @@ namespace tci {
        context_handle_t<gqten::tensor<ElemT>> &ctx,
        gqten::tensor<ElemT> &inout) {
     size_t size = inout.Size();
-    ElemT * praw = static_cast<ElemT*> calloc(size*size,sizeof(ElemT));
+    ElemT * praw = static_cast<ElemT*>(calloc(size*size,sizeof(ElemT)));
     if(!praw) throw std::bad_alloc();
     const ElemT * pdiag = inout.GetRaw();
     for(size_t i=0; i < size; i++) {
@@ -54,7 +54,7 @@ namespace tci {
        const gqten::tensor<ElemT> &in,
        gqten::tensor<ElemT> &out) {
     size_t dim = in.Size();
-    ElemT * praw = static_cast<ElemT*> calloc(dim*dim,sizeof(ElemT));
+    ElemT * praw = static_cast<ElemT*>(calloc(dim*dim,sizeof(ElemT)));
     const ElemT * pdiag = in.GetRaw();
     for(size_t i=0; i < dim; i++) {
       praw[i+dim*i] = pdiag[i];
@@ -154,7 +154,8 @@ namespace tci {
   void trace(
        context_handle_t<gqten::tensor<ElemT>> &ctx,
        gqten::tensor<ElemT> &inout,
-       const bond_idx_pairs_t<gqten::tensor<ElemT>> &bdidx_pairs) {
+       const List<Pair<bond_idx_t<gqten::tensor<ElemT>>,
+       bond_idx_t<gqten::tensor<ElemT>>>> & bdidx_pairs) {
     gqten::tensor<ElemT> temp;
     gqten::Trace(&inout,bdidx_pairs,&temp);
     inout = std::move(temp);
@@ -172,7 +173,8 @@ namespace tci {
   void trace(
        context_handle_t<gqten::tensor<ElemT>> &ctx,
        const gqten::tensor<ElemT> &in,
-       const bond_idx_pairs_t<gqten::tensor<ElemT>> &bdidx_pairs,
+       const List<Pair<bond_idx_t<gqten::tensor<ElemT>>,
+       bond_idx_t<gqten::tensor<ElemT>>>> & bdidx_pairs,
        gqten::tensor<ElemT> & out) {
     gqten::Trace(&in,bdidx_pairs,&out);
   }
@@ -262,11 +264,11 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
 // Idx_A = {1,-1,2,-2}, Idx_B = {-1,0,-2,3}
 @endcode
 */
-  template <typename ElemT>
+  template <typename BondLabelT>
   inline void GqtenCntLabelHelper(
-    const std::vector<bond_label_t<gqten::tensor<ElemT>>> & bond_labs_a,
-    const std::vector<bond_label_t<gqten::tensor<ElemT>>> & bond_labs_b,
-    const std::vector<bond_label_t<gqten::tensor<ElemT>>> & bond_labs_c,
+    const std::vector<BondLabelT> & bond_labs_a,
+    const std::vector<BondLabelT> & bond_labs_b,
+    const std::vector<BondLabelT> & bond_labs_c,
     std::vector<int> & labs_a,
     std::vector<int> & labs_b) {
     const auto nA = bond_labs_a.size();
@@ -395,11 +397,12 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
      Helpers for std::string_view
      (1) ParseBondLabelOne
    */
+  template <typename BondLabelT>
   static inline void ParseBondLabelsOne(
 	std::string_view s,
-	std::unordered_map<std::string,int>& sym2id, // common sybol table
-	int& nextId,                                   // next assigne label 
-	std::vector<int>& out) {
+	std::unordered_map<std::string,BondLabelT>& sym2id, // common sybol table
+	BondLabelT& nextId,                                   // next assigne label 
+	std::vector<BondLabelT>& out) {
     auto is_sep = [](char c){
       return c==',' || std::isspace(static_cast<unsigned char>(c));
     };
@@ -416,7 +419,8 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
       char* end=nullptr;
       long v = std::strtol(tok.c_str(), &end, 10);
       if (end && *end=='\0') {
-	if (v < std::numeric_limits<int>::min() || v > std::numeric_limits<int>::max())
+	if (v < std::numeric_limits<BondLabelT>::min() ||
+	    v > std::numeric_limits<BondLabelT>::max())
 	  throw std::out_of_range("label integer out of int range");
 	out.push_back(static_cast<int>(v));
 	return;
@@ -452,12 +456,15 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   }
 
   // 2) Parse all labels for A/B/C at once, and obtain std::vector<int> using same map
+  template <typename BondLabelT>
   static inline void ParseBondLabelsTriple(
 	 std::string_view a, std::string_view b, std::string_view c,
-	 std::vector<int>& out_a, std::vector<int>& out_b, std::vector<int>& out_c) {
-    std::unordered_map<std::string,int> sym2id;
+	 std::vector<BondLabelT>& out_a,
+	 std::vector<BondLabelT>& out_b,
+	 std::vector<BondLabelT>& out_c) {
+    std::unordered_map<std::string,BondLabelT> sym2id;
     sym2id.reserve(32);
-    int nextId = 0;
+    BondLabelT nextId = 0;
     
     ParseBondLabelsOne(a, sym2id, nextId, out_a);
     ParseBondLabelsOne(b, sym2id, nextId, out_b);
@@ -540,7 +547,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        gqten::tensor<ElemT> &out) {
     std::vector<gqten::tensor<ElemT>*> pins(ins.size());
     for (size_t i = 0; i < ins.size(); ++i) pins[i] = &ins[i];
-    gqten::LinearCombine(coef,pins,&out);
+    gqten::LinearCombine(coefs,pins,&out);
   }
 
   /**
@@ -607,8 +614,9 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
     size_t chi_max = std::min(m,n);
     
     gqten::TruncSVD(&a,ldims,chi_max,
-		    &u,&v_dag,ps_raw,&chi,&trunc_err,s_min);
-    s_diag = gqten::tensor<RealT>({chi},ps_raw);
+		    &u,&v_dag,ps_raw,
+		    &chi,&trunc_err,s_min);
+    s_diag = gqten::tensor<RealT>({static_cast<int>(chi)},ps_raw);
   }
 
   /// rank_t<TenT> & num_of_bonds_as_rows; should be rank_t<TenT> num_of_bonds_as_rows; 
@@ -642,7 +650,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
     gqten::TruncSVD(&a,static_cast<size_t>(num_of_bonds_as_rows),
 		    static_cast<size_t>(chi_max),
 		    &u,&v_dag,ps_raw,&chi,&trunc_err,s_min);
-    s_diag = gqten::tensor<RealT>({chi},ps_raw);
+    s_diag = gqten::tensor<RealT>({static_cast<int>(chi)},ps_raw);
   }
 
   /// rank_t<TenT> & num_of_bonds_as_rows; should be rank_t<TenT> num_of_bonds_as_rows; 
@@ -676,9 +684,12 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
     using RealT = typename tensor_traits<gqten::tensor<ElemT>>::real_t;
     RealT * ps_raw;
     size_t chi;
-    gqten::TruncSVD(&a,num_of_bonds_as_rows,chi_max,chi_min,
-		    &u,&v_dag,ps_raw,chi,&trunc_err,s_min);
-    s_diag = gqten::tensor<RealT>({chi},ps_raw);
+    gqten::TruncSVD(&a,static_cast<size_t>(num_of_bonds_as_rows),
+		    static_cast<RealT>(target_trunc_err),
+		    static_cast<size_t>(chi_max),
+		    static_cast<size_t>(chi_min),
+		    &u,&v_dag,ps_raw,&chi,&trunc_err,s_min);
+    s_diag = gqten::tensor<RealT>({static_cast<int>(chi)},ps_raw);
   }
 
   /**
@@ -805,7 +816,6 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
     size_t n = 0;
     gqten::EigHerm(&a,ldims,pw,pv,&n,jobz,uplo);
     w_diag = gqten::tensor<RealT>({n},pw);
-    ShapeT shape_a = a.Shape();
     ShapeT shape_v(num_of_bonds_as_rows+1);
     for(size_t k=0; k < ldims; k++) {
       shape_v[k] = shape_a[k];

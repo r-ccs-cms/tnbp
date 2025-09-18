@@ -7,6 +7,7 @@
 #define TCI_GQTEN_INC_ALL_H
 
 #include "gqten/gqten.h"
+
 #include "tci/gqten/traits.h"
 #include "tci/gqten/getter.h"
 #include "tci/gqten/constructor.h"

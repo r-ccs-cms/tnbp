@@ -5,9 +5,16 @@
  */
 #ifndef TCI_TRAITS_H
 #define TCI_TRAITS_H
+
+#include <vector>
+#include <utility>
+#include <map>
+
 namespace tci {
+
   template <typename TenT>
-  struct tensor_traits;
+  struct tensor_traits {
+  };
 
   template <typename TenT>
   using ten_t = typename tensor_traits<TenT>::ten_t;

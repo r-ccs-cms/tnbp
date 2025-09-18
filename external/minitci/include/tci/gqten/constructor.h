@@ -159,7 +159,7 @@ inline gqten::tensor<ElemT> assign_from_container(
 
 template <typename ElemT, typename RandNumGen>
 inline void random(
-  context_handle_t<gqten::tensor<ElemT>>&,
+  context_handle_t<gqten::tensor<ElemT>> & ctx,
   const shape_t<gqten::tensor<ElemT>>& shape,
   RandNumGen& gen,
   gqten::tensor<ElemT>& a) {
@@ -169,9 +169,9 @@ inline void random(
 
 template <typename ElemT, typename RandNumGen>
 inline gqten::tensor<ElemT> random(
-  context_handle_t<gqten::tensor<ElemT>>& ctx,
-  const shape_t<gqten::tensor<ElemT>>&    shape,
-  RandNumGen&                              gen) {
+  context_handle_t<gqten::tensor<ElemT>> & ctx,
+  const shape_t<gqten::tensor<ElemT>> & shape,
+  RandNumGen & gen) {
   gqten::tensor<ElemT> a;
   random(ctx, shape, gen, a);
   return a;

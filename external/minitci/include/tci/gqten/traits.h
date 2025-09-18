@@ -8,6 +8,11 @@
 
 namespace tci {
 
+  struct gqten_handle {
+    std::string text = std::string("none");
+  };
+  
+  
   // traits for gqten::tensor<float>
   template <>
   struct tensor_traits<gqten::tensor<float>> {
@@ -25,7 +30,7 @@ namespace tci {
     using real_ten_t = gqten::tensor<float>;
     using cplx_t = std::complex<float>;
     using cplx_ten_t = gqten::tensor<std::complex<float>>;
-    using context_handle_t = std::string;
+    using context_handle_t = gqten_handle;
   };
 
   
@@ -46,7 +51,7 @@ namespace tci {
     using real_ten_t = gqten::tensor<double>;
     using cplx_t = std::complex<double>;
     using cplx_ten_t = gqten::tensor<std::complex<double>>;
-    using context_handle_t = std::string;
+    using context_handle_t = gqten_handle;
   };
   
   // traits for gqten::tensor<std::complex<float>>
@@ -66,7 +71,7 @@ namespace tci {
     using real_ten_t = gqten::tensor<float>;
     using cplx_t = std::complex<float>;
     using cplx_ten_t = gqten::tensor<std::complex<float>>;
-    using context_handle_t = std::string;
+    using context_handle_t = gqten_handle;
   };
 
   // traits for gqten::tensor<std::complex<double>>
@@ -86,7 +91,7 @@ namespace tci {
     using real_ten_t = gqten::tensor<double>;
     using cplx_t = std::complex<double>;
     using cplx_ten_t = gqten::tensor<std::complex<double>>;
-    using context_handle_t = std::string;
+    using context_handle_t = gqten_handle;
   };
   
 }

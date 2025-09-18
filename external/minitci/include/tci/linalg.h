@@ -51,13 +51,19 @@ namespace tci {
   void trace(
        context_handle_t<TenT> &ctx,
        TenT &inout,
-       const bond_idx_pairs_t<TenT> &bdidx_pairs);
+       const List<Pair<
+       bond_idx_t<TenT>,
+       bond_idx_t<TenT>>>
+       &bdidx_pairs);
 
   template <typename TenT>
   void trace(
        context_handle_t<TenT> &ctx,
        const TenT &in,
-       const bond_idx_pairs_t<TenT> &bdidx_pairs,
+       const List<Pair<
+       bond_idx_t<TenT>,
+       bond_idx_t<TenT>>>
+       &bdidx_pairs,
        TenT &out);
 
   template <typename TenT>

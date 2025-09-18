@@ -13,9 +13,10 @@ namespace tci {
   template <typename ContextHandleT>
   void create_context(ContextHandleT &ctx);
   */
-  template <typename ElemT>
-  void create_context(
-       context_handle_t<gqten::tensor<ElemT>> &ctx) {}
+  inline void create_context(
+    gqten_handle &ctx) {
+    ctx.text = std::string("created");
+  }
 
   
   /**
@@ -24,7 +25,9 @@ namespace tci {
   */
   template <typename ElemT>
   void destroy_context(
-       context_handle_t<gqten::tensor<ElemT>> &ctx) {}
+     gqten_handle &ctx) {
+    ctx.text = std::string("destroied");
+  }
 
   /**
   template <typename TenT,
@@ -138,7 +141,7 @@ namespace tci {
     const std::vector<size_t> shape = t1.Shape();
     const Elem1T * raw1 = t1.GetRaw();
     const size_t size = t1.Size();
-    Elem2T * raw2 = static_cast<Elem2T*> malloc(sizeof(Elem2T)*size);
+    Elem2T * raw2 = static_cast<Elem2T*>(malloc(sizeof(Elem2T)*size));
     for(size_t i=0; i < size; ++i) {
       raw2[i] = static_cast<Elem2T>(gqten::GetReal(raw1[i]));
     }

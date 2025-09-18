@@ -1,5 +1,5 @@
-# Path to the SBD library
-SBD_PATH=../../
+# Path to the HOME directory for library
+TNBP_PATH=../../
 
 # mpi c++ compiler
 CCCOM=mpicxx
@@ -11,13 +11,8 @@ CCFLAGS= -std=c++17 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3
 SYSLIB= -L/opt/homebrew/opt/openblas/lib -llapack -lblas
 
 ### Example for the Fugaku
-# SBD_PATH=../../
+# TNBP_PATH=../../
 # CCCOM=mpiFCCpx
 # CCFLAGS= -Nclang -std=c++17 -stdlib=libc++ -Kfast,openmp -Xpreprocessor -fopenmp
 # SYSLIB= -SSL2
 #
-### Trad-mode for Fugaku
-# SBD_PATH=../../
-# CCCOM=mpiFCCpx
-# CCFLAGS= -std=c++17 -Kfast,openmp -DSBD_TRADMODE
-# SYSLIB= -SSL2

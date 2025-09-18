@@ -104,14 +104,14 @@ namespace tci {
   void shrink(
        context_handle_t<TenT> &ctx,
        TenT &inout,
-       const bond_idx_elem_coor_pair_map<TenT> &
+       const Map<bond_idx_t<TenT>,Pair<elem_coor_t<TenT>,elem_coor_t<TenT>>> &
        bd_idx_el_coor_pair_map);
 
   template <typename TenT>
   void shrink(
        context_handle_t<TenT> &ctx,
        const TenT &in,
-       const bond_idx_elem_coor_pair_map<TenT> &
+       const Map<bond_idx_t<TenT>,Pair<elem_coor_t<TenT>,elem_coor_t<TenT>>> &
        bd_idx_el_coor_pair_map,
        TenT &out);
 
