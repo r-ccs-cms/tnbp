@@ -63,7 +63,7 @@ namespace tnbp {
   template<> inline MPI_Datatype GetMpiType<std::complex<double>>()  { return MPI_CXX_DOUBLE_COMPLEX; }
   
   // coor -> address (row-major)
-  template <class ShapeT, class CoorT>
+  template <typename ShapeT, typename CoorT>
   inline std::ptrdiff_t address_from_coor(const ShapeT& shape,
 					  const CoorT& coor) {
     if (shape.empty()) return 0;

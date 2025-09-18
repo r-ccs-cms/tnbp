@@ -24,7 +24,7 @@ namespace tnbp {
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
     using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
     CtxR ctx_r;
-    tci::create_context(ctx_r);
+    tci::create_context<RealTenT>(ctx_r);
 
     TenT U;
     TenT V;
@@ -40,9 +40,9 @@ namespace tnbp {
     auto rank_U = tci::rank(ctx,U);
     auto rank_V = tci::rank(ctx,V);
     auto rank_D = tci::rank(ctx,D);
-    auto Idx_U = std::vector<BondLabelT>(rank_U);
-    auto Idx_V = std::vector<BondLabelT>(rank_V);    
-    auto Idx_D = std::vector<BondLabelT>(rank_D);
+    auto Idx_U = List<BondLabelT>(rank_U);
+    auto Idx_V = List<BondLabelT>(rank_V);    
+    auto Idx_D = List<BondLabelT>(rank_D);
     std::iota(Idx_U.begin(),Idx_U.end(),0);
     Idx_U[Rank_U-1] = -1;
     Idx_D[0] = -1;
@@ -70,7 +70,7 @@ namespace tnbp {
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
     using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
     CtxR ctr_r;
-    tci::create_context(ctx_r);
+    tci::create_context<RealTenT>(ctx_r);
 
     TenT U;
     TenT V;
@@ -80,7 +80,6 @@ namespace tnbp {
     tci::for_each(ctx_r,S,[](RealT & elem){
       if( elem > sv_min ) { elem = std::sqrt(elem); }
       else { elem = 0.0; } });
-      elem = std::sqrt(elem); });
     TenT D;
     tci::convert(ctx_r,S,ctx,D);
     tci::for_each(ctx_r,S,[](RealT & elem) {
@@ -94,14 +93,15 @@ namespace tnbp {
     auto Rank_U = tci::rank(ctx,U);
     auto Rank_V = tci::rank(ctx,V);
     auto Rank_D = tci::rank(ctx,D);
-    auto Idx_U = std::vector<BondLabelT>(rank_U);
-    auto Idx_V = std::vector<BondLabelT>(rank_V);
-    auto Idx_D = std::vector<BondLabelT>(rank_D);
+    auto Idx_U = List<BondLabelT>(rank_U);
+    auto Idx_V = List<BondLabelT>(rank_V);
+    auto Idx_D = List<BondLabelT>(rank_D);
     std::iota(Idx_U.begin(),Idx_U.end(),0);
     Idx_U[Rank_U-1] = -1;
     Idx_D[0] = -1;
     Idx_D[1] = Rank_U-1;
-    auto W = U;
+    TenT W;
+    tci::copy(ctx,U,W);
     tci::contract(ctx,W,Idx_U,D,Idx_D,W);
     std::iota(Idx_U.begin(),Idx_U.end(),0);
     std::iota(Idx_V.begin(),Idx_V.end(),Rank_U-1);
