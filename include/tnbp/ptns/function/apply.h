@@ -33,36 +33,37 @@ namespace tnbp {
       RankT rank_v = tci::rank(ctx,V[address]);
       RankT rank_o = tci::rank(ctx,O[site]);
       RankT num_vb = rank_v-1;
-      std::vector<BondLabelT> label_v(rank_v);
-      std::vector<BondLabelT> label_o(rank_o);
-      std::vector<BondLabelT> label_r(rank_v+rank_o-2);
+      List<BondLabelT> label_v(rank_v);
+      List<BondLabelT> label_o(rank_o);
+      List<BondLabelT> label_r(rank_v+rank_o-2);
       ShapeT new_shape_v(rank_v);
       ShapeT shape_v = tci::shape(ctx,V[address]);
       ShapeT shape_o = tci::shape(ctx,O[site]);
       for(RankT k=0; k < num_vb; k++) {
-	label_v[k] = 2*k+0;
-	label_o[k] = 2*k+1;
-	label_r[2*k+0] = 2*k+0;
-	label_r[2*k+1] = 2*k+1;
-	new_shape_v[k] = shape_v[k]*shape_o[k];
+	label_v[k] = static_cast<BondLabelT>(2*k+0);
+	label_o[k] = static_cast<BondLabelT>(2*k+1);
+	label_r[2*k+0] = static_cast<BondLabelT>(2*k+0);
+	label_r[2*k+1] = static_cast<BondLabelT>(2*k+1);
+	new_shape_v[k] = static_cast<BondDimT>(shape_v[k]*shape_o[k]);
       }
-      label_v[num_vb] = -1;
-      label_o[num_vb] = 2*num_vb+1;
-      label_o[num_vb+1] = -1;
-      label_r[2*num_vb] = 2*num_vb+1;
+      label_v[num_vb] = static_cast<BondLabelT>(-1);
+      label_o[num_vb] = static_cast<BondLabelT>(2*num_vb+1);
+      label_o[num_vb+1] = static_cast<BondLabelT>(-1);
+      label_r[2*num_vb] = static_cast<BondLabelT>(2*num_vb+1);
       new_shape_v[k] = shape_o[num_vb];
-      tci::contract(ctx,O[site],label_o,V[address],label_v,V[address],label_r);
+      tci::contract(ctx,O[site],label_o,V[address],label_v,
+		    V[address],label_r);
       tci::reshape(ctx,V[address],new_shape_v);
     }
 
     size_t num_e = EdgeIdx.size();
-    std::vector<int> Idx_I(2);
-    std::vector<int> Idx_E(2);
-    std::vector<int> Idx_T(4);
-    Idx_E[0] = 0;
-    Idx_E[1] = 2;
-    Idx_I[0] = 1;
-    Idx_I[1] = 3;
+    List<BondLabelT> Idx_I(2);
+    List<BondLabelT> Idx_E(2);
+    List<BondLabelT> Idx_T(4);
+    Idx_E[0] = static_cast<BondLabelT>(0);
+    Idx_E[1] = static_cast<BondLabelT>(2);
+    Idx_I[0] = static_cast<BondLabelT>(1);
+    Idx_I[1] = static_cast<BondLabelT>(3);
     std::iota(Idx_T.begin(),Idx_T.end(),0);
 
     for(size_t address=0; address < num_e; address++) {
@@ -103,9 +104,9 @@ namespace tnbp {
 	TenT I;
 	auto it_data_I = data_I.begin();
 	tci::assign_from_container(ctx,shape_I,it_data_I,
-				   [&shape_I](const auto & coor){
-				     return coor[0] + shape_I[0] * coor[1];
-				   },I);
+	     [&shape_I](const auto & coor){
+	       return coor[0] + shape_I[0] * coor[1];
+	     },I);
 	TenT T;
 	tci::contract(ctx,E[address],Idx_E,I,Idx_I,T,Idx_T);
 	tci::reshape(ctx,T,shape_N,E[address]);
@@ -144,9 +145,9 @@ namespace tnbp {
 	TenT I;
 	auto it_data_I = data_I.begin();
 	tci::assign_from_container(ctx,shape_I,it_data_I,
-				   [&shape_I](const auto & coor){
-				     return coor[0] + shape_I[0] * coor[1];
-				   },I);
+	     [&shape_I](const auto & coor){
+	       return coor[0] + shape_I[0] * coor[1];
+	     },I);
 	TenT T;
 	tci::contract(ctx,E[address],Idx_E,I,Idx_I,T,Idx_T);
 	tci::reshape(ctx,T,shape_N,E[address]);

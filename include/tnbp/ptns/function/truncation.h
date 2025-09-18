@@ -102,13 +102,13 @@ namespace tnbp {
 	}
 
 	TenT T;
-	std::vector<BondLabelT> IdxRa(2);
-	std::vector<BondLabelT> IdxRb(2);
-	std::vector<BondLabelT> IdxRR(2);
-	IdxRa[0] = -1;
-	IdxRa[1] = 0;
-	IdxRb[0] = -1;
-	IdxRb[1] = 1;
+	List<BondLabelT> IdxRa(2);
+	List<BondLabelT> IdxRb(2);
+	List<BondLabelT> IdxRR(2);
+	IdxRa[0] = static_cast<BondLabelT>(-1);
+	IdxRa[1] = static_cast<BondLabelT>(0);
+	IdxRb[0] = static_cast<BondLabelT>(-1);
+	IdxRb[1] = static_cast<BondLabelT>(1);
 	tci::contract(ctx,Ra,IdxRa,Rb,IdxRb,T,IdxRR);
 	auto norm_t = tci::normalize(ctx,T);
 
@@ -131,69 +131,69 @@ namespace tnbp {
 	tci::diag(ctx,P);
 	tci::copy(ctx,Z,E[edge_address]);
 
-	std::vector<BondLabelT> IdxU(2);
-	std::vector<BondLabelT> IdxS(2);
-	std::vector<BondLabelT> IdxP(2);
-	std::vector<BondLabelT> IdxT(2);
+	List<BondLabelT> IdxU(2);
+	List<BondLabelT> IdxS(2);
+	List<BondLabelT> IdxP(2);
+	List<BondLabelT> IdxT(2);
 
 	if( mpi_type == 2 || mpi_type == 3 ) {
-	  IdxS[0] = -1;
-	  IdxS[1] = 0;
-	  IdxU[0] = -1;
-	  IdxU[1] = 1;
-	  IdxT[0] = 0;
-	  IdxT[1] = 1;
+	  IdxS[0] = static_cast<BondLabelT>(-1);
+	  IdxS[1] = static_cast<BondLabelT>(0);
+	  IdxU[0] = static_cast<BondLabelT>(-1);
+	  IdxU[1] = static_cast<BondLabelT>(1);
+	  IdxT[0] = static_cast<BondLabelT>(0);
+	  IdxT[1] = static_cast<BondLabelT>(1);
 	  tci::contract(ctx,Sa,IdxS,X,IdxU,T,IdxT);
-	  IdxT[0] = 0;
-	  IdxT[1] = -1;
-	  IdxP[0] = -1;
-	  IdxP[1] = 1;
-	  IdxU[0] = 0;
-	  IdxU[1] = 1;
+	  IdxT[0] = static_cast<BondLabelT>(0);
+	  IdxT[1] = static_cast<BondLabelT>(-1);
+	  IdxP[0] = static_cast<BondLabelT>(-1);
+	  IdxP[1] = static_cast<BondLabelT>(1);
+	  IdxU[0] = static_cast<BondLabelT>(0);
+	  IdxU[1] = static_cast<BondLabelT>(1);
 	  tci::contract(ctx,T,IdxT,P,IdxP,T,IdxU);
 	  auto it_site_address_a = std::find(SiteIdx.begin(),SiteIdx.end(),
 					site_a);
 	  site_address_a = std::distance(SiteIdx.begin(),it_site_address_a);
 
 	  RankT rank_a = tci::rank(ctx,V[site_address_a]);
-	  std::vector<BondLabelT> IdxA(rank_a);
-	  std::vector<BondLabelT> IdxC(rank_a);
+	  List<BondLabelT> IdxA(rank_a);
+	  List<BondLabelT> IdxC(rank_a);
 	  std::iota(IdxA.begin(),IdxA.end(),0);
 	  std::iota(IdxC.begin(),IdxC.end(),0);
-	  IdxA[bond_address_a] = -1;
-	  IdxT[0] = -1;
-	  IdxT[1] = bond_address_a;
+	  IdxA[bond_address_a] = static_cast<BondLabelT>(-1);
+	  IdxT[0] = static_cast<BondLabelT>(-1);
+	  IdxT[1] = static_cast<BondLabelT>(bond_address_a);
 	  tci::contract(ctx,V[site_address_a],IdxA,T,IdxT,
 			V[site_address_a],IdxC);
 	  auto norm_a = tci::normalize(ctx,V[site_address_a]);
 	}
 
 	if( mpi_type == 1 || mpi_type == 3 ) {
-	  IdxU[0] = 0;
-	  IdxU[1] = -1;
-	  IdxS[0] = -1;
-	  IdxS[1] = 1;
-	  IdxT[0] = 0;
-	  IdxT[1] = 1;
+	  IdxU[0] = static_cast<BondLabelT>(0);
+	  IdxU[1] = static_cast<BondLabelT>(-1);
+	  IdxS[0] = static_cast<BondLabelT>(-1);
+	  IdxS[1] = static_cast<BondLabelT>(1);
+	  IdxT[0] = static_cast<BondLabelT>(0);
+	  IdxT[1] = static_cast<BondLabelT>(1);
 	  tci::contract(ctx,Y,IdxU,Sb,IdxS,T,IdxT);
-	  IdxP[0] = 0;
-	  IdxP[1] = -1;
-	  IdxT[0] = -1;
-	  IdxT[1] = 1;
-	  IdxU[0] = 0;
-	  IdxU[1] = 1;
+	  IdxP[0] = static_cast<BondLabelT>(0);
+	  IdxP[1] = static_cast<BondLabelT>(-1);
+	  IdxT[0] = static_cast<BondLabelT>(-1);
+	  IdxT[1] = static_cast<BondLabelT>(1);
+	  IdxU[0] = static_cast<BondLabelT>(0);
+	  IdxU[1] = static_cast<BondLabelT>(1);
 	  tci::contract(ctx,P,IdxP,T,IdxT,T,IdxU);
 	  auto it_site_address_b = std::find(SiteIdx.begin(),SiteIdx.end(),
 					     site_b);
 	  site_address_b = std::distance(SiteIdx.begin(),it_site_address_b);
 	  RankT rank_b = tci::rank(ctx,V[site_address_b]);
-	  std::vector<BondLabelT> IdxB(rank_b);
-	  std::vector<BondLabelT> IdxC(rank_b);
+	  List<BondLabelT> IdxB(rank_b);
+	  List<BondLabelT> IdxC(rank_b);
 	  std::iota(IdxB.begin(),IdxB.end(),0);
 	  std::iota(IdxC.begin(),IdxC.end(),0);
-	  IdxB[bond_address_b] = -1;
-	  IdxT[0] = bond_address_b;
-	  IdxT[1] = -1;
+	  IdxB[bond_address_b] = static_cast<BondLabelT>(-1);
+	  IdxT[0] = static_cast<BondLabelT>(bond_address_b);
+	  IdxT[1] = static_cast<BondLabelT>(-1);
 	  tci::contract(ctx,T,IdxT,V[site_address_b],IdxB,
 			V[site_address_b],IdxC);
 	  auto norm_b = tci::normalize(ctx,V[site_address_b]);

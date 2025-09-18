@@ -53,42 +53,42 @@ namespace tnbp {
 	tci::copy(ctx,V[siteidx_address],Wdag);
 	tci::cplx_conj(ctx,Wdag);
 	RankT rank_w = tci::rank(ctx,W);
-	std::vector<BondLabelT> IdxW(rank_w);
-	std::vector<BondLabelT> IdxC(rank_w);
+	List<BondLabelT> IdxW(rank_w);
+	List<BondLabelT> IdxC(rank_w);
 	std::vector<int> BondIdx = GetSurroundingBondIndex(Site[site_address],I);
 	for(size_t m=0; m < BondIdx.size(); m++) {
 	  auto it_edgeidx_address = std::find(EdgeIdx.begin(),EdgeIdx.end(),BondIdx[m]);
 	  auto edgeidx_address = std::distance(EdgeIdx.begin(),it_edgeidx_address);
 	  TenT F;
 	  tci::copy(ctx,E[edgeidx_address+size_e],F);
-	  std::vector<BondLabelT> IdxE(2);
-	  std::vector<BondLabelT> IdxF(2);
-	  std::vector<BondLabelT> IdxR(2);
-	  IdxE[0] = 0;
-	  IdxE[1] = -1;
-	  IdxF[0] = -1;
-	  IdxF[1] = 1;
-	  IdxR[0] = 0;
-	  IdxR[1] = 1;
+	  List<BondLabelT> IdxE(2);
+	  List<BondLabelT> IdxF(2);
+	  List<BondLabelT> IdxR(2);
+	  IdxE[0] = static_cast<BondLabelT>(0);
+	  IdxE[1] = static_cast<BondLabelT>(-1);
+	  IdxF[0] = static_cast<BondLabelT>(-1);
+	  IdxF[1] = static_cast<BondLabelT>(1);
+	  IdxR[0] = static_cast<BondLabelT>(0);
+	  IdxR[1] = static_cast<BondLabelT>(1);
 	  tci::contract(ctx,F,IdxF,E[edgeidx_address+size_e],IdxE,F,IdxR);
 	  std::iota(IdxW.begin(),IdxW.end(),0);
 	  std::iota(IdxC.begin(),IdxC.end(),0);
-	  IdxW[m] = -1;
-	  IdxF[0] = -1;
-	  IdxF[1] = m;
+	  IdxW[m] = static_cast<BondLabelT>(-1);
+	  IdxF[0] = static_cast<BondLabelT>(-1);
+	  IdxF[1] = static_cast<BondLabelT>(m);
 	  tci::contract(ctx,W,IdxW,F,IdxF,W,IdxC);
 	}
 	TenT R;
-	std::vector<BondLabelT> IdxO(2);
+	List<BondLabelT> IdxO(2);
 	std::iota(IdxW.begin(),IdxW.end(),0);
 	std::iota(IdxC.begin(),IdxC.end(),0);
-	IdxW[rank_w-1] = -1;
-	IdxO[0] = rank_w-1;
-	IdxO[1] = -1;
+	IdxW[rank_w-1] = static_cast<BondLabelT>(-1);
+	IdxO[0] = static_cast<BondLabelT>(rank_w-1);
+	IdxO[1] = static_cast<BondLabelT>(-1);
 	tci::contract(ctx,W,IdxW,O[i],IdxO,&R,IdxC);
 	std::iota(IdxW.begin(),IdxW.end(),-rank_w);
 	std::iota(IdxC.begin(),IdxC.end(),-rank_w);
-	std::vector<BondLabelT> IdxM;
+	List<BondLabelT> IdxM;
 	tci::contract(ctx,W,IdxW,C,IdxC,W,IdxM);
 	tci::contract(ctx,R,IdxW,C,IdxC,R,IdxM);
 	RankT rank_r = tci::rank(ctx,R);
@@ -115,7 +115,8 @@ namespace tnbp {
 			    const std::vector<std::pair<int,int>> & Edge,
 			    const std::vector<TenT> & O) {
 
-    using ElemT = typename tci:;tensor_traits<TenT>::elem_t;
+    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
+    using RealT = typename tci::tensor_traits<TenT>::real_t;
     using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
     using BondIdxT = typename tci::tensor_traits<TenT>::bond_idx_t;
     using RankT = typename tci::tensor_traits<TenT>::rank_t;
@@ -166,15 +167,15 @@ namespace tnbp {
 	TenT B;
 	TenT AdagA;
 	TenT BdagB;
-	std::vector<BondLabelT> IdxE(2);
+	List<BondLabelT> IdxE(2);
 
 	if( mpi_type == 3 || mpi_type == 2 ) {
 	  auot it_site_address_a = std::find(SiteIdx.begin(),SiteIdx.end(),site_a);
 	  site_address_a = std::distance(SiteIdx.begin(),it_site_address_a);
 	  tci::copy(ctx,V[site_address_a],A);
 	  RankT rank_a = tci::rank(ctx,A);
-	  std::vector<BondLabelT> IdxA(rank_a);
-	  std::vector<BondLabelT> IdxC(rank_a);
+	  List<BondLabelT> IdxA(rank_a);
+	  List<BondLabelT> IdxC(rank_a);
 	  for(int k=0; k < bond_idx_a.size(); k++) {
 	    auto it_edge_address = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 					       bond_idx_a[k]);
@@ -182,11 +183,11 @@ namespace tnbp {
 					      it_edge_address);
 	    std::iota(IdxA.begin(),IdxA.end(),0);
 	    std::iota(IdxC.begin(),IdxC.end(),0);
-	    IdxA[k] = -1;
-	    IdxE[0] = -1;
-	    IdxE[1] = k;
+	    IdxA[k] = static_cast<BondLabelT>(-1);
+	    IdxE[0] = static_cast<BondLabelT>(-1);
+	    IdxE[1] = static_cast<BondLabelT>(k);
 	    tci::contract(ctx,A,IdxA,E[edge_address+size_e],IdxE,A,IdxC);
-	    ElemT norm = tci::normalize(ctx,A);
+	    RealT norm = tci::normalize(ctx,A);
 	  }
 	  tci::copy(ctx,A,AdagA);
 	  tci::cplx_conj(ctx,AdagA);
@@ -196,7 +197,7 @@ namespace tnbp {
 	  IdxC[rank_a-1] = 1;
 	  IdxA[target_bond_address_a] = 2;
 	  IdxC[target_bond_address_a] = 3;
-	  std::vector<BondLabelT> IdxW(4);
+	  List<BondLabelT> IdxW(4);
 	  std::iota(IdxW.begin(),IdxW.end(),0);
 	  tci::contract(ctx,A,IdxA,AdagA,IdxC,AdagA,IdxW);
 	}
@@ -207,29 +208,29 @@ namespace tnbp {
 	  site_address_b = std::distance(SiteIdx.begin(),it_site_address_b);
 	  tci::copy(ctx,V[site_address_b],B);
 	  RankT rank_b = tci::rank(ctx,B);
-	  std::vector<BondLabelT> IdxB(rank_b);
+	  List<BondLabelT> IdxB(rank_b);
 	  for(int k=0; k < bond_Idx_b.size(); k++) {
 	    auto it_edge_address = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 					     bond_idx_b[k]);
 	    auto edge_address = std::distance(EdgeIdx.begin(),
 					      it_edge_address);
 	    std::iota(IdxB.begin(),IdxB.end(),0);
-	    IdxB[k] = -1;
-	    IdxE[0] = -1;
-	    IdxE[1] = k;
+	    IdxB[k] = static_cast<BondLabelT>(-1);
+	    IdxE[0] = static_cast<BondLabelT>(-1);
+	    IdxE[1] = static_cast<BondLabelT>(k);
 	    tci::contrat(ctx,B,IdxB,E[edge_address+size_e],IdxE,B);
-	    ElemT norm = tci::normalize(ctx,B);
+	    RealT norm = tci::normalize(ctx,B);
 	  }
 	  tci::copy(ctx,B,BdagB);
 	  tci::cplx_conj(ctx,BdagB);
-	  std::vector<BondLabelT> IdxC(rank_b);
+	  List<BondLabelT> IdxC(rank_b);
 	  std::iota(IdxB.begin(),IdxB.end(),-rank_b);
 	  std::iota(IdxC.begin(),IdxC.end(),-rank_b);
 	  IdxB[rank_b-1] = 0;
 	  IdxC[rank_b-1] = 1;
 	  IdxB[target_bond_address_b] = 2;
 	  IdxC[target_bond_address_c] = 3;
-	  std::vector<BondLabelT> IdxW(4);
+	  List<BondLabelT> IdxW(4);
 	  std::iota(IdxW.begin(),IdxW.end(),0);
 	  tci::contract(ctx,B,IdxB,BdagB,IdxC,BdagB,IdxW);
 	}
@@ -247,31 +248,31 @@ namespace tnbp {
 	  TenT BIB;
 	  TenT S;
 	  TenT R;
-	  std::vector<std::pair<BondIdxT,BondIdxT>> trace_label(1);
+	  List<Pair<BondIdxT,BondIdxT>> trace_label(1);
 	  trace_label = std::make_pair<BondIdxT,BondIdxT>(0,1);
 	  tci::trace(ctx,AdagA,trace_label,AIA);
 	  tci::trace(ctx,BdagB,trace_label,BIB);
 	  RankT rank_a = tci::rank(ctx,AdagA);
-	  std::vector<BondLabelT> IdxA(4);
-	  std::vector<BondLabelT> IdxO(4);
-	  std::vector<BondLabelT> IdxC(4);
-	  IdxA[0] = -1;
-	  IdxA[1] = -2;
-	  IdxA[2] = 2;
-	  IdxA[3] = 3;
-	  IdxO[0] = -1;
-	  IdxO[1] = 0;
-	  IdxO[2] = -2;
-	  IdxO[3] = 1;
+	  List<BondLabelT> IdxA(4);
+	  List<BondLabelT> IdxO(4);
+	  List<BondLabelT> IdxC(4);
+	  IdxA[0] = static_cast<BondLabelT>(-1);
+	  IdxA[1] = static_cast<BondLabelT>(-2);
+	  IdxA[2] = static_cast<BondLabelT>(2);
+	  IdxA[3] = static_cast<BondLabelT>(3);
+	  IdxO[0] = static_cast<BondLabelT>(-1);
+	  IdxO[1] = static_cast<BondLabelT>(0);
+	  IdxO[2] = static_cast<BondLabelT>(-2);
+	  IdxO[3] = static_cast<BondLabelT>(1);
 	  tci::contract(ctx,AdagA,IdxA,O[m],IdxO,AdagA,IdxC);
 	  RankT rank_b = tci::rank(ctx,BdagB);
-	  std::vector<BondLabelT> IdxB(rank_b);
+	  List<BondLabelT> IdxB(rank_b);
 	  std::iota(IdxA.begin(),IdxA.end(),-rank_a);
 	  std::iota(IdxB.begin(),IdxB.end(),-rank_b);
-	  std::vector<BondLabelT> IdxR;
+	  List<BondLabelT> IdxR;
 	  tci::contract(ctx,AdagA,IdxA,BdagB,IdxB,R,IdxR);
-	  std::vector<BondLabelT> IdxAIA(2);
-	  std::vector<BondLabelT> IdxBIB(2);
+	  List<BondLabelT> IdxAIA(2);
+	  List<BondLabelT> IdxBIB(2);
 	  std::iota(IdxAIA.begin(),IdxAIA.end(),-2);
 	  std::iota(IdxBIB.begin(),IdxBIB.end(),-2);
 	  tci::contract(ctx,AIA,IdxAIA,BIB,IdxBIB,S,IdxR);

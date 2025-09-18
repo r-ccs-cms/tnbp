@@ -28,6 +28,7 @@ Belief propagation step for self-consistent iteration
 			 std::vector<TenT> & F) {
 
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
+    using RealT = typename tci::tensor_traits<TenT>::real_t;
     using BondLabelT  = typename tci::tensor_traits<Tent>::bond_label_t;
 
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
@@ -84,9 +85,9 @@ Belief propagation step for self-consistent iteration
 	  TenT T;
 	  tci::copy(ctx,V[AddressA],T);
 	  auto RankA = tci::rank(ctx,T);
-	  std::vector<BondLabelT> IdxA(RankA);
-	  std::vector<BondLabelT> IdxE(2);
-	  std::vector<BondLabelT> IdxA_res(RankA);
+	  List<BondLabelT> IdxA(RankA);
+	  List<BondLabelT> IdxE(2);
+	  List<BondLabelT> IdxA_res(RankA);
 
 	  for(int k=0; k < EdgeIdxA.size(); k++) {
 	    auto itMpA = std::find(EdgeIdx.begin(),EdgeIdx.end(),
@@ -95,29 +96,29 @@ Belief propagation step for self-consistent iteration
 	    if( k != BondIdxA ) {
 	      std::iota(IdxA.begin(),IdxA.end(),0);
 	      std::iota(IdxA_res.begin(),IdxA_res.end(),0);
-	      IdxA[k] = -1;
-	      IdxE[0] = -1;
-	      IdxE[1] = k;
+	      IdxA[k] = static_cast<BondLabelT>(-1);
+	      IdxE[0] = static_cast<BondLabelT>(-1);
+	      IdxE[1] = static_cast<BondLabelT(k);
 	      if( I[EdgeIdxA[k]].first == SiteA ) {
 		tci::contract(ctx,T,IdxA,E[MpA+size_e],IdxE,T,IdxA_res);
 	      } else {
 		tci::contract(ctx,T,IdxA,E[MpA],IdxE,T,IdxA_res);
 	      }
 	    }
-	    ElemT norm_a = tci::normalize(ctx,T);
+	    RealT norm_a = tci::normalize(ctx,T);
 	  }
 	  tci::copy(ctx,V[AddressA],AdagA);
 	  tci::cplx_conj(ctx,AdagA);
 	  
-	  std::vector<BondLabelT> IdxT(RankA);
-	  std::vector<BondLabelT> IdxN(2);
+	  List<BondLabelT> IdxT(RankA);
+	  List<BondLabelT> IdxN(2);
 	  std::iota(IdxA.begin(),IdxA.end(),-RankA);
 	  std::iota(IdxT.begin(),IdxT.end(),-RankA);
 	  std::iota(IdxN.begin(),IdxN.end(),0);
-	  IdxT[BondIdxA] = 0;
-	  IdxA[BondIdxA] = 1;
+	  IdxT[BondIdxA] = static_cast<BondLabelT>(0);
+	  IdxA[BondIdxA] = static_cast<BondLabelT>(1);
 	  tci::contract(ctx,T,IdxT,AdagA,IdxA,AdagA,IdxN);
-	  ElemT norm_aa = tci::normalize(ctx,AdagA);
+	  RealT norm_aa = tci::normalize(ctx,AdagA);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
@@ -136,9 +137,9 @@ Belief propagation step for self-consistent iteration
 	  TenT T;
 	  tci::copy(ctx,V[AddressB],T);
 	  auto RankB = tci::rank(ctx,T);
-	  std::vector<BondLabelT> IdxB(RankB);
-	  std::vector<BondLabelT> IdxE(2);
-	  std::vector<BondLabelT> IdxB_res(RankB);
+	  List<BondLabelT> IdxB(RankB);
+	  List<BondLabelT> IdxE(2);
+	  List<BondLabelT> IdxB_res(RankB);
 
 	  for(int k=0; k < EdgeIdxB.size(); k++) {
 	    auto itMpA = std::find(EdgeIdx.begin(),EdgeIdx.end(),
@@ -147,29 +148,29 @@ Belief propagation step for self-consistent iteration
 	    if( k != BondIdxB ) {
 	      std::iota(IdxB.begin(),IdxB.end(),0);
 	      std::iota(IdxB_res.begin(),IdxB_res.end(),0);
-	      IdxB[k] = -1;
-	      IdxE[0] = -1;
-	      IdxE[1] = k;
+	      IdxB[k] = static_cast<BondLabelT>(-1);
+	      IdxE[0] = static_cast<BondLabelT>(-1);
+	      IdxE[1] = static_cast<BondLabelT>(k);
 	      if( I[EdgeIdxB[k]].first == SiteB ) {
 		tci::contract(ctx,T,IdxB,E[MpB+size_e],IdxE,T,IdxB_res);
 	      } else {
 		tci::contract(ctx,T,IdxB,E[MpB],IdxE,T,IdxB_res);
 	      }
 	    }
-	    ElemT norm_b = tci::normalize(ctx,T);
+	    RealT norm_b = tci::normalize(ctx,T);
 	  }
 	  tci::copy(ctx,V[AddressB],BdagB);
 	  tci::cplx_conj(ctx,BdagB);
 	  
-	  std::vector<BondLabelT> IdxT(RankB);
-	  std::vector<BondLabelT> IdxN(2);
+	  List<BondLabelT> IdxT(RankB);
+	  List<BondLabelT> IdxN(2);
 	  std::iota(IdxB.begin(),IdxB.end(),-RankB);
 	  std::iota(IdxT.begin(),IdxT.end(),-RankB);
 	  std::iota(IdxN.begin(),IdxN.end(),0);
-	  IdxT[BondIdxB] = 0;
-	  IdxA[BondIdxB] = 1;
+	  IdxT[BondIdxB] = static_cast<BondLabelT>(0);
+	  IdxA[BondIdxB] = static_cast<BondLabelT>(1);
 	  tci::contract(ctx,T,IdxT,BdagB,IdxB,BdagB,IdxN);
-	  ElemT norm_bb = tci::normalize(ctx,BdagB);
+	  RealT norm_bb = tci::normalize(ctx,BdagB);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
@@ -188,7 +189,7 @@ Belief propagation step for self-consistent iteration
 	  MpiRecv(ctx,BdagB,MpiRankB,comm);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				 TargetEdgeIdx);
-	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
+	  auto MpT = std::distance(EdgeIdx.begin(),itMpT);
 	  if( I[TargetEdgeIdx].first == SiteB ) {
 	    tci::copy(ctx,BdagB,F[MpT]);
 	  } else {
@@ -203,7 +204,7 @@ Belief propagation step for self-consistent iteration
 	  MpiRecv(ctx,AdagA,MpiRankA,comm);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				 TargetEdgeIdx);
-	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
+	  auto MpT = std::distance(EdgeIdx.begin(),itMpT);
 	  if( I[TargetEdgeIdx].first == SiteA ) {
 	    tci::copy(ctx,AdagA,F[MpT]);
 	  } else {
@@ -258,30 +259,31 @@ Belief propagation step for self-consistent iteration
 	    }
 	    TenT F;
 	    tci::copy(ctx,E[EdgeAddress],F);
-	    std::vector<BondLabelT> IdxE(2);
-	    std::vector<BondLabelT> IdxV(RankV);
-	    std::vector<BondLabelT> IdxV_res(RankV);
+	    List<BondLabelT> IdxE(2);
+	    List<BondLabelT> IdxV(RankV);
+	    List<BondLabelT> IdxV_res(RankV);
 	    std::iota(IdxV.begin(),IdxV.end(),0);
 	    std::iota(IdxV_res.begin(),IdxV_res.end(),0);
-	    IdxV[l] = -1;
-	    IdxE[0] = -1;
-	    IdxE[1] = l;
+	    IdxV[l] = static_cast<BondLabelT>(-1);
+	    IdxE[0] = static_cast<BondLabelT>(-1);
+	    IdxE[1] = static_cast<BondLabelT>(l);
 	    tci::contract(ctx,T,IdxV,F,IdxE,T,IdxV_res);
+	    RealT norm_v = tci::normalize(ctx,T);
 	  }
 	} // end for(size_t l=0; l < BondIdx.size(); l++)
 	
 	TenT C;
 	tci::copy(ctx,V[address],C);
 	tci::cplx_conj(ctx,C);
-	std::vector<BondLabelT> IdxV(RankV);
-	std::vector<BondLabelT> IdxC(RankV);
-	std::vector<BondLabelT> IdxN(2);
+	List<BondLabelT> IdxV(RankV);
+	List<BondLabelT> IdxC(RankV);
+	List<BondLabelT> IdxN(2);
 	std::iota(IdxV.begin(),IdxV.end(),-RankV);
 	std::iota(IdxC.begin(),IdxC.end(),-RankV);
-	IdxV[k] = 0;
-	IdxC[k] = 1;
+	IdxV[k] = static_cast<BondLabelT>(0);
+	IdxC[k] = static_cast<BondLabelT>(1);
 	tci::contract(ctx,T,IdxV,C,IdxC,T,IdxN);
-	ElemT norm_v = tci::normalize(ctx,T);
+	RealT norm_v = tci::normalize(ctx,T);
 
 	auto itEdgeAddress = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				       BondIdx[k]);

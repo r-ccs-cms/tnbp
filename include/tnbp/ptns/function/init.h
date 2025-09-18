@@ -26,6 +26,7 @@ namespace tnbp {
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
+    using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
 
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
@@ -48,7 +49,7 @@ namespace tnbp {
 	EdgeIdx.push_back(m);
       }
       ShapeT BondDimV(NumBonds+1,1);
-      BondDimV[NumBonds] = PhysicalBondDim[i];
+      BondDimV[NumBonds] = static_cast<BondDimT>(PhysicalBondDim[i]);
       std::vector<ElemT> DataV(PhysicalBondDim[i],0.0);
       DataV[0] = static_cast<ElemT>(1.0);
       auto itDataV = DataV.begin();
@@ -70,7 +71,7 @@ namespace tnbp {
     }
     Site_To_MpiRank(NumSites,0);
     std::vector<int> Site_To_MpiRank_Send(NumSites,0);
-    for(auto const & i : SiteIdx) {
+    for(const auto & i : SiteIdx) {
       Site_To_MpiRank_Send[i] = mpi_rank;
     }
     MPI_Allreduce(Site_To_MpiRank_Send.data(),
