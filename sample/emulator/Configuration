@@ -2,10 +2,10 @@
 TCI_PATH=../../external/minitci/
 
 # Path to actual tensor computing library
-TCL_PATH=../../external/tensor-ng-dev
+TCL_PATH=../../external/tensor-dev-ng
 
 # Path to additional external library
-HPTT_PATH=../../external/tensor-ng-dev/external/hptt
+HPTT_PATH=../../external/tensor-dev-ng/external/hptt
 
 # Path to tnbp library
 TNBP_PATH=../../
