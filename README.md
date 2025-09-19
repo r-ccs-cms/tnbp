@@ -11,21 +11,38 @@ using **belief propagation** on tensor networks. The library targets tensor-prod
 
 > Note: This repository is intended as a foundation for test codes and benchmarking; the API may evolve as features are added.
 
+## Tensor Computing Interface (TCI)
+
+This repository provides a lightweight version of the **Tensor Computing Interface (TCI)**, derived from [GraceQ/tensor-dev-ng](https://github.com/GraceQ/tensor-dev-ng).  
+The simplified TCI implementation is placed under:
+```
+/external/minitci
+```
+
 ## Requirements
 
-- **External tensor library (mandatory):** This project depends on **TCI (tensor computing interface)** as the core tensor computation backend.
-  Please install and make it discoverable (e.g., via `CMAKE_PREFIX_PATH` or environment variables) before building this repository.
+To use this TCI, you need to install **GraceQ/tensor-ng-dev**.  
+For details on installation, please refer to the `README.md` of [tensor-ng-dev](https://github.com/gracequantum/tensor-ng-dev).
 
-## Getting Started
+The repository is registered as a Git submodule and can be initialized as follows:
 
 ```bash
-# assuming the external tensor library is installed and discoverable
-git clone https://github.com/r-ccs-cms/tnbp.git
-cd tnbp
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_PREFIX_PATH=/path/to/gqten/tci
-cmake --build build -j
+git submodule init
+git submodule update
 ```
+This will place the original `tensor-ng-dev` under
+```
+/external/tensor-ng-dev
+```
+
+## Sample Program
+
+The sample program under:
+```
+/sample/emulator
+```
+contains a `Makefile` and `Configuration` files that are already set up to work with this submodule configuration.
+
 
 ## Authors
 
