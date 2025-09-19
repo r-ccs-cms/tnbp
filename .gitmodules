@@ -1,3 +1,3 @@
 [submodule "external/tensor-dev-ng"]
-	path = external/tensor-dev-ng
+	path = external/tensor-ng-dev
 	url = git@github.com:gracequantum/tensor-ng-dev.git
