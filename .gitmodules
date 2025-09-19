@@ -1,0 +1,3 @@
+[submodule "external/tensor-ng-dev"]
+    path = external/tensor-ng-dev
+    url = git@github.com:t-sirakawa/tnbp.git
