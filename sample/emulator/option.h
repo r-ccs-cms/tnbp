@@ -32,7 +32,7 @@ Option generate_options(int argc, char *argv[]) {
     if ( std::string(argv[i]) == "--max_bp_iterations" ) {
       option.max_bp_iterations = std::atoi(argv[++i]);
     }
-    if ( std::string(argv[i]) == "--sparse_paruli" ) {
+    if ( std::string(argv[i]) == "--sparse_pauli" ) {
       option.sparsepauli = std::string(argv[++i]);
     }
   }

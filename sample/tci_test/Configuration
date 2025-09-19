@@ -2,10 +2,10 @@
 TCI_PATH=../../external/minitci/
 
 # Path to actual tensor computing library
-TCL_PATH=/Users/sirakawa/Physics/Package/GraceQ/tensor-ng-dev/tensor-ng-dev
+TCL_PATH=/Users/sirakawa/Physics/Package/GraceQ/tensor-ng/main
 
 # Path to additional external library
-AEL_PATH=/Users/sirakawa/Physics/Package/GraceQ/tensor-ng-dev/tensor-ng-dev/external/hptt
+AEL_PATH=/Users/sirakawa/Physics/Package/GraceQ/tensor-ng/main/external/hptt
 
 # c++ compiler
 CCCOM=mpicxx
