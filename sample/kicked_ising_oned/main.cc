@@ -55,6 +55,7 @@ int main(int argc, char * argv[]) {
   std::vector<int> EdgeIdx;
   std::vector<int> pdim(qubit.size(),2);
   std::vector<Tensor> F;
+  std::vector<Real> res_truncation_error;
 
   if( mpi_rank == 0 ) {
     std::cout << " " << make_timestamp() << " start construction of Initial TPS " << std::endl;
@@ -113,8 +114,14 @@ int main(int argc, char * argv[]) {
 		     E,EdgeIdx,comm,
 		     options.max_bond_dim,
 		     options.sv_min,
-		     options.truncation_error);
-    
+		     options.truncation_error,
+		     res_truncation_error);
+    for(size_t k=0; k < EdgeIdx.size(); k++) {
+      std::cout << " " << make_timestamp() << " truncation error for edge ("
+		<< edges[EdgeIdx[k]].first << ","
+		<< edges[EdgeIdx[k]].second
+		<< ") = " << res_truncation_error[k] << std::endl;
+    }
   }
 
   MPI_Finalize();

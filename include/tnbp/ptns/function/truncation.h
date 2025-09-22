@@ -24,7 +24,8 @@ namespace tnbp {
 		  MPI_Comm comm,
 		  bond_dim_t<TenT> max_dim,
 		  real_t<TenT> eps,
-		  real_t<TenT> err) {
+		  real_t<TenT> err,
+		  std::vector<real_t<TenT>> & res_trunc_err) {
     
     using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
     using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
@@ -47,6 +48,8 @@ namespace tnbp {
     TenT Sa;
     TenT Rb;
     TenT Sb;
+
+    res_trunc_err.resize(num_e);
 
     for(int edge_address=0; edge_address < I.size(); edge_address++) {
       int site_a = I[edge_address].first;
@@ -101,22 +104,6 @@ namespace tnbp {
 	  SquareRootAndInverse(ctx,E[edge_address],Rb,Sb,eps);
 	}
 
-#ifdef TRUNCATION_DEBUG
-	if ( mpi_rank == 0 ) {
-	  std::cout << " tnbp::truncation: get root matrix for messenger tensor from a to b "
-		    << std::endl;
-	  tci::show(ctx,Ra);
-	  std::cout << " tnbp::truncation: get inverse of root matrix for messenger tensor from a to b "
-		    << std::endl;
-	  tci::show(ctx,Sa);
-	  std::cout << " tnbp::truncation: get root matrix for messenger tensor from b to a " << std::endl;
-	  tci::show(ctx,Rb);
-	  std::cout << " tnbp::truncation: get inverse of root matrix for messenger tensor from b to a " << std::endl;
-	  tci::show(ctx,Sb);
-	}
-	MPI_Barrier(comm);
-#endif
-	
 	TenT T;
 	List<BondLabelT> IdxRa(2);
 	List<BondLabelT> IdxRb(2);
@@ -139,11 +126,8 @@ namespace tnbp {
 	BondDimT chi_max = max_dim;
 	tci::trunc_svd(ctx,T,num_rows,X,S,Y,
 		       trunc_err,chi_min,chi_max,err,eps);
-	
-#ifdef TRUNCATION_DEBUG
-	std::cout << " tnbp::truncation: truncation error = " << trunc_err << std::endl;
-#endif
-	
+
+	res_trunc_err[edge_address] = trunc_err;
 	TenT Z;
 	tci::convert(ctx_r,S,ctx,Z);
 	tci::for_each(ctx_r,S,[](RealT & elem){ elem = std::sqrt(elem); });
