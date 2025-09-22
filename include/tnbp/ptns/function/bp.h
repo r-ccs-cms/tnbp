@@ -271,6 +271,10 @@ Belief propagation step for self-consistent iteration
 	  }
 	} // end for(size_t l=0; l < BondIdx.size(); l++)
 	
+#ifdef BP_DEBUG
+	std::cout << " belief propagation: Before physical contruction " << std::endl;
+#endif
+	
 	TenT C;
 	tci::copy(ctx,V[address],C);
 	tci::cplx_conj(ctx,C);
@@ -281,6 +285,8 @@ Belief propagation step for self-consistent iteration
 	std::iota(IdxC.begin(),IdxC.end(),-RankV);
 	IdxV[k] = static_cast<BondLabelT>(0);
 	IdxC[k] = static_cast<BondLabelT>(1);
+	IdxN[0] = static_cast<BondLabelT>(0);
+	IdxN[1] = static_cast<BondLabelT>(1);
 	tci::contract(ctx,T,IdxV,C,IdxC,T,IdxN);
 	RealT norm_v = tci::normalize(ctx,T);
 
@@ -293,6 +299,10 @@ Belief propagation step for self-consistent iteration
 	TenT F;
 	tci::copy(ctx,E[EdgeAddress],F);
 	ElemT norm_f = tci::normalize(ctx,F);
+
+#ifdef BP_DEBUG
+	std::cout << " belief propagation: Before linear_combine " << std::endl;
+#endif
 
 	TenT D;
 	tci::linear_combine(ctx,{T,F},{ElemT(1.0),ElemT(-1.0)},D);

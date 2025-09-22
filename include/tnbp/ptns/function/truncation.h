@@ -37,7 +37,7 @@ namespace tnbp {
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
     using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
     CtxR ctx_r;
-    tci::create_context(ctx_r);
+    tci::create_context<RealTenT>(ctx_r);
 
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
@@ -101,6 +101,22 @@ namespace tnbp {
 	  SquareRootAndInverse(ctx,E[edge_address],Rb,Sb,eps);
 	}
 
+#ifdef TRUNCATION_DEBUG
+	if ( mpi_rank == 0 ) {
+	  std::cout << " tnbp::truncation: get root matrix for messenger tensor from a to b "
+		    << std::endl;
+	  tci::show(ctx,Ra);
+	  std::cout << " tnbp::truncation: get inverse of root matrix for messenger tensor from a to b "
+		    << std::endl;
+	  tci::show(ctx,Sa);
+	  std::cout << " tnbp::truncation: get root matrix for messenger tensor from b to a " << std::endl;
+	  tci::show(ctx,Rb);
+	  std::cout << " tnbp::truncation: get inverse of root matrix for messenger tensor from b to a " << std::endl;
+	  tci::show(ctx,Sb);
+	}
+	MPI_Barrier(comm);
+#endif
+	
 	TenT T;
 	List<BondLabelT> IdxRa(2);
 	List<BondLabelT> IdxRb(2);
@@ -109,6 +125,8 @@ namespace tnbp {
 	IdxRa[1] = static_cast<BondLabelT>(0);
 	IdxRb[0] = static_cast<BondLabelT>(-1);
 	IdxRb[1] = static_cast<BondLabelT>(1);
+	IdxRR[0] = static_cast<BondLabelT>(0);
+	IdxRR[1] = static_cast<BondLabelT>(1);
 	tci::contract(ctx,Ra,IdxRa,Rb,IdxRb,T,IdxRR);
 	auto norm_t = tci::normalize(ctx,T);
 
@@ -121,7 +139,11 @@ namespace tnbp {
 	BondDimT chi_max = max_dim;
 	tci::trunc_svd(ctx,T,num_rows,X,S,Y,
 		       trunc_err,chi_min,chi_max,err,eps);
-
+	
+#ifdef TRUNCATION_DEBUG
+	std::cout << " tnbp::truncation: truncation error = " << trunc_err << std::endl;
+#endif
+	
 	TenT Z;
 	tci::convert(ctx_r,S,ctx,Z);
 	tci::for_each(ctx_r,S,[](RealT & elem){ elem = std::sqrt(elem); });
@@ -130,6 +152,7 @@ namespace tnbp {
 	tci::diag(ctx,Z);
 	tci::diag(ctx,P);
 	tci::copy(ctx,Z,E[edge_address]);
+	tci::copy(ctx,Z,E[edge_address+num_e]);
 
 	List<BondLabelT> IdxU(2);
 	List<BondLabelT> IdxS(2);

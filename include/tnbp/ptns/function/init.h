@@ -33,6 +33,12 @@ namespace tnbp {
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
 
+#ifdef INIT_DEBUG
+    MPI_Barrier(comm);
+    if( mpi_rank == 0 ) {
+      std::cout << " tnbp::InitTensorProductState: Start construction of initial TPO " << std::endl;
+    }
+#endif
     auto Site = GetSiteIndexFromBond(I);
     int NumSites = static_cast<int>(Site.size());
     int SiteIdxStart = 0;
@@ -43,6 +49,19 @@ namespace tnbp {
     std::iota(SiteIdx.begin(),SiteIdx.end(),SiteIdxStart);
     EdgeIdx.resize(0);
     V.resize(SiteIdxEnd-SiteIdxStart);
+
+#ifdef INIT_DEBUG
+    MPI_Barrier(comm);
+    for(int r=0; r < mpi_size; r++) {
+      if( mpi_rank == r ) {
+	std::cout << " tnbp::InitTensorProductState: Number of sites handled by "
+		  << mpi_rank << "-mpi process = " 
+		  << SiteIdxEnd-SiteIdxStart << std::endl;
+      }
+      MPI_Barrier(comm);
+    }
+#endif
+    
     auto itV = V.begin();
     for(auto const & i : SiteIdx) {
       auto BondIdx = GetSurroundingBondIndex(i,I);
@@ -63,6 +82,18 @@ namespace tnbp {
     std::sort(EdgeIdx.begin(),EdgeIdx.end());
     EdgeIdx.erase(std::unique(EdgeIdx.begin(),EdgeIdx.end()),
 		  EdgeIdx.end());
+#ifdef INIT_DEBUG
+    MPI_Barrier(comm);
+    for(int r=0; r < mpi_size; r++) {
+      if( mpi_rank == r ) {
+	std::cout << " tnbp::InitTensorProductState: Number of edges handled by "
+		  << mpi_rank << "-mpi process = "
+		  << EdgeIdx.size() << std::endl;
+      }
+      MPI_Barrier(comm);
+    }
+#endif
+    
     int NumEdges = static_cast<int>(EdgeIdx.size());
     TenT Eorig;
     ShapeT BondDimE(2,1);

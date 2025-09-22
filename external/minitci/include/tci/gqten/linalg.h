@@ -13,6 +13,9 @@
 #include <algorithm>
 #include <cstdlib>
 
+#include <thread>
+#include <chrono>
+
 #include <string_view>
 #include <cctype>
 #include <string>
@@ -542,8 +545,10 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        context_handle_t<TenT> & ctx,
        const List<TenT> & ins,
        TenT & out) {
-    std::vector<TenT*> pins(ins.size());
-    for (size_t i = 0; i < ins.size(); ++i) pins[i] = &ins[i];
+    std::vector<TenT> ins_copy = ins;
+    std::vector<TenT*> pins;
+    pins.reserve(ins_copy.size());
+    for (size_t i = 0; i < ins.size(); ++i) pins.emplace_back(&ins_copy[i]);
     std::vector<elem_t<TenT>> coef(ins.size(),static_cast<elem_t<TenT>>(1.0));
     gqten::LinearCombine(coef,pins,&out);
   }
@@ -563,8 +568,12 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
        const List<TenT> &ins,
        const List<elem_t<TenT>> &coefs,
        TenT &out) {
-    std::vector<TenT*> pins(ins.size());
-    for (size_t i = 0; i < ins.size(); ++i) *pins[i] = ins[i];
+    std::vector<TenT> ins_copy = ins;
+    std::vector<TenT*> pins;
+    pins.reserve(ins_copy.size());
+    for (size_t i = 0; i < ins_copy.size(); ++i) {
+      pins.emplace_back(&ins_copy[i]);
+    }
     gqten::LinearCombine(coefs,pins,&out);
   }
 

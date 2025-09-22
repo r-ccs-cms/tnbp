@@ -6,12 +6,12 @@
 #ifndef TNBP_LATTICE_ONED_H
 #define TNBP_LATTICE_ONED_H
 
-namespace {
+namespace tnbp {
 
   /**
      Function to define the bonds for one-dimensional lattice
    */
-  std::vector<std::pair<int,int>> Bond_OneDLattice(int Lx, int Px) {
+  std::vector<std::pair<int,int>> bond_oned_lattice(int Lx, int Px) {
     size_t L = Lx;
     size_t N = Lx-1;
     if( Px != 0 ) {
@@ -36,7 +36,7 @@ namespace {
   /**
      Function to define the parallel bonds for one-dimensional lattice
    */
-  std::vector<std::vector<std::pair<int,int>>> ParallelBond_OneDLattice(int Lx, int Px) {
+  std::vector<std::vector<std::pair<int,int>>> parallel_bond_oned_lattice(int Lx, int Px) {
     std::vector<std::vector<std::pair<int,int>>> res;
     size_t size_A;
     size_t size_B;

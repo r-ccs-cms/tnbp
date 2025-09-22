@@ -58,6 +58,15 @@ make install \
      CMDLINE_CXX_FLAGS="include paths for OpenMP or other dependencies" \
      CMDLINE_LINK_FLAGS="linker flags for LAPACK, BLAS, etc."
 ```
+For example, in a macOS environment, when using `clang++` installed via `brew install llvm`, we add the following options:
+```
+make install \
+     CXX="/opt/homebrew/opt/llvm/bin/clang++" \
+     CMDLINE_CXX_FLAGS="-std=c++20 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3" \
+     CMDLINE_LINK_FLAGS="-L/opt/homebrew/opt/openblas/lib -llapack -lblas"
+```
+
+
 ### 3. Building the Simulator
 
 The simulator is **parallelized in real space** and therefore requires **MPI**.

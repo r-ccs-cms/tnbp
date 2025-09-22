@@ -6,12 +6,12 @@
 #ifndef TNBP_LATTICE_HONEYCOMB_H
 #define TNBP_LATTICE_HONEYCOMB_H
 
-namespace {
+namespace tnbp {
 
   /**
      Function to define the bonds for honeycomb lattice
    */
-  std::vector<std::pair<int,int>> Bond_HoneycombLattice(int Lx, int Ly) {
+  std::vector<std::pair<int,int>> bond_honeycomb_lattice(int Lx, int Ly) {
     int L = 2 * Lx * Ly;
     int N = Lx*Ly+Lx*(Ly-1)+(Lx-1)*Ly;
     std::vector<std::pair<int,int>> res(N);
@@ -40,7 +40,7 @@ namespace {
   /**
      Function to define the parallel bonds for honeycomb lattice
    */
-  std::vector<std::vector<std::pair<int,int>>> ParallelBond_HoneycombLattice(int Lx, int Ly) {
+  std::vector<std::vector<std::pair<int,int>>> parallel_bond_honeycomb_lattice(int Lx, int Ly) {
 
     std::vector<std::vector<std::pair<int,int>>> res(3);
     size_t size_A = Lx*Ly;
