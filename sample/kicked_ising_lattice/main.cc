@@ -37,9 +37,14 @@ int main(int argc, char * argv[]) {
   tci::create_context<Tensor>(ctx);
   std::vector<std::pair<int,int>> edges;
   std::vector<std::vector<std::pair<int,int>>> layer_edges;
-  
-  edges = tnbp::bond_oned_lattice(options.num_qubits,0);
-  layer_edges = tnbp::parallel_bond_oned_lattice(options.num_qubits,0);
+
+  if( options.lattice == std::string("oned") ) {
+    edges = tnbp::bond_oned_lattice(options.L,0);
+    layer_edges = tnbp::parallel_bond_oned_lattice(options.L,0);
+  } else if ( options.lattice == std::string("honeycomb") ) {
+    edges = tnbp::bond_honeycomb_lattice(options.L,options.L);
+    layer_edges = tnbp::parallel_bond_honeycomb_lattice(options.L,options.L);
+  }
 
   if( mpi_rank == 0 ) {
     std::cout << " " << make_timestamp() << " Start construction of TPO " << std::endl;
@@ -196,8 +201,8 @@ int main(int argc, char * argv[]) {
       if ( mpi_type > 1 ) {
 	std::cout << " " << make_timestamp()
 		  << " measurement of ZZ at sites (" << meas_edge[m].first
-		  << "," << meas_edge[m].second << ") "
-		  << " time step " << step
+		  << "," << meas_edge[m].second
+		  << ") time step " << step
 		  << " = " << res_j[m] << std::endl;
       }
     }

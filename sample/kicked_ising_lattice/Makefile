@@ -19,8 +19,8 @@ OBJECTS=
 .cc.o:  $*.cc
 	$(CCCOM) -c $(CCFLAGS) -I$(TCI_INCLUDE_DIR) -I$(TCL_INCLUDE_DIR) -I$(HPTT_INCLUDE_DIR) -I$(TNBP_INCLUDE_DIR) $<
 ###############################################################
-kicked_ising_oned_exvalue: clean main.o $(OBJECTS)
-	$(CCCOM) $(CCFLAGS) -o kicked_ising_oned_exvalue main.o $(OBJECTS) $(LIBFLAGS)
+kicked_ising_exvalue: clean main.o $(OBJECTS)
+	$(CCCOM) $(CCFLAGS) -o kicked_ising_exvalue main.o $(OBJECTS) $(LIBFLAGS)
 
 clean:
 	rm -f *.o

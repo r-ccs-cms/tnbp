@@ -4,8 +4,11 @@
 #include <vector>
 
 struct Option {
-  int num_qubits = 4;
 
+  std::string lattice = "lattice";
+
+  int L = 4;
+  
   double Jz = 1.0;
   double hz = 0.0;
   double hx = 1.0;
@@ -25,8 +28,11 @@ Option generate_options(int argc, char *argv[]) {
 
   Option option;
   for(int i=0; i < argc; i++) {
-    if ( std::string(argv[i]) == "--num_qubits" ) {
-      option.num_qubits = std::atoi(argv[++i]);
+    if ( std::string(argv[i]) == "--lattice" ) {
+      option.lattice = std::string(argv[++i]);
+    }
+    if ( std::string(argv[i]) == "--L" ) {
+      option.L = std::atoi(argv[++i]);
     }
     if ( std::string(argv[i]) == "--max_bp_iterations" ) {
       option.max_bp_iterations = std::atoi(argv[++i]);
@@ -64,7 +70,8 @@ Option generate_options(int argc, char *argv[]) {
 
 void cout_options(const Option & option) {
   std::cout.precision(16);
-  std::cout << "# num_qubits: " << option.num_qubits << std::endl;
+  std::cout << "# lattice: " << option.lattice << std::endl;
+  std::cout << "# L: " << option.L << std::endl;
   std::cout << "# Jz: " << option.Jz << std::endl;
   std::cout << "# hz: " << option.hz << std::endl;
   std::cout << "# hx: " << option.hx << std::endl;

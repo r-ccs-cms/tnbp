@@ -39,10 +39,10 @@ void measops(tci::context_handle_t<TenT> & ctx,
 
   ShapeT shape_j(4,2);
   std::vector<ElemT> data_j =
-    { ElemT(1.0), ElemT(0.0), ElemT(0.0), ElemT(0.0),
-      ElemT(0.0), ElemT(-1.0), ElemT(0.0), ElemT(0.0),
-      ElemT(0.0), ElemT(0.0), ElemT(-1.0), ElemT(0.0),
-      ElemT(0.0), ElemT(0.0), ElemT(0.0), ElemT(1.0) };
+    { ElemT(1.0), ElemT( 0.0), ElemT( 0.0), ElemT(0.0),
+      ElemT(0.0), ElemT(-1.0), ElemT( 0.0), ElemT(0.0),
+      ElemT(0.0), ElemT( 0.0), ElemT(-1.0), ElemT(0.0),
+      ElemT(0.0), ElemT( 0.0), ElemT( 0.0), ElemT(1.0) };
   auto it_data_j = data_j.begin();
   TenT Ji = tci::assign_from_container<TenT>(
 	       ctx,shape_j,it_data_j,
