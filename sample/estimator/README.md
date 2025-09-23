@@ -13,7 +13,7 @@ By combining these inputs, the simulator computes expectation values of quantum 
   This script generates QASM files for Floquet circuits of the kicked Ising model. It also outputs to standard output the number of gates per layer in the generated circuit.
 - `dump_sparse_pauli.py`
   This script generates sparse Pauli operator representations of the transverse and longitudinal field Ising model. It produces dump files that can be directly read by the simulator.
-- `emulator`
+- `estimator`
   The simulator reads the above QASM files and sparse Pauli operator data, and then executes belief-propagation-based two-dimensional tensor network simulations. Expectation values are computed as the final output.
   
 
@@ -29,7 +29,7 @@ pip install qiskit qiskit_ibm_runtime
 - `kicked_ising_qasm.py`: generates QASM circuits for the kicked Ising model.
 - `dump_sparse_pauli.py`: generates sparse Pauli operator representations for transeverse/longitudinal field Ising model.
 
-### 2. Emulator (c++ implementation)
+### 2. Estimator (c++ implementation)
 
 The simulator is implemented on top of the Tensor Computing Interface (TCI),
 which provides a unified API for tensor operations across different backends.
@@ -143,14 +143,14 @@ This generates **hamiltonian.dat**, containing the sparse Pauli operator dump.
 - `--backend <str>` (*optional*): IBM Quantum backend name. If specified, the operator will be built respecting the device coupling map.
 - `--output <str>`: File name for the output dump.
 
-### 3. Emulator
+### 3. Estimator
 This program performs a real-space parallelized two-dimensional tensor network simulation based on belief propagation.
 It takes as input a QASM circuit file and a sparse Pauli operator file, and computes expectation values of observables on a given device topology.
 The simulation runs in parallel using MPI, so you should launch it with mpirun or mpiexec.
 
 **Example**:
 ```
-mpirun -np 4 ./emulator \
+mpirun -np 4 ./estimator \
   --backend ibm_kobe \
   --circuit circuit.qasm \
   --sparse_pauli hamiltonian.dat \
