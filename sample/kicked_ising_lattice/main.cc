@@ -44,7 +44,7 @@ int main(int argc, char * argv[]) {
   if( mpi_rank == 0 ) {
     std::cout << " " << make_timestamp() << " Start construction of TPO " << std::endl;
   }
-  std::vector<Tensor> TPO = CircuitTPO<Tensor>(ctx,options.num_qubits,
+  std::vector<Tensor> TPO = CircuitTPO<Tensor>(ctx,edges,
 			    options.Jz,options.hz,options.hx,options.dt,comm);
 
   std::vector<int> qubit = tnbp::GetSiteIndexFromBond(edges);

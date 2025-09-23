@@ -1,10 +1,10 @@
 template <typename TenT>
 void measops(tci::context_handle_t<TenT> & ctx,
 	     const std::vector<std::pair<int,int>> & edges,
-	     std::vector<int> & meas_site,
+	     std::vector<int> & meas_sites,
 	     std::vector<TenT> & Ox,
 	     std::vector<TenT> & Oz,
-	     std::vector<std::pair<int,int>> & meas_edge,
+	     std::vector<std::pair<int,int>> & meas_edges,
 	     std::vector<TenT> & Oj) {
 
   using ElemT = typename tci::tensor_traits<TenT>::elem_t;
@@ -13,8 +13,7 @@ void measops(tci::context_handle_t<TenT> & ctx,
   using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
   using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
 
-  auto site = tnbp::GetSiteIndexFromBond(edges);
-  auto num_qubits = site.size();
+  auto sites = tnbp::GetSiteIndexFromBond(edges);
   
   ShapeT shape_z(2,2);
   std::vector<ElemT> data_z =
@@ -51,9 +50,9 @@ void measops(tci::context_handle_t<TenT> & ctx,
 		 return coors[0]+coors[1]*2+coors[2]*4+coors[3]*8;
 	       });
 
-  Ox.resize(num_qubits);
-  Oz.resize(num_qubits);
-  Oj.resize(num_qubits-1);
+  Ox.resize(sites.size());
+  Oz.resize(sites.size());
+  Oj.resize(edges.size());
 
   for(auto & Oi : Ox) {
     tci::copy(ctx,Xi,Oi);
@@ -67,14 +66,8 @@ void measops(tci::context_handle_t<TenT> & ctx,
     tci::copy(ctx,Ji,Oi);
   }
 
-  meas_site.resize(num_qubits);
-  meas_edge.resize(num_qubits-1);
+  meas_sites = sites;
+  meas_edges = edges;
 
-  for(int i=0; i < meas_edge.size(); i++) {
-    meas_edge[i].first  = i;
-    meas_edge[i].second = i+1;
-  }
-
-  std::iota(meas_site.begin(),meas_site.end(),0);
 }
 			  
