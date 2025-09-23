@@ -9,7 +9,7 @@ struct Option {
   double Jz = 1.0;
   double hz = 0.0;
   double hx = 1.0;
-  double dt = 0.01;
+  double dt = 0.01 * PI_v<double>;
 
   int num_steps = 1;
   
@@ -53,7 +53,7 @@ Option generate_options(int argc, char *argv[]) {
       option.hx = std::atof(argv[++i]);
     }
     if ( std::string(argv[i]) == "--dt" ) {
-      option.dt = std::atof(argv[++i]);
+      option.dt = std::atof(argv[++i]) * PI_v<double>;
     }
     if ( std::string(argv[i]) == "--num_steps" ) {
       option.num_steps = std::atoi(argv[++i]);
@@ -63,6 +63,7 @@ Option generate_options(int argc, char *argv[]) {
 }
 
 void cout_options(const Option & option) {
+  std::cout.precision(16);
   std::cout << "# num_qubits: " << option.num_qubits << std::endl;
   std::cout << "# Jz: " << option.Jz << std::endl;
   std::cout << "# hz: " << option.hz << std::endl;

@@ -25,13 +25,6 @@ std::vector<TenT> CircuitTPO(
   int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
   int mpi_size; MPI_Comm_size(comm,&mpi_size);
 
-#ifdef DEBUG
-  MPI_Barrier(comm);
-  if( mpi_rank == 0 ) {
-    std::cout << " CircuitTPO: Start Construction of Site Tensors for Two-Site Operator " << std::endl;
-  }
-#endif
-
   ShapeT shape_j(4,2);
   std::vector<ElemT> data_j =
     { ElemT(cos(dt*Jz),-sin(dt*Jz)), ElemT(0.0), ElemT(0.0), ElemT(0.0),
@@ -60,21 +53,13 @@ std::vector<TenT> CircuitTPO(
   tci::List<BondLabelT> label_da = {-1,2};
   tci::List<BondLabelT> label_va = {2,0,1};
   TenT Va;
-  TenT Vb;
   tci::contract(ctx,Ua,label_ua,D,label_da,Va,label_va);
-  tci::List<BondLabelT> label_ub = {-1,1,2};
   tci::List<BondLabelT> label_db = {0,-1};
+  tci::List<BondLabelT> label_ub = {-1,1,2};
   tci::List<BondLabelT> label_vb = {0,1,2};
+  TenT Vb;
   tci::contract(ctx,D,label_db,Ub,label_ub,Vb,label_vb);
 
-#ifdef DEBUG
-  MPI_Barrier(comm);
-  if( mpi_rank == 0 ) {
-    std::cout << " CircuitTPO: Start Construction of Site Tensors for Single-Site Operator " << std::endl;
-  }
-#endif
-
-  
   ShapeT shape_z(2,2);
   std::vector<ElemT> data_z =
     { ElemT(cos(dt*hz),-sin(dt*hz)), ElemT(0.0),
@@ -90,24 +75,12 @@ std::vector<TenT> CircuitTPO(
   std::vector<ElemT> data_x =
     { ElemT(cos(dt*hx)), ElemT(0.0,-sin(dt*hx)),
       ElemT(0.0,-sin(dt*hx)), ElemT(cos(dt*hx)) };
-  auto it_data_x = data_z.begin();
+  auto it_data_x = data_x.begin();
   TenT Ux = tci::assign_from_container<TenT>(
 	      ctx,shape_x,it_data_x,
 	      [](const CoorsT & coors) {
 		return coors[0]+coors[1]*2;
 	      });
-
-#ifdef DEBUG
-  MPI_Barrier(comm);
-  if ( mpi_rank == 0 ) {
-    std::cout << " Obtained single-site unitary for external field in z-direction " << std::endl;
-    tci::show(ctx,Uz);
-    std::cout << " Obtained single-site unitary for external field in x-direction " << std::endl;
-    tci::show(ctx,Ux);
-    
-    std::cout << " CircuitTPO: Start Construction of Initial TPO " << std::endl;
-  }
-#endif
 
   // construct initial TPO
   ShapeT shape_e(3,2);
@@ -139,13 +112,6 @@ std::vector<TenT> CircuitTPO(
     }
   }
 
-#ifdef DEBUG
-  MPI_Barrier(comm);
-  if ( mpi_rank == 0 ) {
-    std::cout << " CircuitTPO: Stack X-term to Initial TPO " << std::endl;
-  }
-#endif
-
   // x terms
   
   for(int i=0; i < num_qubits; i++) {
@@ -162,13 +128,6 @@ std::vector<TenT> CircuitTPO(
     }
   }
   
-#ifdef DEBUG
-  MPI_Barrier(comm);
-  if ( mpi_rank == 0 ) {
-    std::cout << " CircuitTPO: Stack J-term to Current TPO " << std::endl;
-  }
-#endif
-
   // j terms
   for(int i=0; i < num_qubits-1; i++) {
     TenT W;
@@ -227,14 +186,6 @@ std::vector<TenT> CircuitTPO(
   }
 
   // z terms
-  
-#ifdef DEBUG
-  MPI_Barrier(comm);
-  if( mpi_rank == 0 ) {
-    std::cout << " CircuitTPO: Stack Z-term to Current TPO " << std::endl;
-  }
-#endif
-
   for(int i=0; i < num_qubits; i++) {
     if( i == 0 || i == num_qubits-1 ) {
       tci::List<BondLabelT> label_v = {0,1,-1};

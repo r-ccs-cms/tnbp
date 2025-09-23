@@ -54,7 +54,14 @@ namespace tci {
       const TenT& a,
       const elem_coors_t<TenT>& coors,
       elem_t<TenT>& elem) {
-    elem = a.GetElem(coors);
+    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
+    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
+    ShapeT shape_a = a.Shape();
+    if( shape_a.size() == 0 ) {
+      elem = a.GetScale();
+    } else {
+      elem = a.GetElem(coors);
+    }
   }
 
   // get_elem (by value)
@@ -64,6 +71,13 @@ namespace tci {
       context_handle_t<TenT>& /*ctx*/,
       const TenT& a,
       const elem_coors_t<TenT>& coors) {
+    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
+    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
+    ShapeT shape_a = a.Shape();
+    if( shape_a.size() == 0 ) {
+      ElemT scale = a.GetScale();
+      return scale;
+    }
     return a.GetElem(coors);
   }
 

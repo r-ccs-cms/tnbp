@@ -33,20 +33,16 @@ namespace tnbp {
 
     size_t size_e = EdgeIdx.size();
 
-    size_t num_meas = 0;
-    for(int site_address=0; site_address < Site.size(); site_address++) {
-      if( mpi_rank == Site_To_MpiRank[Site[site_address]] ) {
-	num_meas++;
-      }
-    }
-
-    std::vector<elem_t<TenT>> result(num_meas,elem_t<TenT>(0.0));
+    std::vector<elem_t<TenT>> result(Site.size(),elem_t<TenT>(0.0));
 
     for(int site_address=0; site_address < Site.size(); site_address++) {
       if( mpi_rank == Site_To_MpiRank[Site[site_address]] ) {
-	auto it_siteidx_address = std::find(SiteIdx.begin(),SiteIdx.end(),
+	auto it_siteidx_address = std::find(SiteIdx.begin(),
+					    SiteIdx.end(),
 					    Site[site_address]);
-	auto siteidx_address = std::distance(SiteIdx.begin(),it_siteidx_address);
+	auto siteidx_address = std::distance(SiteIdx.begin(),
+					     it_siteidx_address);
+	
 	TenT W;
 	tci::copy(ctx,V[siteidx_address],W);
 	TenT Wdag;
@@ -55,12 +51,19 @@ namespace tnbp {
 	RankT rank_w = tci::rank(ctx,W);
 	List<BondLabelT> IdxW(rank_w);
 	List<BondLabelT> IdxC(rank_w);
-	std::vector<int> BondIdx = GetSurroundingBondIndex(Site[site_address],I);
+	std::vector<int> BondIdx =
+	  GetSurroundingBondIndex(Site[site_address],I);
 	for(size_t m=0; m < BondIdx.size(); m++) {
-	  auto it_edgeidx_address = std::find(EdgeIdx.begin(),EdgeIdx.end(),BondIdx[m]);
-	  auto edgeidx_address = std::distance(EdgeIdx.begin(),it_edgeidx_address);
+	  auto it_edgeidx_address = std::find(EdgeIdx.begin(),
+					      EdgeIdx.end(),
+					      BondIdx[m]);
+	  auto edgeidx_address = std::distance(EdgeIdx.begin(),
+					       it_edgeidx_address);
+	  if( I[BondIdx[m]].first == Site[site_address] ) {
+	    edgeidx_address += size_e;
+	  }
 	  TenT F;
-	  tci::copy(ctx,E[edgeidx_address+size_e],F);
+	  tci::copy(ctx,E[edgeidx_address],F);
 	  List<BondLabelT> IdxE(2);
 	  List<BondLabelT> IdxF(2);
 	  List<BondLabelT> IdxR(2);
@@ -70,7 +73,7 @@ namespace tnbp {
 	  IdxF[1] = static_cast<BondLabelT>(1);
 	  IdxR[0] = static_cast<BondLabelT>(0);
 	  IdxR[1] = static_cast<BondLabelT>(1);
-	  tci::contract(ctx,F,IdxF,E[edgeidx_address+size_e],IdxE,F,IdxR);
+	  tci::contract(ctx,E[edgeidx_address],IdxE,F,IdxF,F,IdxR);
 	  std::iota(IdxW.begin(),IdxW.end(),0);
 	  std::iota(IdxC.begin(),IdxC.end(),0);
 	  IdxW[m] = static_cast<BondLabelT>(-1);
@@ -78,13 +81,14 @@ namespace tnbp {
 	  IdxF[1] = static_cast<BondLabelT>(m);
 	  tci::contract(ctx,W,IdxW,F,IdxF,W,IdxC);
 	}
+
 	TenT R;
 	List<BondLabelT> IdxO(2);
 	std::iota(IdxW.begin(),IdxW.end(),0);
 	std::iota(IdxC.begin(),IdxC.end(),0);
 	IdxW[rank_w-1] = static_cast<BondLabelT>(-1);
-	IdxO[0] = static_cast<BondLabelT>(rank_w-1);
-	IdxO[1] = static_cast<BondLabelT>(-1);
+	IdxO[0] = static_cast<BondLabelT>(-1);
+	IdxO[1] = static_cast<BondLabelT>(rank_w-1);
 	tci::contract(ctx,W,IdxW,O[site_address],IdxO,R,IdxC);
 	std::iota(IdxW.begin(),IdxW.end(),-rank_w);
 	std::iota(IdxC.begin(),IdxC.end(),-rank_w);
@@ -98,6 +102,8 @@ namespace tnbp {
 	result[site_address] = res_r / res_w;
       }
     }
+
+    return result;
   }
 
   /**
@@ -173,7 +179,8 @@ namespace tnbp {
 	List<BondLabelT> IdxE(2);
 
 	if( mpi_type == 3 || mpi_type == 2 ) {
-	  auto it_site_address_a = std::find(SiteIdx.begin(),SiteIdx.end(),site_a);
+	  auto it_site_address_a = std::find(SiteIdx.begin(),
+					     SiteIdx.end(),site_a);
 	  site_address_a = std::distance(SiteIdx.begin(),it_site_address_a);
 	  tci::copy(ctx,V[site_address_a],A);
 	  RankT rank_a = tci::rank(ctx,A);
@@ -184,12 +191,15 @@ namespace tnbp {
 					       bond_idx_a[k]);
 	    auto edge_address = std::distance(EdgeIdx.begin(),
 					      it_edge_address);
+	    if( I[bond_idx_a[k]].first == site_a ) {
+	      edge_address += size_e;
+	    }
 	    std::iota(IdxA.begin(),IdxA.end(),0);
 	    std::iota(IdxC.begin(),IdxC.end(),0);
 	    IdxA[k] = static_cast<BondLabelT>(-1);
 	    IdxE[0] = static_cast<BondLabelT>(-1);
 	    IdxE[1] = static_cast<BondLabelT>(k);
-	    tci::contract(ctx,A,IdxA,E[edge_address+size_e],IdxE,A,IdxC);
+	    tci::contract(ctx,A,IdxA,E[edge_address],IdxE,A,IdxC);
 	    RealT norm = tci::normalize(ctx,A);
 	  }
 	  tci::copy(ctx,A,AdagA);
@@ -214,17 +224,23 @@ namespace tnbp {
 	  List<BondLabelT> IdxB(rank_b);
 	  List<BondLabelT> IdxC(rank_b);
 	  for(int k=0; k < bond_idx_b.size(); k++) {
-	    auto it_edge_address = std::find(EdgeIdx.begin(),EdgeIdx.end(),
-					     bond_idx_b[k]);
-	    auto edge_address = std::distance(EdgeIdx.begin(),
-					      it_edge_address);
-	    std::iota(IdxB.begin(),IdxB.end(),0);
-	    std::iota(IdxC.begin(),IdxC.end(),0);
-	    IdxB[k] = static_cast<BondLabelT>(-1);
-	    IdxE[0] = static_cast<BondLabelT>(-1);
-	    IdxE[1] = static_cast<BondLabelT>(k);
-	    tci::contract(ctx,B,IdxB,E[edge_address+size_e],IdxE,B,IdxC);
-	    RealT norm = tci::normalize(ctx,B);
+	    if( k != target_bond_address_b ) {
+	      auto it_edge_address = std::find(EdgeIdx.begin(),
+					       EdgeIdx.end(),
+					       bond_idx_b[k]);
+	      auto edge_address = std::distance(EdgeIdx.begin(),
+						it_edge_address);
+	      if( I[bond_idx_b[k]].first == site_b ) {
+		edge_address += size_e;
+	      }
+	      std::iota(IdxB.begin(),IdxB.end(),0);
+	      std::iota(IdxC.begin(),IdxC.end(),0);
+	      IdxB[k] = static_cast<BondLabelT>(-1);
+	      IdxE[0] = static_cast<BondLabelT>(-1);
+	      IdxE[1] = static_cast<BondLabelT>(k);
+	      tci::contract(ctx,B,IdxB,E[edge_address],IdxE,B,IdxC);
+	      RealT norm = tci::normalize(ctx,B);
+	    }
 	  }
 	  tci::copy(ctx,B,BdagB);
 	  tci::cplx_conj(ctx,BdagB);
@@ -269,6 +285,7 @@ namespace tnbp {
 	  IdxO[1] = static_cast<BondLabelT>(0);
 	  IdxO[2] = static_cast<BondLabelT>(-2);
 	  IdxO[3] = static_cast<BondLabelT>(1);
+	  std::iota(IdxC.begin(),IdxC.end(),0);
 	  tci::contract(ctx,AdagA,IdxA,O[m],IdxO,AdagA,IdxC);
 	  RankT rank_b = tci::rank(ctx,BdagB);
 	  List<BondLabelT> IdxB(rank_b);
@@ -289,6 +306,8 @@ namespace tnbp {
 	}
       }
     }
+
+    return result;
   }
   
 }

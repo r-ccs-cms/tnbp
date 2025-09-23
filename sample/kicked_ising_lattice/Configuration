@@ -14,7 +14,7 @@ TNBP_PATH=../../
 CCCOM=mpicxx
 
 # flags for compile: include path to openmp. The following is the case using homebrew's llvm on Mac
-CCFLAGS= -std=c++20 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3 -DTRUNCATION_DEBUG
+CCFLAGS= -std=c++20 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3 -DDEBUG -DMEASURE_DEBUG
 
 # flags for linking
 SYSLIB= -L/opt/homebrew/opt/openblas/lib -llapack -lblas

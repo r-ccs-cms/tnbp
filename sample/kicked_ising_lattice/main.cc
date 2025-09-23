@@ -55,6 +55,7 @@ int main(int argc, char * argv[]) {
   std::vector<int> EdgeIdx;
   std::vector<int> pdim(qubit.size(),2);
   std::vector<Tensor> F;
+  std::vector<BondDim> res_bond_dim;
   std::vector<Real> res_truncation_error;
 
   if( mpi_rank == 0 ) {
@@ -63,23 +64,40 @@ int main(int argc, char * argv[]) {
   tnbp::InitTensorProductState(ctx,edges,pdim,
 			       V,SiteIdx,Site_To_MpiRank,
 			       E,EdgeIdx,comm);
+
+  if ( mpi_rank == 0 ) {
+    std::cout << " " << make_timestamp()
+	      << " start construction of meas operators " << std::endl;
+  }
+
+  std::vector<int> meas_site;
+  std::vector<Tensor> Ox;
+  std::vector<Tensor> Oz;
+  std::vector<std::pair<int,int>> meas_edge;
+  std::vector<Tensor> Oj;
+
+  measops(ctx,edges,meas_site,Ox,Oz,meas_edge,Oj);
   
   Real tolerance;
   for(uint32_t step=0; step < options.num_steps; step++) {
     if( mpi_rank == 0 ) {
-      std::cout << " " << make_timestamp() << " start AbsorbTPO " << std::endl;
+      std::cout << " " << make_timestamp()
+		<< " start AbsorbTPO " << std::endl;
     }
     tnbp::AbsorbTPO(
 	  ctx,TPO,edges,
 	  V,SiteIdx,Site_To_MpiRank,E,EdgeIdx,comm);
 
     if( mpi_rank == 0 ) {
-      std::cout << " " << make_timestamp() << " start belief propagation loop " << std::endl;
+      std::cout << " " << make_timestamp()
+		<< " start belief propagation loop " << std::endl;
     }
     for(uint32_t k=0; k < options.max_bp_iterations; k++) {
       
       if( mpi_rank == 0 ) {
-	std::cout << " " << make_timestamp() << " start " << k << "th belief propagation " << std::endl;
+	std::cout << " " << make_timestamp()
+		  << " start " << k
+		  << "th belief propagation " << std::endl;
       }
       for(size_t p=0; p < layer_edges.size(); p++) {
 	tnbp::BeliefPropagation(
@@ -88,21 +106,24 @@ int main(int argc, char * argv[]) {
 	    layer_edges[p],E,EdgeIdx,comm,F);
       }
       if( mpi_rank == 0 ) {
-	std::cout << " " << make_timestamp() << " update edge tensors " << std::endl;
+	std::cout << " " << make_timestamp()
+		  << " update edge tensors " << std::endl;
       }
       auto itE = E.begin();
       for(const auto & et : F) {
 	tci::copy(ctx,et,*itE++);
       }
       if( mpi_rank == 0 ) {
-	std::cout << " " << make_timestamp() << " calculate condition " << std::endl;
+	std::cout << " " << make_timestamp()
+		  << " calculate condition " << std::endl;
       }
       tnbp::BeliefPropagationCondition(
 	    ctx,edges,V,SiteIdx,
 	    Site_To_MpiRank,E,EdgeIdx,
 	    comm,tolerance);
       if( mpi_rank == 0 ) {
-	std::cout << " " << make_timestamp() << " error from belief propagation condition = "
+	std::cout << " " << make_timestamp()
+		  << " error from belief propagation condition = "
 		  << tolerance << std::endl;
       }
       if( tolerance < options.bp_tolerance ) {
@@ -115,14 +136,74 @@ int main(int argc, char * argv[]) {
 		     options.max_bond_dim,
 		     options.sv_min,
 		     options.truncation_error,
+		     res_bond_dim,
 		     res_truncation_error);
     for(size_t k=0; k < EdgeIdx.size(); k++) {
-      std::cout << " " << make_timestamp() << " truncation error for edge ("
+      std::cout << " " << make_timestamp()
+		<< " truncation error for edge ("
 		<< edges[EdgeIdx[k]].first << ","
 		<< edges[EdgeIdx[k]].second
-		<< ") = " << res_truncation_error[k] << std::endl;
+		<< ") = " << res_truncation_error[k]
+		<< " bond dim = "
+		<< res_bond_dim[k] << std::endl;
     }
+
+    std::cout << " " << make_timestamp()
+	      << " start measurements " << std::endl;
+    
+    auto res_x = tnbp::Measure(ctx,edges,V,SiteIdx,Site_To_MpiRank,
+			       E,EdgeIdx,comm,
+			       meas_site,Ox);
+    
+    for(size_t i=0; i < meas_site.size(); i++) {
+      if( Site_To_MpiRank[meas_site[i]] == mpi_rank ) {
+	std::cout << " " << make_timestamp()
+		  << " measurement of X at site " << meas_site[i]
+		  << " time step " << step
+		  << " = " << res_x[i] << std::endl;
+      }
+    }
+    
+    auto res_z = tnbp::Measure(ctx,edges,V,SiteIdx,Site_To_MpiRank,
+			       E,EdgeIdx,comm,
+			       meas_site,Oz);
+    
+    for(size_t i=0; i < meas_site.size(); i++) {
+      if( Site_To_MpiRank[meas_site[i]] == mpi_rank ) {
+	std::cout << " " << make_timestamp()
+		  << " measurement of Z at site " << meas_site[i]
+		  << " time step " << step
+		  << " = " << res_z[i] << std::endl;
+      }
+    }
+    
+    auto res_j = tnbp::Measure(ctx,edges,V,SiteIdx,Site_To_MpiRank,
+			       E,EdgeIdx,comm,
+			       meas_edge,Oj);
+    
+    for(size_t m=0; m < meas_edge.size(); m++) {
+      int site_a = edges[m].first;
+      int site_b = edges[m].second;
+      int mpi_rank_a = Site_To_MpiRank[site_a];
+      int mpi_rank_b = Site_To_MpiRank[site_b];
+      int mpi_type = 0;
+      if ( mpi_rank_a == mpi_rank ) {
+	mpi_type += 2;
+      }
+      if ( mpi_rank_b == mpi_rank ) {
+	mpi_type += 1;
+      }
+      if ( mpi_type > 1 ) {
+	std::cout << " " << make_timestamp()
+		  << " measurement of ZZ at sites (" << meas_edge[m].first
+		  << "," << meas_edge[m].second << ") "
+		  << " time step " << step
+		  << " = " << res_j[m] << std::endl;
+      }
+    }
+    
   }
+
 
   MPI_Finalize();
   

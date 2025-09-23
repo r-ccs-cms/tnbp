@@ -25,6 +25,7 @@ namespace tnbp {
 		  bond_dim_t<TenT> max_dim,
 		  real_t<TenT> eps,
 		  real_t<TenT> err,
+		  std::vector<bond_dim_t<TenT>> & res_bond_dim,
 		  std::vector<real_t<TenT>> & res_trunc_err) {
     
     using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
@@ -50,6 +51,7 @@ namespace tnbp {
     TenT Sb;
 
     res_trunc_err.resize(num_e);
+    res_bond_dim.resize(num_e);
 
     for(int edge_address=0; edge_address < I.size(); edge_address++) {
       int site_a = I[edge_address].first;
@@ -127,6 +129,8 @@ namespace tnbp {
 	tci::trunc_svd(ctx,T,num_rows,X,S,Y,
 		       trunc_err,chi_min,chi_max,err,eps);
 
+	auto shape_s = tci::shape(ctx_r,S);
+	res_bond_dim[edge_address] = shape_s[0];
 	res_trunc_err[edge_address] = trunc_err;
 	TenT Z;
 	tci::convert(ctx_r,S,ctx,Z);
