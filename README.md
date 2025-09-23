@@ -35,13 +35,25 @@ This will place the original `tensor-ng-dev` under
 /external/tensor-ng-dev
 ```
 
-## Sample Program
+## Sample Programs
 
-The sample program under:
+### 1. Simulation of estimator for kicked ising model on a lattice (sample/kicked_ising_lattice)
+
+The sample program under
 ```
-/sample/emulator
+/sample/kicked_ising_lattice
 ```
-contains a `Makefile` and `Configuration` files that are already set up to work with this submodule configuration.
+provides a simulator to estimate the expectation value after the kicked Ising Floquet dynamics on the lattice.
+See the `/sample/kicked_ising_lattice/README.md` for more details.
+
+### 2. Simulation of estimator for sparce pauli operator after gate operations defined by qasm file (sample/estimator)
+
+The sample program under
+```
+/sample/estimator/
+```
+provides a simulator for estimating the expectation value of sparse Pauli operator after gate operations defined by qasm file.
+See the `/sample/estimator/README.md` for more details.
 
 
 ## Authors
