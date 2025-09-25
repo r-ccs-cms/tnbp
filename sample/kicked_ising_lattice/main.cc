@@ -82,7 +82,8 @@ int main(int argc, char * argv[]) {
   std::vector<Tensor> Oj;
 
   measops(ctx,edges,meas_site,Ox,Oz,meas_edge,Oj);
-  
+
+  std::cout.precision(16);
   Real tolerance;
   for(uint32_t step=0; step < options.num_steps; step++) {
     if( mpi_rank == 0 ) {
@@ -165,7 +166,7 @@ int main(int argc, char * argv[]) {
 	std::cout << " " << make_timestamp()
 		  << " measurement of X at site " << meas_site[i]
 		  << " time step " << step
-		  << " = " << res_x[i] << std::endl;
+		  << " = " << GetReal(res_x[i]) << std::endl;
       }
     }
     
@@ -178,7 +179,7 @@ int main(int argc, char * argv[]) {
 	std::cout << " " << make_timestamp()
 		  << " measurement of Z at site " << meas_site[i]
 		  << " time step " << step
-		  << " = " << res_z[i] << std::endl;
+		  << " = " << GetReal(res_z[i]) << std::endl;
       }
     }
     
@@ -203,7 +204,7 @@ int main(int argc, char * argv[]) {
 		  << " measurement of ZZ at sites (" << meas_edge[m].first
 		  << "," << meas_edge[m].second
 		  << ") time step " << step
-		  << " = " << res_j[m] << std::endl;
+		  << " = " << GetReal(res_j[m]) << std::endl;
       }
     }
     

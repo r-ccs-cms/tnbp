@@ -9,17 +9,9 @@
 #include "pauli/sparse_pauli.h"
 #include "tnbp/tnbp.h"
 
+#include "typedef.h"
+#include "timestamp.h"
 #include "option.h"
-
-#ifdef USE_SINGLE
-using Tensor = typename gqten::tensor<std::complex<float>>;
-#else
-using Tensor = typename gqten::tensor<std::complex<double>>;
-#endif
-
-using Elem = typename tci::tensor_traits<Tensor>::elem_t;
-using Real = typename tci::tensor_traits<Tensor>::real_t;
-using ContextHandle = typename tci::tensor_traits<Tensor>::context_handle_t;
 
 int main(int argc, char * argv[]) {
 
@@ -66,6 +58,9 @@ int main(int argc, char * argv[]) {
   
 
   Real tolerance;
+  std::vector<BondDim> res_bond_dim;
+  std::vector<Real> res_truncation_error;
+  
   for(size_t t=0; t < TPO.size(); t++) {
     /**
        Attach operator tensor to site tensor
@@ -97,6 +92,25 @@ int main(int argc, char * argv[]) {
       if( tolerance < options.tolerance ) {
 	break;
       }
+    }
+
+    /**
+       Perform truncation
+     */
+    tnbp::Truncation(ctx,edges,
+		     V,SiteIdx,Site_To_MpiRank,
+		     options.max_bond_dim,
+		     options.sv_min,
+		     options.truncation_error,
+		     res_bond_dim,
+		     res_truncation_error);
+    for(size_t k=0; k < EdgeIdx.size() k++) {
+      std::cout << " " << make_timestamp()
+		<< " truncation error for edge ("
+		<< edges[EdgeIdx[k]].first << ","
+		<< edges[EdgeIdx[k]].second << ") = "
+		<< res_truncation_error[k] << " bond dim = "
+		<< res_bond_dim[k] << std::endl;
     }
   }
 

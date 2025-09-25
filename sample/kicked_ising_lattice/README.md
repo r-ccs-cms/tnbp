@@ -3,7 +3,7 @@
 ## Overview
 
 This sample proides a simplified simulator that peforms one and two-dimensional tensor network simulations based on belief propagation. Namely,
-$\langle 0 \vert \hat{U}^{\dagger} \hat{O} \hat{U} \vert 0 \rangle$ where $\hat{U} = ( \prod_{i} \exp ( -i \pi h_z \tau \hat{Z}_i ) \prod_{\langle i,j \rangle} \exp ( - i \pi J_z \tau \hat{Z}_i \hat{Z}_j ) \prod_{i} \exp ( - i \pi h_x \tau \hat{X}_i ) )^s \vert 0 \rangle$, $\hat{O} = \{ \{ \hat{X}_i \}_i, \{ \hat{Z}_i \}_i, \{ \hat{Z}_i \hat{Z}_j \}_{\langle i,j \rangle}$.
+$\langle 0 \vert \hat{U}^{\dagger} \hat{O} \hat{U} \vert 0 \rangle$ where $\hat{U} = ( \prod_{i} \exp ( -i \pi h_z \tau \hat{Z}_i ) \prod_{\langle i,j \rangle} \exp ( - i \pi J_z \tau \hat{Z}_i \hat{Z}_j ) \prod_{i} \exp ( - i \pi h_x \tau \hat{X}_i ) )^s \vert 0 \rangle$, $\hat{O} = \{ \{ \hat{X}_i \}_i, \{ \hat{Z}_i \}_i, \{ \hat{Z}_i \hat{Z}_j \}_{\langle i,j \rangle} \}$.
 
 ## Installation
 
@@ -80,7 +80,7 @@ This program performs a real-space parallelized two-dimensional tensor network s
 It takes as input a QASM circuit file and a sparse Pauli operator file, and computes expectation values of observables on a given device topology.
 The simulation runs in parallel using MPI, so you should launch it with mpirun or mpiexec.
 
-**Example**:
+### Example
 ```
 mpirun -np 4 ./kicked_ising_exvalue \
   --lattice oned \
@@ -97,7 +97,7 @@ mpirun -np 4 ./kicked_ising_exvalue \
   --truncation_error 1.0e-6
 ```
 
-**Options**:
+### Options
 - `--latice <str>`: Target lattice. Currently, `oned` and `honeycomb` are available.
 - `--L <int>`: The size of system. For `oned`, it is the system size. For `honeycomb`, the system size becomes $2 \times L^2$.
 - `--Jz <float>`: The coupling strength for $\hat{Z}_i \hat{Z}_j$ term.
@@ -110,3 +110,39 @@ mpirun -np 4 ./kicked_ising_exvalue \
 - `--max_bond_dim <int>`: Maximum bond dimension for virtual bond.
 - `--sv_min <float>`: Minimum cutoff in singular value.
 - `--truncation_error <float>`: Target truncation error.
+
+### Post-processing measurement data
+
+After running the simulator, measurement logs are written to `output.dat`.  
+These can be parsed and visualized with the helper script `analyze_measurements.py`.  
+This step is **optional** and intended for post-processing.
+
+Run:
+```bash
+python3 analyze_measurements.py             # reads ./output.dat by default
+python3 analyze_measurements.py myout.log   # specify an input file
+```
+This produces the following outputs:
+- `data_meas_x.txt` / `data_meas_x.tsv` — Expectation values of X (sorted by time step → site).
+  - For X, both real and imaginary parts are extracted from the (real, imag) tuple.
+- `data_meas_z.txt` / `data_meas_z.tsv` — Expectation values of Z (sorted by time step → site).
+- `data_meas_j.txt` / `data_meas_j.tsv` — Expectation values of ZZ (sorted by time step → i → j).
+By default, figures are saved into ./figs/:
+- Heatmaps for X (real/imag) and Z across (time step × site).
+- For ZZ, if the data looks like nearest neighbors (pairs (i, i+1)), a heatmap over bonds is produced. Otherwise, line plots per time step are generated as a fallback.
+To skip figure generation:
+```bash
+python3 analyze_measurements.py --no-plots
+```
+
+***Python dependencies***
+Install the required Python packages before running the script:
+```bash
+pip install -r requirements.txt
+```
+The `requirements.txt` includes:
+```nginx
+pandas
+matplotlib
+```
+(NumPy is installed automatically as a dependency.)
