@@ -1,20 +1,15 @@
-# Path to TCI
-TCI_PATH=../../external/minitci/
-
-# Path to actual tensor computing library
-TCL_PATH=../../external/tensor-ng-dev
-
-# Path to additional external library
-HPTT_PATH=../../external/tensor-ng-dev/external/hptt
-
-# Path to tnbp library
-TNBP_PATH=../../
-
 # c++ compiler
 CCCOM=mpicxx
 
-# flags for compile: include path to openmp. The following is the case using homebrew's llvm on Mac
-CCFLAGS= -std=c++20 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3 -DDEBUG -DMEASURE_DEBUG
+# flags for compile: include path to openmp, tci for gqten, gqten, hptt.  The following is the case using homebrew's llvm on macOS.
+CXX_FLAGS= -std=c++20 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3 -I../../external/minitci/include -I../../external/tensor-ng-dev/include -I../../external/tensor-ng-dev/external/hptt/include -I../../include
 
-# flags for linking
-SYSLIB= -L/opt/homebrew/opt/openblas/lib -llapack -lblas
+# flags for compile: include path to openmp, tci for cytnx, cytnx, boost. The following is the case using homebrew's llvm, openblas, and boost on macOS.
+# CXX_FLAGS= -std=c++20 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3 -I../../../../tci-cytnx/develop/include -I../../../../tci-cytnx/develop/external/Cytnx/include -I/opt/homebrew/opt/boost/include -I../../include -DUSE_CYTNX
+
+
+# flags for linking when we use the tci for gqten
+LIB_FLAGS= -L../../external/tensor-ng-dev/external/hptt/lib -lhptt -L/opt/homebrew/opt/openblas/lib -llapack -lblas
+
+# flags for linking when we use the tci for cytnx.
+# LIB_FLAGS= -L../../../../tci-cytnx/develop/build/ -lTCI -L../../../../tci-cytnx/develop/build/external/Cytnx/ -lcytnx -L/opt/homebrew/opt/openblas/lib -llapack -lblas

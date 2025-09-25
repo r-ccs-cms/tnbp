@@ -104,7 +104,7 @@ Belief propagation step for self-consistent iteration
 		tci::contract(ctx,T,IdxA,E[MpA],IdxE,T,IdxA_res);
 	      }
 	    }
-	    RealT norm_a = tci::normalize(ctx,T);
+	    auto norm_a = tci::normalize(ctx,T);
 	  }
 	  tci::copy(ctx,V[AddressA],AdagA);
 	  tci::cplx_conj(ctx,AdagA);
@@ -117,7 +117,7 @@ Belief propagation step for self-consistent iteration
 	  IdxT[BondIdxA] = static_cast<BondLabelT>(0);
 	  IdxA[BondIdxA] = static_cast<BondLabelT>(1);
 	  tci::contract(ctx,T,IdxT,AdagA,IdxA,AdagA,IdxN);
-	  RealT norm_aa = tci::normalize(ctx,AdagA);
+	  auto norm_aa = tci::normalize(ctx,AdagA);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
@@ -156,7 +156,7 @@ Belief propagation step for self-consistent iteration
 		tci::contract(ctx,T,IdxB,E[MpB],IdxE,T,IdxB_res);
 	      }
 	    }
-	    RealT norm_b = tci::normalize(ctx,T);
+	    auto norm_b = tci::normalize(ctx,T);
 	  }
 	  tci::copy(ctx,V[AddressB],BdagB);
 	  tci::cplx_conj(ctx,BdagB);
@@ -169,7 +169,7 @@ Belief propagation step for self-consistent iteration
 	  IdxT[BondIdxB] = static_cast<BondLabelT>(0);
 	  IdxB[BondIdxB] = static_cast<BondLabelT>(1);
 	  tci::contract(ctx,T,IdxT,BdagB,IdxB,BdagB,IdxN);
-	  RealT norm_bb = tci::normalize(ctx,BdagB);
+	  auto norm_bb = tci::normalize(ctx,BdagB);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
@@ -267,7 +267,7 @@ Belief propagation step for self-consistent iteration
 	    IdxE[0] = static_cast<BondLabelT>(-1);
 	    IdxE[1] = static_cast<BondLabelT>(l);
 	    tci::contract(ctx,T,IdxV,F,IdxE,T,IdxV_res);
-	    RealT norm_v = tci::normalize(ctx,T);
+	    auto norm_v = tci::normalize(ctx,T);
 	  }
 	} // end for(size_t l=0; l < BondIdx.size(); l++)
 	
@@ -288,7 +288,7 @@ Belief propagation step for self-consistent iteration
 	IdxN[0] = static_cast<BondLabelT>(0);
 	IdxN[1] = static_cast<BondLabelT>(1);
 	tci::contract(ctx,T,IdxV,C,IdxC,T,IdxN);
-	RealT norm_v = tci::normalize(ctx,T);
+	auto norm_v = tci::normalize(ctx,T);
 
 	auto itEdgeAddress = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				       BondIdx[k]);
@@ -298,7 +298,7 @@ Belief propagation step for self-consistent iteration
 	}
 	TenT F;
 	tci::copy(ctx,E[EdgeAddress],F);
-	ElemT norm_f = tci::normalize(ctx,F);
+	auto norm_f = tci::normalize(ctx,F);
 
 #ifdef BP_DEBUG
 	std::cout << " belief propagation: Before linear_combine " << std::endl;

@@ -200,7 +200,7 @@ namespace tnbp {
 	    IdxE[0] = static_cast<BondLabelT>(-1);
 	    IdxE[1] = static_cast<BondLabelT>(k);
 	    tci::contract(ctx,A,IdxA,E[edge_address],IdxE,A,IdxC);
-	    RealT norm = tci::normalize(ctx,A);
+	    auto norm = tci::normalize(ctx,A);
 	  }
 	  tci::copy(ctx,A,AdagA);
 	  tci::cplx_conj(ctx,AdagA);
@@ -239,7 +239,7 @@ namespace tnbp {
 	      IdxE[0] = static_cast<BondLabelT>(-1);
 	      IdxE[1] = static_cast<BondLabelT>(k);
 	      tci::contract(ctx,B,IdxB,E[edge_address],IdxE,B,IdxC);
-	      RealT norm = tci::normalize(ctx,B);
+	      auto norm = tci::normalize(ctx,B);
 	    }
 	  }
 	  tci::copy(ctx,B,BdagB);
