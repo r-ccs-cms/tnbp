@@ -39,7 +39,7 @@ namespace tnbp {
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
     using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
     CtxR ctx_r;
-    tci::create_context<RealTenT>(ctx_r);
+    tci::create_context(ctx_r);
 
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);

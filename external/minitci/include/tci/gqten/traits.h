@@ -12,10 +12,16 @@ namespace tci {
   template<class E> struct is_gqten_tensor<gqten::tensor<E>> : std::true_type {};
   template<class T>
   inline constexpr bool is_gqten_tensor_v = is_gqten_tensor<T>::value;
-  
+
   struct gqten_handle {
     std::string text = std::string("none");
   };
+  
+  template <class T> struct is_gqten_handle : std::false_type {};
+  template <> struct is_gqten_handle<gqten_handle> : std::true_type {};
+  template <class T>
+  inline constexpr bool is_gqten_handle_v =
+    is_gqten_handle<std::remove_cv_t<std::remove_reference_t<T>>>::value;
   
   // traits for gqten::tensor<float>
   template <>

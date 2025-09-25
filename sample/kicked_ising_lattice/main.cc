@@ -34,7 +34,7 @@ int main(int argc, char * argv[]) {
   }
 
   ContextHandle ctx;
-  tci::create_context<Tensor>(ctx);
+  tci::create_context(ctx);
   std::vector<std::pair<int,int>> edges;
   std::vector<std::vector<std::pair<int,int>>> layer_edges;
 

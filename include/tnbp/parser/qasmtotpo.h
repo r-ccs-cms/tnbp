@@ -203,7 +203,7 @@ namespace tnbp {
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
     using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
     CtxR ctx_r;
-    tci::create_context<RealTenT>(ctx_r);
+    tci::create_context(ctx_r);
     
     auto site = GetSiteIndexFromBond(edges);
     std::vector<std::vector<TenT>> T(num_gates.size(),

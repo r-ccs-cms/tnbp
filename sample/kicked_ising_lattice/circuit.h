@@ -33,7 +33,7 @@ std::vector<TenT> CircuitTPO(
 
   using ContextHandleR = typename tci::tensor_traits<RealTenT>::context_handle_t;
   ContextHandleR ctx_r;
-  tci::create_context<RealTenT>(ctx_r);
+  tci::create_context(ctx_r);
 
   int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
   int mpi_size; MPI_Comm_size(comm,&mpi_size);
