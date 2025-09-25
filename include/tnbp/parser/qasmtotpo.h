@@ -17,7 +17,7 @@ namespace tnbp {
    */
   template<typename ElemT>
   std::vector<ElemT> InstructionMatrix(const qasm::Instruction & ins) {
-    const double pi = 3.14159265358979323846;
+    const double pi = PI_v<double>;
 
     switch (ins.op) {
       // ===== 1 qubit family =====
@@ -207,7 +207,7 @@ namespace tnbp {
     
     auto site = GetSiteIndexFromBond(edges);
     std::vector<std::vector<TenT>> T(num_gates.size(),
-		std::vector<TenT>(site.size()));
+		                     std::vector<TenT>(site.size()));
     int gate_count = 0;
     int m = 0;
     for(auto const & ins : program.instructions) {
@@ -234,7 +234,11 @@ namespace tnbp {
       TenT gate = InstructionTensor<TenT>(ctx,ins);
       auto rank_tensor = tci::rank(ctx,gate);
       int num_qubits = rank_tensor/2;
+
       if( num_qubits == 1 ) {
+	/**
+	   Case for single-site gate
+	*/
 	auto site_a = static_cast<int>(ins.qubits[0].index);
 	auto virtualbond = GetSurroundingBondIndex(site_a,edges);
 	auto num_virtualbond = virtualbond.size();
@@ -243,19 +247,22 @@ namespace tnbp {
 	List<BondLabelT> IdxR(num_virtualbond+2);
 	std::iota(IdxT.begin(),IdxT.end(),0);
 	std::iota(IdxR.begin(),IdxR.end(),0);
-	IdxT[num_virtualbond+0] = static_cast<BondLabelT>(-1);
-	IdxT[num_virtualbond+1] = static_cast<BondLabelT>(num_virtualbond)+1;
-	IdxG[0] = static_cast<BondLabelT>(num_virtualbond);
-	IdxG[1] = static_cast<BondLabelT>(-1);
+	IdxT[num_virtualbond+0] = static_cast<BondLabelT>(num_virtualbond);
+	IdxT[num_virtualbond+1] = static_cast<BondLabelT>(-1);
+	IdxG[0] = static_cast<BondLabelT>(-1);
+	IdxG[1] = static_cast<BondLabelT>(num_virtualbond);
 	tci::contract(ctx,T[m][site_a],IdxT,gate,IdxG,T[m][site_a],IdxR);
       } else if ( num_qubits == 2 ) {
 
+	/**
+	   Case for two-site gate
+	*/
 	// we first perform svd
 	List<BondIdxT> new_order(4);
-	new_order[0] = static_cast<BondLabelT>(0);
-	new_order[1] = static_cast<BondLabelT>(2);
-	new_order[2] = static_cast<BondLabelT>(1);
-	new_order[3] = static_cast<BondLabelT>(3);
+	new_order[0] = static_cast<BondLabelT>(0); // a in
+	new_order[1] = static_cast<BondLabelT>(2); // a out
+	new_order[2] = static_cast<BondLabelT>(1); // b in
+	new_order[3] = static_cast<BondLabelT>(3); // b out
 	tci::transpose(ctx,gate,new_order);
 	TenT A;
 	TenT B;
@@ -271,14 +278,14 @@ namespace tnbp {
 	List<BondLabelT> IdxG(3);
 	List<BondLabelT> IdxD(2);
 	List<BondLabelT> IdxGnew(3);
-	IdxG[0] = static_cast<BondLabelT>(0);
-	IdxG[1] = static_cast<BondLabelT>(1);
+	IdxG[0] = static_cast<BondLabelT>(1);
+	IdxG[1] = static_cast<BondLabelT>(2);
 	IdxG[2] = static_cast<BondLabelT>(-1);
 	IdxD[0] = static_cast<BondLabelT>(-1);
-	IdxD[1] = static_cast<BondLabelT>(2);
+	IdxD[1] = static_cast<BondLabelT>(0); // virtual bond
 	std::iota(IdxGnew.begin(),IdxGnew.end(),0);
 	tci::contract(ctx,A,IdxG,D,IdxD,A,IdxGnew);
-	IdxD[0] = static_cast<BondLabelT>(0);
+	IdxD[0] = static_cast<BondLabelT>(0); // virtual bond
 	IdxD[1] = static_cast<BondLabelT>(-1);
 	IdxG[0] = static_cast<BondLabelT>(-1);
 	IdxG[1] = static_cast<BondLabelT>(1);
@@ -323,8 +330,9 @@ namespace tnbp {
 	    tci::copy(ctx,B,X);
 	  }
 	  auto vb_a = GetSurroundingBondIndex(path[i],edges);
+	  auto rank_A = tci::rank(ctx,T[m][path[i]]);
 	  auto rank_X = tci::rank(ctx,X);
-	  List<BondLabelT> IdxA(vb_a.size()+2,1);
+	  List<BondLabelT> IdxA(rank_A);
 	  List<BondLabelT> IdxX(rank_X);
 	  int target_bond_m = static_cast<int>(vb_a.size())+2;
 	  if( i > 0 ) {
@@ -341,7 +349,7 @@ namespace tnbp {
 	      target_bond_m++;
 	    }
 	  }
-	  int target_bond_p = vb_a.size()+2;
+	  int target_bond_p = static_cast<int>(vb_a.size())+2;
 	  if( i < path.size()-1 ) {
 	    target_bond_p = 0;
 	    for(auto const & k : vb_a) {
@@ -356,38 +364,31 @@ namespace tnbp {
 	      target_bond_p++;
 	    }
 	  }
-	  int k = 0;
+	  int ka = 0;
 	  int kx = 0;
 	  ShapeT shapeA = tci::shape(ctx,T[m][path[i]]);
 	  ShapeT new_shapeA(vb_a.size()+2);
 	  for(int b=0; b < vb_a.size(); b++) {
 	    if( b == target_bond_m ) {
-	      IdxA[b] = static_cast<BondLabelT>(k);
-	      k++;
-	      IdxX[kx] = static_cast<BondLabelT>(k);
-	      k++;
-	      kx++;
+	      IdxA[b] = static_cast<BondLabelT>(ka++);
+	      IdxX[kx++] = static_cast<BondLabelT>(ka++);
 	      new_shapeA[b] = static_cast<BondDimT>(vdim*shapeA[b]);
 	    } else if ( b == target_bond_p ) {
-	      IdxA[b] = static_cast<BondLabelT>(k);
-	      k++;
-	      IdxX[kx] = static_cast<BondLabelT>(k);
-	      k++;
-	      kx++;
+	      IdxA[b] = static_cast<BondLabelT>(ka++);
+	      IdxX[kx++] = static_cast<BondLabelT>(ka++);
 	      new_shapeA[b] = static_cast<BondDimT>(vdim*shapeA[b]);
 	    } else {
-	      IdxA[b] = static_cast<BondLabelT>(k);
-	      k++;
+	      IdxA[b] = static_cast<BondLabelT>(ka++);
 	      new_shapeA[b] = shapeA[b];
 	    }
 	  }
-	  IdxX[kx] = static_cast<BondLabelT>(vb_a.size());
-	  IdxX[kx+1] = static_cast<BondLabelT>(-1);
+	  IdxX[kx++] = static_cast<BondLabelT>(vb_a.size());
+	  IdxX[kx++] = static_cast<BondLabelT>(-1);
 	  IdxA[vb_a.size()+0] = static_cast<BondLabelT>(-1);
 	  IdxA[vb_a.size()+1] = static_cast<BondLabelT>(vb_a.size()+1);
 	  new_shapeA[vb_a.size()+0] = shapeA[vb_a.size()+0];
 	  new_shapeA[vb_a.size()+1] = shapeA[vb_a.size()+1];
-	  List<BondLabelT> IdxP(vb_a.size()+2);
+	  List<BondLabelT> IdxP(rank_X+rank_A-2);
 	  std::iota(IdxP.begin(),IdxP.end(),0);
 	  tci::contract(ctx,X,IdxX,T[m][path[i]],IdxA,T[m][path[i]],IdxP);
 	  tci::reshape(ctx,T[m][path[i]],new_shapeA);
@@ -489,11 +490,11 @@ namespace tnbp {
 	List<BondLabelT> IdxGa(3);
 	List<BondLabelT> IdxD(2);
 	List<BondLabelT> IdxGa_new(3);
-	IdxGa[0] = static_cast<BondLabelT>(0);
-	IdxGa[1] = static_cast<BondLabelT>(1);
+	IdxGa[0] = static_cast<BondLabelT>(1);
+	IdxGa[1] = static_cast<BondLabelT>(2);
 	IdxGa[2] = static_cast<BondLabelT>(-1);
 	IdxD[0] = static_cast<BondLabelT>(-1);
-	IdxD[1] = static_cast<BondLabelT>(2);
+	IdxD[1] = static_cast<BondLabelT>(0);
 	std::iota(IdxGa_new.begin(),IdxGa_new.end(),0);
 	tci::contract(ctx,Ga,IdxGa,D,IdxD,Ga,IdxGa_new);
 	List<BondLabelT> IdxGv(5);
@@ -579,10 +580,11 @@ namespace tnbp {
 	    tci::transpose(ctx,X,new_order_X);
 	  }
 	  auto vb_A = GetSurroundingBondIndex(path[i],edges);
+	  auto rank_A = tci::rank(ctx,T[m][path[i]]);
 	  auto rank_X = tci::rank(ctx,X);
-	  List<BondLabelT> IdxA(vb_A.size()+2,1);
+	  List<BondLabelT> IdxA(rank_A);
 	  List<BondLabelT> IdxX(rank_X);
-	  List<BondLabelT> IdxN(vb_A.size()+rank_X,1);
+	  List<BondLabelT> IdxN(rank_A+rank_X-2);
 	  int target_bond_m = static_cast<int>(vb_A.size())+2;
 	  if( i > 0 ) {
 	    target_bond_m = 0;
@@ -613,39 +615,32 @@ namespace tnbp {
 	      target_bond_p++;
 	    }
 	  }
-	  int k=0;
+	  int ka=0;
 	  int kx = 0;
 	  ShapeT shapeA = tci::shape(ctx,T[m][path[i]]);
-	  ShapeT new_shapeA(vb_A.size()+2);
+	  ShapeT new_shapeA(rank_A);
 	  for(int b=0; b < vb_A.size(); b++) {
 	    if( b == target_bond_m ) {
-	      IdxA[b] = static_cast<BondLabelT>(k);
-	      k++;
-	      IdxX[kx] = static_cast<BondLabelT>(k);
-	      k++;
-	      kx++;
+	      IdxA[b] = static_cast<BondLabelT>(ka++);
+	      IdxX[kx++] = static_cast<BondLabelT>(ka++);
 	      new_shapeA[b] = static_cast<BondDimT>(vdim*shapeA[b]);
 	    } else if ( b == target_bond_p ) {
-	      IdxA[b] = static_cast<BondLabelT>(k);
-	      k++;
-	      IdxX[kx] = static_cast<BondLabelT>(k);
-	      k++;
-	      kx++;
+	      IdxA[b] = static_cast<BondLabelT>(ka++);
+	      IdxX[kx++] = static_cast<BondLabelT>(ka++);
 	      new_shapeA[b] = static_cast<BondDimT>(vdim*shapeA[b]);
 	    } else {
-	      IdxA[b] = static_cast<BondLabelT>(k);
-	      k++;
+	      IdxA[b] = static_cast<BondLabelT>(ka++);
 	      new_shapeA[b] = shapeA[b];
 	    }
 	  }
-	  IdxX[kx] = static_cast<BondLabelT>(vb_A.size());
-	  IdxX[kx+1] = static_cast<BondLabelT>(-1);
+	  IdxX[kx++] = static_cast<BondLabelT>(vb_A.size());
+	  IdxX[kx++] = static_cast<BondLabelT>(-1);
 	  IdxA[vb_A.size()+0] = static_cast<BondLabelT>(-1);
 	  IdxA[vb_A.size()+1] = static_cast<BondLabelT>(vb_A.size()+1);
-	  std::iota(IdxN.begin(),IdxN.end(),0);
-	  tci::contract(ctx,X,IdxX,T[m][path[i]],IdxA,T[m][path[i]],IdxN);
 	  new_shapeA[vb_A.size()+0] = shapeA[vb_A.size()+0];
 	  new_shapeA[vb_A.size()+1] = shapeA[vb_A.size()+1];
+	  std::iota(IdxN.begin(),IdxN.end(),0);
+	  tci::contract(ctx,X,IdxX,T[m][path[i]],IdxA,T[m][path[i]],IdxN);
 	  tci::reshape(ctx,T[m][path[i]],new_shapeA);
 	}
       } // else if ( num_qubits == 3 )

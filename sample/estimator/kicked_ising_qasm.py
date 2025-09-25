@@ -1,5 +1,7 @@
 # kicked_ising_to_qasm2.py
 from __future__ import annotations
+
+import argparse
 from typing import Iterable, Tuple, Set
 
 from qiskit import QuantumCircuit, transpile
@@ -80,13 +82,22 @@ def build_kicked_ising_circuit(
 
 
 def main():
-    backend_name = "ibm_kobe"
-    steps = 1
-    theta_x = 0.9 * 3.14159265
-    theta_z = 0.0
-    phi = 1.0 * 0.5 * 3.14159265
+    ap = argparse.ArgumentParser(description="Dump QASM file for kicked Ising on backend topology")
+    ap.add_argument("--backend", type=str, default="ibm_kobe", help="IBM backend name (e.g., 'ibm_kobe').")
+    ap.add_argument("--steps", type=int, default=1, help="Number of Floquet steps")
+    ap.add_argument("--hx", type=float, default=1.0, help="Coefficient for sum_i X_i (default 1.0)")
+    ap.add_argument("--hz", type=float, default=0.0, help="Coefficient for sum_i Z_i (default 0.0)")
+    ap.add_argument("--jz", type=float, default=1.0, help="Coefficient for sum_(i,j in edges) Z_i Z_j (default 1.0)")
+    ap.add_argument("--output", type=str, default="kicked_ising.qasm", help="Output path (qasm)")
+    args = ap.parse_args()
+    
+    backend_name = args.backend
+    steps = args.steps
+    theta_x = args.hx * 3.14159265
+    theta_z = args.hz * 3.14159265
+    phi = args.jz * 3.14159265
     add_measure = False
-    qasm_out = "kicked_ising.qasm"
+    qasm_out = args.output
 
     backend, cmap, n_qubits = get_backend_and_cmap(backend_name)
     bonds = undirected_edges_from_cmap(cmap)

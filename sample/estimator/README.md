@@ -112,10 +112,12 @@ python kicked_ising_qasm.py --steps 10 --backend ibm_kawasaki --output circuit.q
 ```
 
 **Options**
-- `--step <int>`: Number of Floquet steps (circuit depth in units of one kicked Ising cycle).
 - `--backend <str>`: IBM Quantum backend name (e.g., `ibm_kawasaki`, `ibm_marrakesh`).
+- `--steps <int>`: Number of Floquet steps (circuit depth in units of one kicked Ising cycle).
 - `--output <str>`: File name of the generated QASM circuit.
-
+- `--hx <float>`: Coefficient for sum_i X_i (default 1.0)
+- `--hz <float>`: Coefficient for sum_i Z_i (default 0.0)
+- `--jz <float>`: Coefficient for sum_(i,j in edges) Z_i Z_j (default 1.0)
 
 ### 2. Generate sparse Pauli operators
 This script constructs the transverse + longitudinal field Ising Hamiltonian as a sparse Pauli operator representation.

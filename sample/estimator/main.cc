@@ -31,7 +31,7 @@ int main(int argc, char * argv[]) {
   qasm::Program qasm_program = qasm::parse_any(qasm_source);
 
   ContextHandle ctx;
-  tci::create_context<Tensor>(ctx);
+  tci::create_context(ctx);
   std::vector<std::pair<int,int>> edges;
   std::vector<std::vector<std::pair<int,int>>> layer_edges;
   
@@ -89,7 +89,7 @@ int main(int argc, char * argv[]) {
 	    ctx,edges,V,SiteIdx,
 	    Site_To_MpiRank,E,EdgeIdx,
 	    comm,tolerance);
-      if( tolerance < options.tolerance ) {
+      if( tolerance < options.bp_tolerance ) {
 	break;
       }
     }
@@ -99,12 +99,13 @@ int main(int argc, char * argv[]) {
      */
     tnbp::Truncation(ctx,edges,
 		     V,SiteIdx,Site_To_MpiRank,
+		     E,EdgeIdx,comm,
 		     options.max_bond_dim,
 		     options.sv_min,
 		     options.truncation_error,
 		     res_bond_dim,
 		     res_truncation_error);
-    for(size_t k=0; k < EdgeIdx.size() k++) {
+    for(size_t k=0; k < EdgeIdx.size(); k++) {
       std::cout << " " << make_timestamp()
 		<< " truncation error for edge ("
 		<< edges[EdgeIdx[k]].first << ","

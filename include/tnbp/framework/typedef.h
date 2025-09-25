@@ -8,12 +8,23 @@
 
 #include "tci/tci.h"
 
+#include <numbers>
 #include <vector>
 #include <utility>
 #include <map>
 
 namespace tnbp {
 
+  /**
+     Definition of pi
+   */
+  template <typename T>
+  inline constexpr T PI_v = std::numbers::pi_v<T>;
+
+  /**
+     Definitions for tci::tensor_traits
+   */
+  
   template <typename TenT>
   using rank_t =
     typename tci::tensor_traits<TenT>::rank_t;
