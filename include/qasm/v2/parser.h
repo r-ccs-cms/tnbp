@@ -132,9 +132,9 @@ class Parser {
   qasm::Op mapGate(const std::string& g){
     using R=qasm::common::Reader;
     auto L=[&](const char* s){ return R::eqNoCase(g,s); };
-    if (L("u3")) return qasm::Op::U3;
-    if (L("u2")) return qasm::Op::U2;
-    if (L("u1")) return qasm::Op::U1;
+    if (L("u3") || L("u")) return qasm::Op::U3;     // In Qiskit u = U3
+    if (L("u2"))           return qasm::Op::U2;
+    if (L("u1") || L("p")) return qasm::Op::U1;   // In Qiskit p(t) = u1(t)
     if (L("rx")) return qasm::Op::RX;
     if (L("ry")) return qasm::Op::RY;
     if (L("rz")) return qasm::Op::RZ;
@@ -147,10 +147,10 @@ class Parser {
     if (L("t"))  return qasm::Op::T;
     if (L("tdg"))return qasm::Op::TDG;
     if (L("id")) return qasm::Op::ID;
-    if (L("cx")||L("cnot")) return qasm::Op::CX;
+    if (L("cx") || L("cnot")) return qasm::Op::CX;
     if (L("cz")) return qasm::Op::CZ;
     if (L("swap")) return qasm::Op::SWAP;
-    if (L("ccx")||L("toffoli")) return qasm::Op::CCX;
+    if (L("ccx") || L("toffoli")) return qasm::Op::CCX;
     if (L("cswap")) return qasm::Op::CSWAP;
     return qasm::Op::CUSTOM;
   }

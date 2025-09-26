@@ -125,7 +125,9 @@ namespace tnbp {
     }
       
     default:
-      throw std::runtime_error("matrix for this op not implemented");
+      {
+	throw std::runtime_error("matrix for this op not implemented");
+      }
     }
   }
 
@@ -215,7 +217,7 @@ namespace tnbp {
       // initialization of tensor product operator
       if( gate_count == 0 ) {
 	for(auto const & i : site) {
-	  auto virtualbond = GetSurroundingBondIndex(i,edges);
+	  auto virtualbond = GetSurroundingBondIndex(site[i],edges);
 	  auto num_virtualbond = virtualbond.size();
 	  ShapeT bond(num_virtualbond+2,1);
 	  bond[num_virtualbond+0] = 2;
@@ -230,7 +232,7 @@ namespace tnbp {
 	      }, T[m][i]);
 	}
       }
-      
+
       TenT gate = InstructionTensor<TenT>(ctx,ins);
       auto rank_tensor = tci::rank(ctx,gate);
       int num_qubits = rank_tensor/2;
@@ -240,6 +242,7 @@ namespace tnbp {
 	   Case for single-site gate
 	*/
 	auto site_a = static_cast<int>(ins.qubits[0].index);
+
 	auto virtualbond = GetSurroundingBondIndex(site_a,edges);
 	auto num_virtualbond = virtualbond.size();
 	List<BondLabelT> IdxT(num_virtualbond+2);
@@ -250,7 +253,7 @@ namespace tnbp {
 	IdxT[num_virtualbond+0] = static_cast<BondLabelT>(num_virtualbond);
 	IdxT[num_virtualbond+1] = static_cast<BondLabelT>(-1);
 	IdxG[0] = static_cast<BondLabelT>(-1);
-	IdxG[1] = static_cast<BondLabelT>(num_virtualbond);
+	IdxG[1] = static_cast<BondLabelT>(num_virtualbond+1);
 	tci::contract(ctx,T[m][site_a],IdxT,gate,IdxG,T[m][site_a],IdxR);
       } else if ( num_qubits == 2 ) {
 
@@ -382,10 +385,10 @@ namespace tnbp {
 	      new_shapeA[b] = shapeA[b];
 	    }
 	  }
-	  IdxX[kx++] = static_cast<BondLabelT>(vb_a.size());
+	  IdxX[kx++] = static_cast<BondLabelT>(ka++);
 	  IdxX[kx++] = static_cast<BondLabelT>(-1);
 	  IdxA[vb_a.size()+0] = static_cast<BondLabelT>(-1);
-	  IdxA[vb_a.size()+1] = static_cast<BondLabelT>(vb_a.size()+1);
+	  IdxA[vb_a.size()+1] = static_cast<BondLabelT>(ka++);
 	  new_shapeA[vb_a.size()+0] = shapeA[vb_a.size()+0];
 	  new_shapeA[vb_a.size()+1] = shapeA[vb_a.size()+1];
 	  List<BondLabelT> IdxP(rank_X+rank_A-2);
