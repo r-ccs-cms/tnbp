@@ -39,9 +39,27 @@ int main(int argc, char * argv[]) {
     edges = tnbp::bond_ibm_kobe();
     layer_edges = tnbp::parallel_bond_ibm_kobe();
   }
-  
-  auto TPO = tnbp::QasmToTPO<Tensor>(ctx,qasm_program,edges,
-				     options.num_gates);
+
+  if( mpi_rank == mpi_master ) {
+    std::cout << " " << make_timestamp()
+	      << " Start TPO construction for quantum circuit " << std::endl;
+  }
+
+  std::vector<std::vector<Tensor>> TPO;
+  if( options.num_gates.size() != 0 ) {
+    TPO = tnbp::QasmToTPO<Tensor>(ctx,qasm_program,edges,
+				  options.num_gates);
+    if( mpi_rank == mpi_master ) {
+      std::cout << " " << make_timestamp()
+		<< " manual gate-number layering of QasmToTPO was performed " << std::endl;
+    }
+  } else {
+    TPO = tnbp::QasmToTPO<Tensor>(ctx,qasm_program,edges);
+    if( mpi_rank == mpi_master ) {
+      std::cout << " " << make_timestamp()
+		<< " barrier-based layering of QasmToTPO was performed " << std::endl;
+    }
+  }
 
   std::vector<int> qubit = tnbp::GetSiteIndexFromBond(edges);
   std::vector<Tensor> V;
@@ -60,6 +78,11 @@ int main(int argc, char * argv[]) {
   Real tolerance;
   std::vector<BondDim> res_bond_dim;
   std::vector<Real> res_truncation_error;
+
+  if( mpi_rank == mpi_master ) {
+    std::cout << " " << make_timestamp()
+	      << " Start circuit contractions " << std::endl;
+  }
   
   for(size_t t=0; t < TPO.size(); t++) {
     /**
@@ -89,6 +112,12 @@ int main(int argc, char * argv[]) {
 	    ctx,edges,V,SiteIdx,
 	    Site_To_MpiRank,E,EdgeIdx,
 	    comm,tolerance);
+      if( mpi_rank == mpi_master ) {
+	std::cout << " " << make_timestamp()
+		  << " error from belief propagation condition at step "
+		  << t << " = "
+		  << tolerance << std::endl;
+      }
       if( tolerance < options.bp_tolerance ) {
 	break;
       }
@@ -118,6 +147,11 @@ int main(int argc, char * argv[]) {
   /**
      Measurement
    */
+
+  if( mpi_rank == mpi_master ) {
+    std::cout << " " << make_timestamp()
+	      << " start measurements " << std::endl;
+  }
   auto spo = pauli::load_sparse_pauli_op<Elem>(options.sparsepauli);
   std::vector<Tensor> exOp;
   std::vector<std::vector<int>> exSite;

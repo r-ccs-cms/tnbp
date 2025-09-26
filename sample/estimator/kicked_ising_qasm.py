@@ -9,6 +9,7 @@ from qiskit.transpiler import CouplingMap
 from qiskit.qasm2 import dump as qasm2_dump, dumps as qasm2_dumps
 from qiskit_ibm_runtime import QiskitRuntimeService
 
+import math
 
 def get_backend_and_cmap(backend_name: str):
     svc = QiskitRuntimeService()
@@ -48,13 +49,14 @@ def kicked_ising_layer(
         count += 1
 
     # ZZ interation (cx-rz-cx)
-    
     for i, j in edges:
         qc.cx(i, j)
         qc.rz(phi, j)
         qc.cx(i, j)
         count += 3
 
+    qc.barrier(*qc.qubits)
+    
     return count
 
 
@@ -85,17 +87,17 @@ def main():
     ap = argparse.ArgumentParser(description="Dump QASM file for kicked Ising on backend topology")
     ap.add_argument("--backend", type=str, default="ibm_kobe", help="IBM backend name (e.g., 'ibm_kobe').")
     ap.add_argument("--steps", type=int, default=1, help="Number of Floquet steps")
-    ap.add_argument("--hx", type=float, default=1.0, help="Coefficient for sum_i X_i (default 1.0)")
+    ap.add_argument("--hx", type=float, default=0.5, help="Coefficient for sum_i X_i (default 0.25)")
     ap.add_argument("--hz", type=float, default=0.0, help="Coefficient for sum_i Z_i (default 0.0)")
-    ap.add_argument("--jz", type=float, default=1.0, help="Coefficient for sum_(i,j in edges) Z_i Z_j (default 1.0)")
+    ap.add_argument("--jz", type=float, default=0.5, help="Coefficient for sum_(i,j in edges) Z_i Z_j (default 0.25)")
     ap.add_argument("--output", type=str, default="kicked_ising.qasm", help="Output path (qasm)")
     args = ap.parse_args()
     
     backend_name = args.backend
     steps = args.steps
-    theta_x = args.hx * 3.14159265
-    theta_z = args.hz * 3.14159265
-    phi = args.jz * 3.14159265
+    theta_x = args.hx * math.pi
+    theta_z = args.hz * math.pi
+    phi = args.jz * math.pi
     add_measure = False
     qasm_out = args.output
 
@@ -114,6 +116,31 @@ def main():
 
     basis = ["u", "cx"]
     routed = transpile(qc, coupling_map=cmap, basis_gates=basis, optimization_level=1)
+
+    # try:
+    # Qiskit 1.x 系の推奨：プリセット PM を使う（バリアは尊重される）
+    #    from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+    #    pm = generate_preset_pass_manager(
+    #        optimization_level=1,           # 0〜1 を推奨（順序保全重視）
+    #        target=backend.target if backend else None,
+    #        basis_gates=basis,
+    #        layout_method="sabre",
+    #        routing_method="sabre",
+    #        # 注意：RemoveBarriers を入れないプリセット（デフォルトでもバリアは尊重されます）
+    #    )
+    #    routed = pm.run(qc)
+    #except Exception:
+    # 旧 API 互換ルート
+    #    routed = transpile(
+    #        qc,
+    #        backend=backend if backend else None,
+    #        coupling_map=cmap if cmap else None,
+    #        basis_gates=basis,
+    #        layout_method="sabre",
+    #        routing_method="sabre",
+    #        optimization_level=1,  # 0 でも OK
+    #        seed_transpiler=42,
+    #    )    
 
     # QASM 出力
     qasm2_dump(routed, qasm_out)
