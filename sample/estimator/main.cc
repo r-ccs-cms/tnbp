@@ -156,6 +156,10 @@ int main(int argc, char * argv[]) {
   std::vector<Tensor> exOp;
   std::vector<std::vector<int>> exSite;
   tnbp::SparsePauliToTensorOp(ctx,spo,exOp,exSite);
+  if( mpi_rank == mpi_master ) {
+    std::cout << " " << make_timestamp()
+	      << " number of measrement operators = " << exOp.size() << std::endl;
+  }
   std::vector<Tensor> exOp_one;
   std::vector<int> exSite_one;
   std::vector<Tensor> exOp_two;
@@ -163,6 +167,15 @@ int main(int argc, char * argv[]) {
   tnbp::ClassifyOps(ctx,edges,exOp,exSite,
 	      exOp_one,exSite_one,
 	      exOp_two,exPair_two);
+
+  if( mpi_rank == mpi_master ) {
+    std::cout << " " << make_timestamp()
+	      << " generated single site operator " << std::endl;
+    for(size_t i=0; i < exOp_one.size(); i++) {
+      std::cout << " site operator acting on " << exSite_one[i] << std::endl;
+      tci::show(ctx,exOp_one[i]);
+    }
+  }
 
   std::vector<Elem> exVal_one =
     tnbp::Measure(ctx,edges,V,SiteIdx,Site_To_MpiRank,
@@ -196,6 +209,8 @@ int main(int argc, char * argv[]) {
 		<< exVal_two[edge_address] << std::endl;
     }
   }
+
+  MPI_Finalize();
   
   return 0;
 }

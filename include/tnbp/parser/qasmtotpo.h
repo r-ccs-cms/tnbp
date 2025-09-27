@@ -204,16 +204,16 @@ namespace tnbp {
     for(auto const & i : site) {
       auto virtualbond = GetSurroundingBondIndex(site[i],edges);
       auto num_virtualbond = virtualbond.size();
-      ShapeT bond(num_virtualbond+2,1);
-      bond[num_virtualbond+0] = 2;
-      bond[num_virtualbond+1] = 2;
+      ShapeT shape(num_virtualbond+2,1);
+      shape[num_virtualbond+0] = 2;
+      shape[num_virtualbond+1] = 2;
       std::vector<ElemT> data(4,ElemT(0.0));
       data[0] = ElemT(1.0);
       data[3] = ElemT(1.0);
       auto it_data = data.begin();
-      tci::assign_from_container(ctx,bond,it_data,
-		      [&bond](const CoorsT & c) {
-			return address_from_coor(bond,c);
+      tci::assign_from_container(ctx,shape,it_data,
+		      [&shape](const CoorsT & c) {
+			return address_from_coor(shape,c);
 		      }, T[i]);
     }
   }
@@ -249,13 +249,12 @@ namespace tnbp {
     TenT gate = InstructionTensor<TenT>(ctx,ins);
     auto rank_tensor = tci::rank(ctx,gate);
     int num_qubits = rank_tensor/2;
-      
+
     if( num_qubits == 1 ) {
       /**
 	 Case for single-site gate
       */
       auto site_a = static_cast<int>(ins.qubits[0].index);
-      
       auto virtualbond = GetSurroundingBondIndex(site_a,edges);
       auto num_virtualbond = virtualbond.size();
       List<BondLabelT> IdxT(num_virtualbond+2);
@@ -268,6 +267,7 @@ namespace tnbp {
       IdxG[0] = static_cast<BondLabelT>(-1);
       IdxG[1] = static_cast<BondLabelT>(num_virtualbond+1);
       tci::contract(ctx,T[site_a],IdxT,gate,IdxG,T[site_a],IdxR);
+      
     } else if ( num_qubits == 2 ) {
       
       /**
@@ -284,7 +284,11 @@ namespace tnbp {
       TenT B;
       RealTenT S;
       RankT num_row_bonds = 2;
-      tci::svd(ctx,gate,num_row_bonds,A,S,B);
+      BondDimT chi_max = 4;
+      RealT trunc_err;
+      RealT sv_min = 1.0e-12;
+      tci::trunc_svd(ctx,gate,num_row_bonds,A,S,B,
+		     trunc_err,chi_max,sv_min);
       tci::for_each(ctx_r,S,[](RealT & elem) {
 	if( elem > 0.0 ) { elem = std::sqrt(elem); }
 	else { elem = 0.0; }});
@@ -314,7 +318,7 @@ namespace tnbp {
       auto site_a = static_cast<int>(ins.qubits[0].index);
       auto site_b = static_cast<int>(ins.qubits[1].index);
       auto path = FindShortestPath(edges,site_a,site_b);
-      
+
       for(size_t i=0; i < path.size(); i++) {
 	
 	TenT X;
@@ -383,7 +387,7 @@ namespace tnbp {
 	int ka = 0;
 	int kx = 0;
 	ShapeT shapeA = tci::shape(ctx,T[path[i]]);
-	ShapeT new_shapeA(vb_a.size()+2);
+	ShapeT new_shapeA(rank_A);
 	for(int b=0; b < vb_a.size(); b++) {
 	  if( b == target_bond_m ) {
 	    IdxA[b] = static_cast<BondLabelT>(ka++);
@@ -409,7 +413,7 @@ namespace tnbp {
 	tci::contract(ctx,X,IdxX,T[path[i]],IdxA,T[path[i]],IdxP);
 	tci::reshape(ctx,T[path[i]],new_shapeA);
       }
-      
+
     } else if ( num_qubits == 3 ) {
       
       // choose shortest path

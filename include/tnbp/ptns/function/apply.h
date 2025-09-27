@@ -50,8 +50,8 @@ namespace tnbp {
 	new_shape_v[k] = static_cast<BondDimT>(shape_v[k]*shape_o[k]);
       }
       label_v[num_vb] = static_cast<BondLabelT>(-1);
-      label_o[num_vb] = static_cast<BondLabelT>(2*num_vb+1);
-      label_o[num_vb+1] = static_cast<BondLabelT>(-1);
+      label_o[num_vb] = static_cast<BondLabelT>(-1);
+      label_o[num_vb+1] = static_cast<BondLabelT>(2*num_vb+1);
       label_r[2*num_vb] = static_cast<BondLabelT>(2*num_vb+1);
       new_shape_v[num_vb] = shape_o[num_vb];
       tci::contract(ctx,O[site],label_o,V[address],label_v,

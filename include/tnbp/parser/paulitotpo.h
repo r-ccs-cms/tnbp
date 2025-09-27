@@ -60,37 +60,39 @@ namespace tnbp {
       std::vector<int> qubits;
       TenT opten;
       TenT tempo;
-      TenT local;
       for(size_t k=0; k < localop.size(); k++) {
 	qubits.push_back(PauliOpSite(localop[k]));
 	ShapeT shapeL(2,2);
 	auto mat = PauliOpMatrix<ElemT>(localop[k]);
 	auto itmat = mat.begin();
-	tci::assign_from_container(
-	     ctx,shapeL,itmat,
-	     [&shapeL](const CoorsT & coors) {
-	       return coors[0]+shapeL[0]*coors[1];
-	     },local);
-	RankT rank = tci::rank(ctx,opten);
-	List<BondLabelT> labelO(2*(k+1));
-	List<BondLabelT> labelL(2);
-	List<BondLabelT> labelT(2*(k+2));
-	BondLabelT label = 0;
-	for(size_t s=0; s < k+1; s++) {
-	  labelO[s] = label++;
+	auto local = tci::assign_from_container<TenT>(
+	                ctx,shapeL,itmat,
+			[&shapeL](const CoorsT & coors) {
+			  return coors[0]+shapeL[0]*coors[1];
+			});
+	if( k == 0 ) {
+	  tci::copy(ctx,local,opten);
+	} else {
+	  RankT rank = tci::rank(ctx,opten);
+	  List<BondLabelT> labelO(2*(k+1));
+	  List<BondLabelT> labelL(2);
+	  List<BondLabelT> labelT(2*(k+2));
+	  BondLabelT label = 0;
+	  for(size_t s=0; s < k+1; s++) {
+	    labelO[s] = label++;
+	  }
+	  labelL[0] = label++;
+	  for(size_t s=k+1; s < 2*(k+1); s++) {
+	    labelO[s] = label++;
+	  }
+	  labelL[1] = label++;
+	  std::iota(labelT.begin(),labelT.end(),0);
+	  tci::contract(ctx,opten,labelO,local,labelL,tempo,labelT);
+	  tci::copy(ctx,tempo,opten);
 	}
-	labelL[0] = label++;
-	for(size_t s=k+1; s < 2*(k+1); s++) {
-	  labelO[s] = label++;
-	}
-	labelL[1] = label++;
-	std::iota(labelT.begin(),labelT.end(),0);
-	tci::contract(ctx,opten,labelO,local,labelL,tempo,labelT);
-	tci::copy(ctx,tempo,opten);
       }
       *it_qubits++ = qubits;
-      tci::copy(ctx,opten,*it_tensor);
-      it_tensor++;
+      tci::copy(ctx,opten,*it_tensor++);
     }
   }
 	     
