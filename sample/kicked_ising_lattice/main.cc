@@ -129,7 +129,7 @@ int main(int argc, char * argv[]) {
 	    comm,tolerance);
       if( mpi_rank == 0 ) {
 	std::cout << " " << make_timestamp()
-		  << " error from belief propagation condition at time step
+		  << " error from belief propagation condition at time step "
 		  << step << " = "
 		  << tolerance << std::endl;
       }
