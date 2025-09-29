@@ -60,7 +60,7 @@ std::vector<TenT> CircuitTPO(
   RealTenT S;
   RankT lb = 2;
   tci::svd(ctx,Uj,lb,Ua,S,Ub);
-  tci::for_each(ctx_r,S,[](RealT & elem) { elem = std::sqrt(elem); } );
+  tci::for_each(ctx_r,S,[](auto & elem) { elem = std::sqrt(elem); } );
   TenT D;
   tci::convert(ctx_r,S,ctx,D);
   tci::diag(ctx,D);
@@ -118,8 +118,6 @@ std::vector<TenT> CircuitTPO(
 	     });
   }
 
-  std::cout << " End construction of initial state " << std::endl;
-  
   // x terms
   
   for(size_t i=0; i < sites.size(); i++) {
@@ -136,8 +134,6 @@ std::vector<TenT> CircuitTPO(
     std::iota(label_w.begin(),label_w.end(),0);
     tci::contract(ctx,V[i],label_v,Ux,label_x,V[i],label_w);
   }
-  
-  std::cout << " End construction of X-gates " << std::endl;
   
   // j terms
   for(size_t m=0; m < edges.size(); m++) {
@@ -209,8 +205,6 @@ std::vector<TenT> CircuitTPO(
     tci::reshape(ctx,W,shape_wb,V[site_b]);
   }
 
-  std::cout << " End construction of J-gates " << std::endl;
-  
   // z terms
   for(size_t i=0; i < sites.size(); i++) {
     auto rank_v = tci::rank(ctx,V[i]);
@@ -227,8 +221,6 @@ std::vector<TenT> CircuitTPO(
     tci::contract(ctx,V[i],label_v,Uz,label_z,V[i],label_w);
   }
 
-  std::cout << " End construction of Z-gates " << std::endl;
-  
   return V;
   
 }

@@ -6,3 +6,10 @@ CXX_FLAGS= -std=c++20 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -
 
 # flags for linking
 LIB_FLAGS= -L../../external/tensor-ng-dev/external/hptt/lib -lhptt -L/opt/homebrew/opt/openblas/lib -llapack -lblas
+
+### compile and linking flags when we use tci for cytnx
+# flags for compile: include path to openmp, tci for cytnx, cytnx, boost. The following is the case using homebrew's llvm, openblas, and boost on macOS.
+# CXX_FLAGS= -std=c++20 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3 -I../../../../tci-cytnx/main/include -I../../../../tci-cytnx/main/external/Cytnx/include -I/opt/homebrew/opt/boost/include -I../../include -DUSE_CYTNX
+
+# flags for linking when we use the tci for cytnx.
+# LIB_FLAGS= -L../../../../tci-cytnx/main/build/ -lTCI -L../../../../tci-cytnx/main/build/external/Cytnx/ -lcytnx -L/opt/homebrew/opt/openblas/lib -llapack -lblas

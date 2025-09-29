@@ -32,7 +32,7 @@ namespace tnbp {
     RankT lb_rt = static_cast<RankT>(lb);
 
     tci::svd(ctx,T,lb_rt,U,E,V);
-    tci::for_each(ctx_r,E,[](RealT & elem){ elem = std::sqrt(elem); });
+    tci::for_each(ctx_r,E,[](auto & elem){ elem = std::sqrt(elem); });
     TenT D;
     tci::convert(ctx_r,E,ctx,D);
     tci::diag(ctx,D);
@@ -79,13 +79,13 @@ namespace tnbp {
     RealTenT E;
     RankT lb_rt = static_cast<RankT>(1);
     tci::svd(ctx,M,lb_rt,U,E,V);
-    tci::for_each(ctx_r,E,[&sv_min](RealT & elem){
-      if( elem > sv_min ) { elem = std::sqrt(elem); }
+    tci::for_each(ctx_r,E,[&sv_min](auto & elem){
+      if( std::abs(elem) > sv_min ) { elem = std::sqrt(elem); }
       else { elem = 0.0; } });
     TenT D;
     tci::convert(ctx_r,E,ctx,D);
-    tci::for_each(ctx_r,E,[&sv_min](RealT & elem) {
-      if( elem > std::sqrt(sv_min)) { elem = 1.0/elem; }
+    tci::for_each(ctx_r,E,[&sv_min](auto & elem) {
+      if( std::abs(elem) > std::sqrt(sv_min)) { elem = elem/(elem*elem); }
       else { elem = 0.0; } });
     TenT F;
     tci::convert(ctx_r,E,ctx,F);

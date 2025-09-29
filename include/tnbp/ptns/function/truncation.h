@@ -140,7 +140,7 @@ namespace tnbp {
 	res_trunc_err[edge_address] = trunc_err;
 	TenT Z;
 	tci::convert(ctx_r,S,ctx,Z);
-	tci::for_each(ctx_r,S,[](RealT & elem){ elem = std::sqrt(elem); });
+	tci::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
 	TenT P;
 	tci::convert(ctx_r,S,ctx,P);
 	tci::diag(ctx,Z);

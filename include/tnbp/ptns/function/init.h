@@ -75,8 +75,8 @@ namespace tnbp {
       DataV[0] = static_cast<ElemT>(1.0);
       auto itDataV = DataV.begin();
       tci::assign_from_container(ctx,BondDimV,itDataV,
-				 [](const CoorsT & coors) {
-				   return coors[0];},*itV);
+				 [&BondDimV](const CoorsT & coors) {
+				   return address_from_coor(BondDimV,coors); }, *itV);
       itV++;
     }
     std::sort(EdgeIdx.begin(),EdgeIdx.end());
