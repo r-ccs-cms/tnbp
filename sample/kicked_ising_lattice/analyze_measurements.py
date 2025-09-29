@@ -17,9 +17,9 @@ import matplotlib.pyplot as plt
 
 
 # ---------- Regex patterns ----------
-# X: complex tuple "(real, imag)"; we store real & imag separately
+# X: single real
 PAT_X  = re.compile(
-    r"measurement of X\s+at site\s+(\d+)\s+time step\s+(\d+)\s*=\s*\(\s*([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?),\s*([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\s*\)"
+    r"measurement of X\s+at site\s+(\d+)\s+time step\s+(\d+)\s*=\s*([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)"
 )
 # Z: single real
 PAT_Z  = re.compile(
@@ -40,9 +40,8 @@ def parse_file(path: Path):
             if m:
                 site = int(m.group(1))
                 step = int(m.group(2))
-                real = float(m.group(3))
-                imag = float(m.group(4))
-                xs.append((step, site, real, imag, line.rstrip("\n")))
+                val = float(m.group(3))
+                xs.append((step, site, val, line.rstrip("\n")))
                 continue
 
             # Z
@@ -70,13 +69,10 @@ def parse_file(path: Path):
 def save_tables(xs, zs, zzs, outdir: Path):
     # ----- X -----
     if xs:
-        df_x = pd.DataFrame(xs, columns=["time_step", "site", "real", "imag", "raw"])
+        df_x = pd.DataFrame(xs, columns=["time_step", "site", "value", "raw"])
         df_x.sort_values(["time_step", "site"], inplace=True)
-        # Keep the original raw lines (spec matches your current logging)
         (outdir / "data_meas_x.txt").write_text("\n".join(df_x["raw"]), encoding="utf-8")
-
-        # Also provide a clean TSV (optional, handy for analysis)
-        df_x[["time_step", "site", "real", "imag"]].to_csv(outdir / "data_meas_x.tsv",
+        df_x[["time_step", "site", "value"]].to_csv(outdir / "data_meas_x.tsv",
                                                            sep="\t", index=False)
     # ----- Z -----
     if zs:
@@ -113,11 +109,10 @@ def make_plots(xs, zs, zzs, figdir: Path):
         plt.savefig(figdir / fname, dpi=160)
         plt.close()
 
-    # X heatmaps: real and imag
+    # X heatmaps
     if xs:
-        dfx = pd.DataFrame(xs, columns=["time_step", "site", "real", "imag", "raw"])
-        heatmap(dfx, "real", fname="X_real_heatmap.png", title="X (real)")
-        heatmap(dfx, "imag", fname="X_imag_heatmap.png", title="X (imag)")
+        dfx = pd.DataFrame(xs, columns=["time_step", "site", "value", "raw"])
+        heatmap(dfx, "value", fname="X_heatmap.png", title="X")
 
     # Z heatmap
     if zs:
