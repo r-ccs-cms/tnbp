@@ -171,10 +171,6 @@ int main(int argc, char * argv[]) {
   if( mpi_rank == mpi_master ) {
     std::cout << " " << make_timestamp()
 	      << " generated single site operator " << std::endl;
-    for(size_t i=0; i < exOp_one.size(); i++) {
-      std::cout << " site operator acting on " << exSite_one[i] << std::endl;
-      tci::show(ctx,exOp_one[i]);
-    }
   }
 
   std::vector<Elem> exVal_one =
@@ -182,11 +178,12 @@ int main(int argc, char * argv[]) {
 		  E,EdgeIdx,comm,exSite_one,exOp_one);
 
   int meas_count = 0;
+  std::cout.precision(16);
   for(int site_address=0; site_address < exSite_one.size(); site_address++) {
     if( mpi_rank == Site_To_MpiRank[exSite_one[site_address]] ) {
       std::cout << " Expectation value of single site operator at site "
 		<< exSite_one[site_address]
-		<< " " << exVal_one[meas_count] << std::endl;
+		<< " " << GetReal(exVal_one[meas_count]) << std::endl;
       meas_count++;
     }
   }
@@ -206,7 +203,7 @@ int main(int argc, char * argv[]) {
 		<< exPair_two[edge_address].first
 		<< "," << exPair_two[edge_address].second
 		<< ") "
-		<< exVal_two[edge_address] << std::endl;
+		<< GetReal(exVal_two[edge_address]) << std::endl;
     }
   }
 

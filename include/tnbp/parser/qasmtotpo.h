@@ -202,19 +202,21 @@ namespace tnbp {
     auto site = GetSiteIndexFromBond(edges);
     T.resize(site.size());
     for(auto const & i : site) {
-      auto virtualbond = GetSurroundingBondIndex(site[i],edges);
+      auto virtualbond = GetSurroundingBondIndex(i,edges);
       auto num_virtualbond = virtualbond.size();
       ShapeT shape(num_virtualbond+2,1);
       shape[num_virtualbond+0] = 2;
       shape[num_virtualbond+1] = 2;
-      std::vector<ElemT> data(4,ElemT(0.0));
+      std::vector<ElemT> data(4);
       data[0] = ElemT(1.0);
+      data[1] = ElemT(0.0);
+      data[2] = ElemT(0.0);
       data[3] = ElemT(1.0);
       auto it_data = data.begin();
       tci::assign_from_container(ctx,shape,it_data,
-		      [&shape](const CoorsT & c) {
-			return address_from_coor(shape,c);
-		      }, T[i]);
+		  [&shape](const CoorsT & coor) {
+		    return address_from_coor(shape,coor);
+		  }, T[i]);
     }
   }
 
@@ -289,8 +291,8 @@ namespace tnbp {
       RealT sv_min = 1.0e-12;
       tci::trunc_svd(ctx,gate,num_row_bonds,A,S,B,
 		     trunc_err,chi_max,sv_min);
-      tci::for_each(ctx_r,S,[](auto & elem) {
-	if( std::abs(elem) > 0.0 ) { elem = std::sqrt(elem); }
+      tci::for_each(ctx_r,S,[&sv_min](auto & elem) {
+	if( std::abs(elem) > sv_min ) { elem = std::sqrt(std::abs(elem)); }
 	else { elem = 0.0; }});
       TenT D;
       tci::convert(ctx_r,S,ctx,D);
@@ -402,10 +404,10 @@ namespace tnbp {
 	    new_shapeA[b] = shapeA[b];
 	  }
 	}
-	IdxX[kx++] = static_cast<BondLabelT>(ka++);
+	IdxA[vb_a.size()+0] = static_cast<BondLabelT>(ka++);
+	IdxA[vb_a.size()+1] = static_cast<BondLabelT>(-1);
 	IdxX[kx++] = static_cast<BondLabelT>(-1);
-	IdxA[vb_a.size()+0] = static_cast<BondLabelT>(-1);
-	IdxA[vb_a.size()+1] = static_cast<BondLabelT>(ka++);
+	IdxX[kx++] = static_cast<BondLabelT>(ka++);
 	new_shapeA[vb_a.size()+0] = shapeA[vb_a.size()+0];
 	new_shapeA[vb_a.size()+1] = shapeA[vb_a.size()+1];
 	List<BondLabelT> IdxP(rank_X+rank_A-2);

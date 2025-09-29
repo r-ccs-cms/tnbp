@@ -14,9 +14,9 @@ struct Option {
   std::vector<int> num_gates;
   size_t max_bp_iterations = 50;
   size_t max_bond_dim = 100;
-  double bp_tolerance = 1.0e-4;
+  double bp_tolerance = 1.0e-8;
   double sv_min = 1.0e-8;
-  double truncation_error = 1.0e-4;
+  double truncation_error = 1.0e-8;
   
 };
 
