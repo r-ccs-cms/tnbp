@@ -62,6 +62,7 @@ namespace tnbp {
 	  if( I[BondIdx[m]].first == Site[site_address] ) {
 	    edgeidx_address += size_e;
 	  }
+	  /*
 	  TenT F;
 	  tci::copy(ctx,E[edgeidx_address],F);
 	  List<BondLabelT> IdxE(2);
@@ -74,12 +75,15 @@ namespace tnbp {
 	  IdxR[0] = static_cast<BondLabelT>(0);
 	  IdxR[1] = static_cast<BondLabelT>(1);
 	  tci::contract(ctx,E[edgeidx_address],IdxE,F,IdxF,F,IdxR);
+	  */
+	  List<BondLabelT> IdxF(2);
 	  std::iota(IdxW.begin(),IdxW.end(),0);
 	  std::iota(IdxC.begin(),IdxC.end(),0);
 	  IdxW[m] = static_cast<BondLabelT>(-1);
 	  IdxF[0] = static_cast<BondLabelT>(-1);
 	  IdxF[1] = static_cast<BondLabelT>(m);
-	  tci::contract(ctx,W,IdxW,F,IdxF,W,IdxC);
+	  // tci::contract(ctx,W,IdxW,F,IdxF,W,IdxC);
+	  tci::contract(ctx,W,IdxW,E[edgeidx_address],IdxF,W,IdxC);
 	}
 
 	TenT R;
@@ -202,7 +206,7 @@ namespace tnbp {
 	    tci::contract(ctx,A,IdxA,E[edge_address],IdxE,A,IdxC);
 	    auto norm = tci::normalize(ctx,A);
 	  }
-	  tci::copy(ctx,A,AdagA);
+	  tci::copy(ctx,V[site_address_a],AdagA);
 	  tci::cplx_conj(ctx,AdagA);
 	  std::iota(IdxA.begin(),IdxA.end(),-rank_a);
 	  std::iota(IdxC.begin(),IdxC.end(),-rank_a);
@@ -242,7 +246,7 @@ namespace tnbp {
 	      auto norm = tci::normalize(ctx,B);
 	    }
 	  }
-	  tci::copy(ctx,B,BdagB);
+	  tci::copy(ctx,V[site_address_b],BdagB);
 	  tci::cplx_conj(ctx,BdagB);
 	  std::iota(IdxB.begin(),IdxB.end(),-rank_b);
 	  std::iota(IdxC.begin(),IdxC.end(),-rank_b);
