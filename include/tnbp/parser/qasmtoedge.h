@@ -2,9 +2,9 @@
 /**
 @file tnbp/parser/qasmtoedge.h
 @brief Function to obtain the edge information from qasm
- */
+*/
 #ifndef TNBP_PARSER_QASMTOEDGE_H
-#define TNBP_PARSER_QAMSTOEDGE_H
+#define TNBP_PARSER_QASMTOEDGE_H
 
 #include <vector>
 #include <utility>
