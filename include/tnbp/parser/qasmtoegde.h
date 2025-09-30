@@ -6,6 +6,11 @@
 #ifndef TNBP_PARSER_QASMTOEDGE_H
 #define TNBP_PARSER_QAMSTOEDGE_H
 
+#include <vector>
+#include <utility>
+#include <algorithm>
+#include <unordered_map>
+
 #include "qasm/ir.h"
 
 namespace tnbp {
@@ -24,29 +29,31 @@ namespace tnbp {
     }
     std::sort(site.begin(),site.end());
     site.erase(std::unique(site.begin(),site.end()),site.end());
-    return res;
+    return site;
   }
 
   /**
-     Function to find edges from qasm::Program
+     Function to extract pairs from qasm::Program
    */
   std::vector<std::pair<int,int>> EdgesFromQasm(
-		    const qasm::Program & program) {
-    auto sites = SitesFromQasm(program);
-    std::vector<std::pair<int,int>> res;
+		   const qasm::Program & program) {
+    std::vector<std::pair<int,int>> edge;
     for(const auto & ins : program.instructions) {
       int num_qubits = OpQubitCount(ins);
       if( num_qubits == 2 ) {
-	int site_a = static_cast<int>(ins.qubit[0].index);
-	int site_b = static_cast<int>(ins.qubit[1].index);
-	res.push_back(std::make_pair(site_a,site_b));
+	int site_a = static_cast<int>(ins.qubits[0].index);
+	int site_b = static_cast<int>(ins.qubits[1].index);
+	if( site_a < site_b ) {
+	  edge.push_back(std::make_pair(site_a,site_b));
+	} else {
+	  edge.push_back(std::make_pair(site_b,site_a));
+	}
       }
     }
-    std::sort(res.begin(),res.end());
-    res.erase(std::unique(res.begin(),res.end()),res.end());
-    return res;
+    std::sort(edge.begin(),edge.end());
+    edge.erase(std::unique(edge.begin(),edge.end()),edge.end());
+    return edge;
   }
-
   
 }
 #endif

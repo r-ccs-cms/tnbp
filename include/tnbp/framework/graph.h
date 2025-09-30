@@ -7,26 +7,41 @@
 #include <vector>
 #include <queue>
 
+#include <vector>
+#include <utility>
+#include <algorithm>
+#include <unordered_map>
+#include <limits>
+#include <concepts>
+
 namespace tnbp {
 
-  std::vector<int> GetSiteIndexFromBond(
-		      const std::vector<std::pair<int,int>> & I) {
-    std::vector<int> res(2*I.size());
-    auto itres = res.begin();
-    for(auto const & [i,j] : I) {
-      *itres++ = i;
-      *itres++ = j;
+  /**
+     Function to extract sites from edges/bonds
+   */
+  template <std::integral IntT>
+  std::vector<IntT> GetSiteIndexFromBond(
+	const std::vector<std::pair<IntT,IntT>> edge) {
+    std::vector<IntT> site;
+    site.reserve(edge.size()*2);
+    for(auto [u,v] : edge) {
+      site.push_back(u);
+      site.push_back(v);
     }
-    std::sort(res.begin(),res.end());
-    res.erase(std::unique(res.begin(),res.end()),res.end());
-    return res;
+    std::sort(site.begin(),site.end());
+    site.erase(std::unique(site.begin(),site.end()),site.end());
+    return site;
   }
 
-  std::vector<int> GetSurroundingBondIndex(int SiteIdx,
-		      const std::vector<std::pair<int,int>> & I) {
-    std::vector<int> res;
-    int m=0;
-    for(auto const & [i,j] : I) {
+  /**
+     Function to extract surrounding edge labels
+   */
+  template <std::integral IntT>
+  std::vector<IntT> GetSurroundingBondIndex(IntT SiteIdx,
+					    const std::vector<std::pair<IntT,IntT>> & edge) {
+    std::vector<IntT> res;
+    IntT m=0;
+    for(auto const & [i,j] : edge) {
       if( i == SiteIdx ) {
 	res.push_back(m);
       }
@@ -37,27 +52,28 @@ namespace tnbp {
     }
     return res;
   }
-
-  std::vector<int> FindShortestPath(const std::vector<std::pair<int,int>> & I,
-                                    int i1, int i2) {
-    std::vector<int> Q = GetSiteIndexFromBond(I);
-    std::vector<std::vector<int>> adj(Q.size());
+  
+  template <std::integral IntT>
+  std::vector<IntT> FindShortestPath(const std::vector<std::pair<IntT,IntT>> & I,
+                                    IntT i1, IntT i2) {
+    std::vector<IntT> Q = GetSiteIndexFromBond(I);
+    std::vector<std::vector<IntT>> adj(Q.size());
     for(const auto & edge : I) {
       adj[edge.first].push_back(edge.second);
       adj[edge.second].push_back(edge.first);
     }
-    std::queue<int> q;
+    std::queue<IntT> q;
     std::vector<bool> visited(Q.size(),false);
-    std::vector<int> prev(Q.size(),-1);
+    std::vector<IntT> prev(Q.size(),-1);
 
     q.push(i1);
     visited[i1] = true;
 
     while ( !q.empty() ) {
-      int node = q.front();
+      IntT node = q.front();
       q.pop();
       if( node == i2 ) {
-        std::vector<int> path;
+        std::vector<IntT> path;
         for(int at = i2; at != -1; at =prev[at]) {
           path.push_back(at);
         }
@@ -74,6 +90,34 @@ namespace tnbp {
       }
     }
     return {};
+  }
+
+  template <std::integral IntT>
+  std::vector<std::pair<IntT,IntT>> CompressVertices(
+	       std::vector<std::pair<IntT,IntT>> edge) {
+    std::vector<IntT> site;
+    site.reserve(edge.size()*2);
+    for(auto [u,v] : edge) {
+      site.push_back(u);
+      site.push_back(v);
+    }
+    std::sort(site.begin(),site.end());
+    site.erase(std::unique(site.begin(),site.end()),site.end());
+
+    if(site.size() > static_cast<std::size_t>(std::numeric_limits<IntT>::max())) {
+      throw std::overflow_error("CompressVertices: new label exceeds IntT range");
+    }
+
+    std::unordered_map<IntT,IntT> to_new;
+    for(std::size_t i=0; i < site.size(); i++) {
+      to_new.try_emplace(site[i],static_cast<IntT>(i));
+    }
+
+    for(auto & [u,v] : edge) {
+      u = to_new[u];
+      v = to_new[v];
+    }
+    return edge;
   }
   
   
