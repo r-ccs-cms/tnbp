@@ -9,8 +9,10 @@
 
 #include <vector>
 #include <utility>
-#include <algorithm>
+#include <set>
+#include <unordered_set>
 #include <unordered_map>
+#include <algorithm>
 #include <limits>
 #include <concepts>
 
@@ -119,6 +121,42 @@ namespace tnbp {
     }
     return edge;
   }
+
+  template <typename IntT>
+  std::vector<std::vector<std::pair<IntT,IntT>>> GreedyEdgeLayering(
+			     std::vector<std::pair<IntT,IntT>> edges) {
+    
+    std::vector<std::vector<std::pair<IntT,IntT>>> layers;
+    
+    // set of temporary edges
+    std::unordered_set<size_t> used_indices;
+    std::vector<bool> used(edges.size(), false);
+    
+    while (true) {
+      std::unordered_set<IntT> used_vertices;
+      std::vector<std::pair<IntT,IntT>> layer;
+      
+      for (size_t i = 0; i < edges.size(); ++i) {
+	if (used[i]) continue;
+	
+	auto [u, v] = edges[i];
+	if (used_vertices.count(u) || used_vertices.count(v)) continue;
+	
+	// if it is not used, add it to layer
+	layer.push_back(edges[i]);
+	used_vertices.insert(u);
+	used_vertices.insert(v);
+	used[i] = true;
+      }
+      
+      if (layer.empty()) break; // if layer was empy quit
+      layers.push_back(std::move(layer));
+    }
+    
+    return layers;
+  }
+
+  
   
   
 }

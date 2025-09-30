@@ -6,7 +6,7 @@
 struct Option {
 
   // inputs for problem settings
-  std::string backend = "ibm_kobe";
+  std::string backend = "default";
   std::string circuit = "circuit.qasm";
   std::string sparsepauli = "sparsepauliop.txt";
 

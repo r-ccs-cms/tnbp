@@ -38,9 +38,29 @@ int main(int argc, char * argv[]) {
   if( options.backend == std::string("ibm_kobe") ) {
     edges = tnbp::bond_ibm_kobe();
     layer_edges = tnbp::parallel_bond_ibm_kobe();
+  } else if ( options.backend == std::string("default") ) {
+    edges = tnbp::EdgesFromQasm(qasm_program);
+    layer_edges = tnbp::GreedyEdgeLayering(edges);
   }
 
   if( mpi_rank == mpi_master ) {
+    std::cout << " " << make_timestamp()
+	      << " edges:";
+    for(const auto & [u,v] : edges) {
+      std::cout << " (" << u << "," << v << ")";
+    }
+    std::cout << std::endl;
+    int m=0;
+    for(const auto & layer : layer_edges) {
+      std::cout << " " << make_timestamp()
+		<< " layer " << m << " edges:";
+      for(const auto & [u,v] : layer) {
+	std::cout << " (" << u << "," << v << ")";
+      }
+      std::cout << std::endl;
+      m++;
+    }
+    
     std::cout << " " << make_timestamp()
 	      << " Start TPO construction for quantum circuit " << std::endl;
   }
