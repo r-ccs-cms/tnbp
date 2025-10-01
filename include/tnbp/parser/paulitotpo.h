@@ -74,15 +74,15 @@ namespace tnbp {
 	  tci::copy(ctx,local,opten);
 	} else {
 	  RankT rank = tci::rank(ctx,opten);
-	  List<BondLabelT> labelO(2*(k+1));
+	  List<BondLabelT> labelO(2*k);
 	  List<BondLabelT> labelL(2);
-	  List<BondLabelT> labelT(2*(k+2));
+	  List<BondLabelT> labelT(2*(k+1));
 	  BondLabelT label = 0;
-	  for(size_t s=0; s < k+1; s++) {
+	  for(size_t s=0; s < k; s++) {
 	    labelO[s] = label++;
 	  }
 	  labelL[0] = label++;
-	  for(size_t s=k+1; s < 2*(k+1); s++) {
+	  for(size_t s=k; s < 2*k; s++) {
 	    labelO[s] = label++;
 	  }
 	  labelL[1] = label++;
@@ -93,6 +93,7 @@ namespace tnbp {
       }
       *it_qubits++ = qubits;
       tci::copy(ctx,opten,*it_tensor++);
+      tci::show(ctx,opten);
     }
   }
 	     

@@ -124,17 +124,10 @@ namespace tnbp {
 	RealTenT S;
 	RankT num_rows = 1;
 	RealT trunc_err;
-	/*
-	BondDimT chi_min = 1;
-	BondDimT chi_max = max_dim;
-	tci::trunc_svd(ctx,T,num_rows,X,S,Y,
-		       trunc_err,chi_min,chi_max,err,eps);
-	*/
 	BondDimT chi_max = max_dim;
 	tci::trunc_svd(ctx,T,num_rows,X,S,Y,
 		       trunc_err,chi_max,eps);
 	
-
 	auto shape_s = tci::shape(ctx_r,S);
 	res_bond_dim[edge_address] = shape_s[0];
 	res_trunc_err[edge_address] = trunc_err;

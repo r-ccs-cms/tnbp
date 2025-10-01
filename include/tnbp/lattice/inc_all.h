@@ -9,5 +9,6 @@
 #include "tnbp/lattice/oned.h"
 #include "tnbp/lattice/honeycomb.h"
 #include "tnbp/lattice/heavyhex.h"
+#include "tnbp/lattice/square.h"
 
 #endif
