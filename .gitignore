@@ -1,0 +1,46 @@
+# ---- OS files ----
+.DS_Store
+Thumbs.db
+
+# ---- build files ----
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.exe
+*.out
+*.a
+*.lib
+
+# ---- build directory ----
+build/
+bin/
+lib/
+
+# ---- CMake files ----
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.ninja
+*.ninja_deps
+*.ninja_log
+
+# ---- log and temporary files ----
+*.log
+*.tmp
+
+# ---- IDE files ----
+# Visual Studio Code
+.vscode/
+# CLion
+.idea/
+# Xcode
+*.xcworkspace
+*.xcuserstate
+*.xcuserdatad
+*.xcodeproj
+
+# ---- other backup files ----
+*~
+*.swp
