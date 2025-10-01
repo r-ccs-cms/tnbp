@@ -1,5 +1,5 @@
 #ifdef USE_CYTNX
-using Tensor = typename cytnx::Tensor;
+using Tensor = tci::CytnxTensor<cytnx::cytnx_complex128>;
 #else
 #ifdef USE_SINGLE
 using Tensor = typename gqten::tensor<std::complex<float>>;

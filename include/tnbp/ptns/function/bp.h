@@ -13,8 +13,55 @@
 namespace tnbp {
 
 /**
-Belief propagation step for self-consistent iteration
-*/
+ * @brief Perform a belief propagation (BP) step on a tensor network state.
+ *
+ * @details Each site is associated with a site tensor that has some
+ *          physical bonds. In the BP procedure, messenger tensors are defined
+ *          on the doubled virtual bonds obtained by contracting the physical
+ *          bonds of each site. Consequently, each messenger tensor has rank 2.
+ *
+ * @param[in] ctx
+ *     Context handle for TCI functionality.
+ *
+ * @param[in] I
+ *     Global graph structure defined as an edge list (std::vector<std::pair<int,int>>).
+ *     Each pair represents an virtual bond between two sites.
+ *
+ * @param[in] V
+ *     Site tensors managed by this MPI process
+ *     (std::vector<TenT>, where TenT denotes the tensor type).
+ *
+ * @param[in] SiteIdx
+ *     Indices of the sites managed by this MPI process, given in terms of
+ *     their global site labels.
+  *     
+ * @param[in] Site_To_MpiRank
+ *     Array mapping site labels to the MPI rank that manages them.
+ *     Accessing Site_To_MpiRank[site_label] gives the MPI process
+ *     responsible for the site identified by `site_label`.
+ *
+ * @param[in] edges
+ *     Subset of edges used to compute messenger tensors in the BP step.
+ *     Only non-overlapping edges are selected to allow parallel execution.
+ *
+ * @param[in] local_messages
+ *     Messenger tensors around the site tensors managed by this MPI process.
+ *     On boundaries between MPI processes, these messenger tensors are
+ *     shared across processes.
+ *
+ * @param[in] edge_labels
+ *     Edge labels corresponding to the messenger tensors above.
+ *     These are identifiers of the edges, not the edge objects themselves.
+ *
+ * @param[in] comm
+ *     The global MPI communicator including all processes participating
+ *     in the belief propagation step.
+ *
+ * @param[out] updated_messages
+ *     The updated messenger tensors. These have the same structure and
+ *     correspondence as the input messenger tensors, but are returned
+ *     separately without modifying the originals.
+ */
   template <typename TenT>
   void BeliefPropagation(context_handle_t<TenT> & ctx,
 			 const std::vector<std::pair<int,int>> & I,
@@ -216,7 +263,7 @@ Belief propagation step for self-consistent iteration
   }
 
   /**
-     Function to check belief propagation condition
+     Function to check belief propagation condition for tensor product state
    */
   template <typename TenT>
   void BeliefPropagationCondition(context_handle_t<TenT> & ctx,
@@ -325,8 +372,8 @@ Belief propagation step for self-consistent iteration
 			 const std::vector<TenT> & E,
 			 const std::vector<int> & EdgeIdx,
 			 std::vector<TenT> & F) {
-    BeliefPropagation(ctx,W.I_,W.V_,W.SiteIdx_,W.Site_To_MpiRank_,
-		      J,E,EdgeIdx,W.comm_,F);
+    StateBeliefPropagation(ctx,W.I_,W.V_,W.SiteIdx_,W.Site_To_MpiRank_,
+			   J,E,EdgeIdx,W.comm_,F);
   }
 
   /**

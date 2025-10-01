@@ -156,8 +156,91 @@ namespace tnbp {
     return layers;
   }
 
-  
-  
+  template <std::integral IntT>
+  std::vector<std::vector<IntT>> BuildContractionLayers(
+	 const std::vector<std::pair<IntT, IntT>>& edges,
+	 const std::vector<IntT>& initial_boundary
+							) {
+    
+    using NeighborMap = std::unordered_map<IntT, std::vector<IntT>>;
+
+    NeighborMap neighbors;
+    for (const auto& [u, v] : edges) {
+      neighbors[u].push_back(v);
+      neighbors[v].push_back(u);
+    }
+    
+    std::unordered_set<IntT> absorbed(initial_boundary.begin(), initial_boundary.end());
+    
+    std::vector<std::vector<IntT>> layers;
+    layers.push_back(initial_boundary);  //
+    
+    std::set<IntT> all_nodes;
+    for (const auto& [u, v] : edges) {
+      all_nodes.insert(u);
+      all_nodes.insert(v);
+    }
+    
+    while (true) {
+      std::vector<IntT> next_layer;
+      for (const auto& node : all_nodes) {
+	if (absorbed.count(node)) continue;
+	
+	for (const auto& neighbor : neighbors[node]) {
+	  if (absorbed.count(neighbor)) {
+	    next_layer.push_back(node);
+	    break;
+	  }
+	}
+      }
+      
+      if (next_layer.empty()) break;
+      
+      std::sort(next_layer.begin(), next_layer.end());
+      next_layer.erase(std::unique(next_layer.begin(), next_layer.end()), next_layer.end());
+      
+      for (const auto& node : next_layer) {
+	absorbed.insert(node);
+      }
+      layers.push_back(std::move(next_layer));
+    }
+    
+    return layers;
+  }
+
+
+/**
+ * @brief Extract edges from a global edge list that are fully contained in a given line.
+ *
+ * This function takes a set of edges representing the global graph and a list of vertices
+ * representing a single line. It returns only those edges whose both endpoints are included
+ * in the specified line.
+ *
+ * @tparam IntT Integral type for vertex labels.
+ * @param global_edge The full set of edges in the graph, represented as pairs of vertex labels.
+ * @param line A list of vertex labels defining the line.
+ * @return std::vector<std::pair<IntT, IntT>> The subset of edges contained entirely within the line.
+ *
+ * @note Vertex labels are kept as in the original global graph (no reindexing).
+ *
+ * @complexity O(E) where E is the number of edges in global_edge.
+ */
+  template <std::integral IntT>
+  std::vector<std::pair<IntT, IntT>>
+  ExtractLineEdges(const std::vector<std::pair<IntT, IntT>>& global_edge,
+		   const std::vector<IntT>& line) {
+    std::unordered_set<IntT> line_set(line.begin(), line.end());
+    
+    std::vector<std::pair<IntT, IntT>> line_edge;
+    line_edge.reserve(global_edge.size());
+    
+    for (auto& [u, v] : global_edge) {
+      if (line_set.count(u) && line_set.count(v)) {
+	line_edge.emplace_back(u, v);
+      }
+    }
+    return line_edge;
+  }
   
 }
 
