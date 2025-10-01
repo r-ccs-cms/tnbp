@@ -3,6 +3,9 @@
 #include <string>
 #include <vector>
 
+#ifdef USE_CYTNX
+using Tensor = typename cytnx::Tensor;
+#else
 #ifdef USE_COMPLEX
 #ifdef USE_SINGLE
 using Tensor = typename gqten::tensor<std::complex<float>>;
@@ -16,6 +19,7 @@ using Tensor = typename gqten::tensor<float>;
 using Tensor = typename gqten::tensor<double>;
 #endif
 #endif
+#endif
 
 using ContextHandle = typename tci::tensor_traits<Tensor>::context_handle_t;
 using Elem = typename tci::tensor_traits<Tensor>::elem_t;
@@ -25,6 +29,7 @@ using Shape = typename tci::tensor_traits<Tensor>::shape_t;
 using BondDim = typename tci::tensor_traits<Tensor>::bond_dim_t;
 using BondLabel = typename tci::tensor_traits<Tensor>::bond_label_t;
 using RealTensor = typename tci::tensor_traits<Tensor>::real_ten_t;
+using ContextHandleReal = typename tci::tensor_traits<RealTensor>::context_handle_t;
 
 struct Option {
   Rank num_rows = 1;

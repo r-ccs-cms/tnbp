@@ -119,7 +119,7 @@ std::vector<TenT> CircuitTPO(
   }
 
   // x terms
-  
+  /*
   for(size_t i=0; i < sites.size(); i++) {
     auto rank_v = tci::rank(ctx,V[i]);
     auto rank_x = tci::rank(ctx,Ux);
@@ -134,6 +134,7 @@ std::vector<TenT> CircuitTPO(
     std::iota(label_w.begin(),label_w.end(),0);
     tci::contract(ctx,V[i],label_v,Ux,label_x,V[i],label_w);
   }
+  */
   
   // j terms
   for(size_t m=0; m < edges.size(); m++) {
@@ -219,6 +220,22 @@ std::vector<TenT> CircuitTPO(
     label_z[1] = rank_v-1;
     std::iota(label_w.begin(),label_w.end(),0);
     tci::contract(ctx,V[i],label_v,Uz,label_z,V[i],label_w);
+  }
+
+  // x terms
+  for(size_t i=0; i < sites.size(); i++) {
+    auto rank_v = tci::rank(ctx,V[i]);
+    auto rank_x = tci::rank(ctx,Ux);
+    auto rank_w = tci::rank(ctx,V[i]);
+    tci::List<BondLabelT> label_v(rank_v);
+    tci::List<BondLabelT> label_x(rank_x);
+    tci::List<BondLabelT> label_w(rank_w);
+    std::iota(label_v.begin(),label_v.end(),0);
+    label_v[rank_v-1] = -1;
+    label_x[0] = -1;
+    label_x[1] = rank_v-1;
+    std::iota(label_w.begin(),label_w.end(),0);
+    tci::contract(ctx,V[i],label_v,Ux,label_x,V[i],label_w);
   }
 
   return V;

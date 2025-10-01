@@ -44,10 +44,30 @@ int main(int argc, char * argv[]) {
   } else if ( options.lattice == std::string("honeycomb") ) {
     edges = tnbp::bond_honeycomb_lattice(options.L,options.L);
     layer_edges = tnbp::parallel_bond_honeycomb_lattice(options.L,options.L);
+  } else if ( options.lattice == std::string("square") ) {
+    edges = tnbp::bond_square_lattice(options.L,options.L);
+    layer_edges = tnbp::GreedyEdgeLayering(edges);
   }
 
   if( mpi_rank == 0 ) {
+    std::cout << " " << make_timestamp()
+	      << " edges:";
+    for(const auto & [u,v] : edges) {
+      std::cout << " (" << u << "," << v << ")";
+    }
+    std::cout << std::endl;
+    int m=0;
+    for(const auto & layer : layer_edges) {
+      std::cout << " " << make_timestamp()
+		<< " layer " << m << " edges:";
+      for(const auto & [u,v] : layer) {
+	std::cout << " (" << u << "," << v << ")";
+      }
+      std::cout << std::endl;
+      m++;
+    }
     std::cout << " " << make_timestamp() << " Start construction of TPO " << std::endl;
+    
   }
   std::vector<Tensor> TPO = CircuitTPO<Tensor>(ctx,edges,
 			    options.Jz,options.hz,options.hx,options.dt,comm);

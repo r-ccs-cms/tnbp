@@ -1,8 +1,4 @@
 include Configuration
-TCI_INCLUDE_DIR=$(TCI_PATH)/include
-TCL_INCLUDE_DIR=$(TCL_PATH)/include
-AEL_INCLUDE_DIR=$(AEL_PATH)/include
-LIBFLAGS= $(SYSLIB)
 MAKEFILES= Makefile Configuration
 # header file
 HEADER=
@@ -14,10 +10,10 @@ OBJECTS=
 .SUFFIXES:
 .SUFFIXES: .h .cc .o
 .cc.o:  $*.cc
-	$(CCCOM) -c $(CCFLAGS) -I$(TCI_INCLUDE_DIR) -I$(TCL_INCLUDE_DIR) -I$(AEL_INCLUDE_DIR) $<
+	$(CCCOM) -c $(CXX_FLAGS) $<
 ###############################################################
 test: clean main.o $(OBJECTS)
-	$(CCCOM) $(CCFLAGS) -o test main.o $(OBJECTS) $(LIBFLAGS)
+	$(CCCOM) $(CXX_FLAGS) -o test main.o $(OBJECTS) $(LIB_FLAGS)
 
 clean:
 	rm -f *.o

@@ -22,7 +22,10 @@ int main(int argc, char * argv[]) {
   Option option = generate_option(argc,argv);
 
   ContextHandle ctx;
-  tci::create_context<Tensor>(ctx);
+  tci::create_context(ctx);
+
+  ContextHandleReal ctr;
+  tci::create_context(ctr);
 
   std::mt19937 engine(option.seed);
   Shape shape = option.shape;
@@ -37,9 +40,7 @@ int main(int argc, char * argv[]) {
   
   tci::trunc_svd(ctx,A,option.num_rows,
 		 U,S,V,trunc_err,
-		 option.chi_min,
 		 option.chi_max,
-		 option.trunc_err,
 		 option.s_min);
 
   auto time_end_svd = std::chrono::high_resolution_clock::now();
@@ -47,6 +48,11 @@ int main(int argc, char * argv[]) {
   std::cout << " Execution time for SVD = " << elapsed_count_svd << " (ms) " << std::endl;
   
   std::cout << " Bond Dimension = " << tci::size(ctx,S) << std::endl;
+
+  tci::for_each(ctr,S,[](auto & elem){ elem = std::sqrt(elem); });
+  Tensor Z;
+  tci::convert(ctr,S,ctx,Z);
+  tci::show(ctx,Z);
 
   return 0;
 }
