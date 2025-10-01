@@ -93,7 +93,6 @@ namespace tnbp {
       }
       *it_qubits++ = qubits;
       tci::copy(ctx,opten,*it_tensor++);
-      tci::show(ctx,opten);
     }
   }
 	     
