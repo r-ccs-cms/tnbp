@@ -7,6 +7,7 @@
 #include <type_traits>
 #include <complex>
 #include <cctype>
+#include <algorithm>
 
 namespace pauli {
 
