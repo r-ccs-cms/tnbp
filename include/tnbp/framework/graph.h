@@ -54,44 +54,58 @@ namespace tnbp {
     }
     return res;
   }
-  
+
   template <std::integral IntT>
-  std::vector<IntT> FindShortestPath(const std::vector<std::pair<IntT,IntT>> & I,
-                                    IntT i1, IntT i2) {
-    std::vector<IntT> Q = GetSiteIndexFromBond(I);
-    std::vector<std::vector<IntT>> adj(Q.size());
-    for(const auto & edge : I) {
-      adj[edge.first].push_back(edge.second);
-      adj[edge.second].push_back(edge.first);
+  std::vector<IntT> FindShortestPath(const std::vector<std::pair<IntT,IntT>> &E,
+				     IntT src, IntT dst)
+  {
+    // 1. Compress labels
+    std::vector<IntT> sites;
+    sites.reserve(E.size()*2);
+    for(auto [u,v] : E){ sites.push_back(u); sites.push_back(v); }
+    std::sort(sites.begin(), sites.end());
+    sites.erase(std::unique(sites.begin(), sites.end()), sites.end());
+    
+    std::unordered_map<IntT,std::size_t> to_idx;
+    to_idx.reserve(sites.size()*2);
+    for(std::size_t i=0;i<sites.size();++i) to_idx[sites[i]]=i;
+    
+    if(!to_idx.count(src) || !to_idx.count(dst)) return {};
+    
+    std::size_t s = to_idx[src], t = to_idx[dst];
+    std::vector<std::vector<std::size_t>> adj(sites.size());
+    for(auto [u,v]:E){
+      adj[to_idx[u]].push_back(to_idx[v]);
+      adj[to_idx[v]].push_back(to_idx[u]);
     }
-    std::queue<IntT> q;
-    std::vector<bool> visited(Q.size(),false);
-    std::vector<IntT> prev(Q.size(),-1);
-
-    q.push(i1);
-    visited[i1] = true;
-
-    while ( !q.empty() ) {
-      IntT node = q.front();
-      q.pop();
-      if( node == i2 ) {
-        std::vector<IntT> path;
-        for(int at = i2; at != -1; at =prev[at]) {
-          path.push_back(at);
-        }
-        std::reverse(path.begin(),path.end());
-        return path;
-      }
-
-      for(int neighbor : adj[node]) {
-        if (!visited[neighbor]) {
-          q.push(neighbor);
-          visited[neighbor] = true;
-          prev[neighbor] = node;
-        }
+    
+    // 2. BFS
+    std::queue<std::size_t> q;
+    std::vector<char> visited(sites.size(),0);
+    std::vector<std::size_t> prev(sites.size(),-1);
+    
+    q.push(s); visited[s]=1;
+    while(!q.empty()){
+      auto u=q.front(); q.pop();
+      if(u==t) break;
+      for(auto v:adj[u]){
+	if(!visited[v]){
+	  visited[v]=1;
+	  prev[v]=u;
+	  q.push(v);
+	}
       }
     }
-    return {};
+    
+    if(!visited[t]) return {};
+    
+    // 3. Reconstruction of path
+    std::vector<IntT> path;
+    for(std::size_t cur=t;cur!=(std::size_t)-1;cur=prev[cur]){
+      path.push_back(sites[cur]);
+    }
+    std::reverse(path.begin(),path.end());
+    return path;
   }
 
   template <std::integral IntT>

@@ -192,6 +192,7 @@ namespace tnbp {
   template <typename TenT>
   void InitQasmParseTPO(
 	  context_handle_t<TenT> & ctx,
+	  const std::vector<int> & sites,
 	  const std::vector<std::pair<int,int>> & edges,
 	  std::vector<TenT> & T) {
     
@@ -199,9 +200,10 @@ namespace tnbp {
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
     
-    auto site = GetSiteIndexFromBond(edges);
-    T.resize(site.size());
-    for(auto const & i : site) {
+    T.resize(sites.size());
+    for(auto const & i : sites) {
+      auto it_site_address = std::find(sites.begin(),sites.end(),i);
+      auto site_address = std::distance(sites.begin(),it_site_address);
       auto virtualbond = GetSurroundingBondIndex(i,edges);
       auto num_virtualbond = virtualbond.size();
       ShapeT shape(num_virtualbond+2,1);
@@ -216,7 +218,7 @@ namespace tnbp {
       tci::assign_from_container(ctx,shape,it_data,
 		  [&shape](const CoorsT & coor) {
 		    return address_from_coor(shape,coor);
-		  }, T[i]);
+		  }, T[site_address]);
     }
   }
 
@@ -232,6 +234,7 @@ namespace tnbp {
   void AppendGateToTPO(
 	  context_handle_t<TenT> & ctx,
 	  const qasm::Instruction & ins,
+	  const std::vector<int> & sites,
 	  const std::vector<std::pair<int,int>> & edges,
 	  std::vector<TenT> & T) {
     
@@ -257,6 +260,8 @@ namespace tnbp {
 	 Case for single-site gate
       */
       auto site_a = static_cast<int>(ins.qubits[0].index);
+      auto it_site_address = std::find(sites.begin(),sites.end(),site_a);
+      auto site_address = std::distance(sites.begin(),it_site_address);
       auto virtualbond = GetSurroundingBondIndex(site_a,edges);
       auto num_virtualbond = virtualbond.size();
       List<BondLabelT> IdxT(num_virtualbond+2);
@@ -268,7 +273,7 @@ namespace tnbp {
       IdxT[num_virtualbond+1] = static_cast<BondLabelT>(-1);
       IdxG[0] = static_cast<BondLabelT>(-1);
       IdxG[1] = static_cast<BondLabelT>(num_virtualbond+1);
-      tci::contract(ctx,T[site_a],IdxT,gate,IdxG,T[site_a],IdxR);
+      tci::contract(ctx,T[site_address],IdxT,gate,IdxG,T[site_address],IdxR);
       
     } else if ( num_qubits == 2 ) {
       
@@ -352,7 +357,9 @@ namespace tnbp {
 	  tci::copy(ctx,B,X);
 	}
 	auto vb_a = GetSurroundingBondIndex(path[i],edges);
-	auto rank_A = tci::rank(ctx,T[path[i]]);
+	auto it_site_address_a = std::find(sites.begin(),sites.end(),path[i]);
+	auto site_address_a = std::distance(sites.begin(),it_site_address_a);
+	auto rank_A = tci::rank(ctx,T[site_address_a]);
 	auto rank_X = tci::rank(ctx,X);
 	List<BondLabelT> IdxA(rank_A);
 	List<BondLabelT> IdxX(rank_X);
@@ -388,7 +395,7 @@ namespace tnbp {
 	}
 	int ka = 0;
 	int kx = 0;
-	ShapeT shapeA = tci::shape(ctx,T[path[i]]);
+	ShapeT shapeA = tci::shape(ctx,T[site_address_a]);
 	ShapeT new_shapeA(rank_A);
 	for(int b=0; b < vb_a.size(); b++) {
 	  if( b == target_bond_m ) {
@@ -412,8 +419,8 @@ namespace tnbp {
 	new_shapeA[vb_a.size()+1] = shapeA[vb_a.size()+1];
 	List<BondLabelT> IdxP(rank_X+rank_A-2);
 	std::iota(IdxP.begin(),IdxP.end(),0);
-	tci::contract(ctx,X,IdxX,T[path[i]],IdxA,T[path[i]],IdxP);
-	tci::reshape(ctx,T[path[i]],new_shapeA);
+	tci::contract(ctx,X,IdxX,T[site_address_a],IdxA,T[site_address_a],IdxP);
+	tci::reshape(ctx,T[site_address_a],new_shapeA);
       }
 
     } else if ( num_qubits == 3 ) {
@@ -602,7 +609,9 @@ namespace tnbp {
 	  tci::transpose(ctx,X,new_order_X);
 	}
 	auto vb_A = GetSurroundingBondIndex(path[i],edges);
-	auto rank_A = tci::rank(ctx,T[path[i]]);
+	auto it_site_address_a = std::find(sites.begin(),sites.end(),path[i]);
+	auto site_address_a = std::distance(sites.begin(),it_site_address_a);
+	auto rank_A = tci::rank(ctx,T[site_address_a]);
 	auto rank_X = tci::rank(ctx,X);
 	List<BondLabelT> IdxA(rank_A);
 	List<BondLabelT> IdxX(rank_X);
@@ -639,7 +648,7 @@ namespace tnbp {
 	}
 	int ka=0;
 	int kx = 0;
-	ShapeT shapeA = tci::shape(ctx,T[path[i]]);
+	ShapeT shapeA = tci::shape(ctx,T[site_address_a]);
 	ShapeT new_shapeA(rank_A);
 	for(int b=0; b < vb_A.size(); b++) {
 	  if( b == target_bond_m ) {
@@ -662,8 +671,8 @@ namespace tnbp {
 	new_shapeA[vb_A.size()+0] = shapeA[vb_A.size()+0];
 	new_shapeA[vb_A.size()+1] = shapeA[vb_A.size()+1];
 	std::iota(IdxN.begin(),IdxN.end(),0);
-	tci::contract(ctx,X,IdxX,T[path[i]],IdxA,T[path[i]],IdxN);
-	tci::reshape(ctx,T[path[i]],new_shapeA);
+	tci::contract(ctx,X,IdxX,T[site_address_a],IdxA,T[site_address_a],IdxN);
+	tci::reshape(ctx,T[site_address_a],new_shapeA);
       }
     } // else if ( num_qubits == 3 )
     
@@ -683,18 +692,18 @@ namespace tnbp {
 		  const std::vector<std::pair<int,int>> & edges,
 		  const std::vector<int> & num_gates) {
     
-    auto site = GetSiteIndexFromBond(edges);
+    auto sites = GetSiteIndexFromBond(edges);
     std::vector<std::vector<TenT>> T(num_gates.size(),
-		                     std::vector<TenT>(site.size()));
+		                     std::vector<TenT>(sites.size()));
     int gate_count = 0;
     int m = 0;
     for(auto const & ins : program.instructions) {
 
       // initialization of tensor product operator
       if( gate_count == 0 ) {
-	InitQasmParseTPO(ctx,edges,T[m]);
+	InitQasmParseTPO(ctx,sites,edges,T[m]);
       }
-      AppendGateToTPO(ctx,ins,edges,T[m]);
+      AppendGateToTPO(ctx,ins,sites,edges,T[m]);
       gate_count++;
       if( gate_count == num_gates[m] ) {
 	m++;
@@ -716,21 +725,21 @@ namespace tnbp {
 		  const qasm::Program & program,
 		  const std::vector<std::pair<int,int>> & edges) {
     
-    auto site = GetSiteIndexFromBond(edges);
+    auto sites = GetSiteIndexFromBond(edges);
     std::vector<std::vector<TenT>> T;
     size_t m=0;
-    T.push_back(std::vector<TenT>(site.size()));
-    InitQasmParseTPO(ctx,edges,T[m]);
+    T.push_back(std::vector<TenT>(sites.size()));
+    InitQasmParseTPO(ctx,sites,edges,T[m]);
     for(std::size_t i=0; i < program.instructions.size(); ++i) {
       if( program.instructions[i].op == qasm::Op::BARRIER ) {
 	if ( i != program.instructions.size()-1 ) {
-	  T.push_back(std::vector<TenT>(site.size()));
-	  InitQasmParseTPO(ctx,edges,T[++m]);
+	  T.push_back(std::vector<TenT>(sites.size()));
+	  InitQasmParseTPO(ctx,sites,edges,T[++m]);
 	} else {
 	  break;
 	}
       } else {
-	AppendGateToTPO(ctx,program.instructions[i],edges,T[m]);
+	AppendGateToTPO(ctx,program.instructions[i],sites,edges,T[m]);
       }
     }
     return T;

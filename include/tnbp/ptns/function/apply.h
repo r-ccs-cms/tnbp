@@ -31,17 +31,24 @@ namespace tnbp {
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
 
+    auto global_sites = GetSiteIndexFromBond(Edge);
+
     for(int address=0; address < SiteIdx.size(); address++) {
       int site = SiteIdx[address];
+      auto it_global_site_address = std::find(global_sites.begin(),
+					      global_sites.end(),
+					      site);
+      auto global_site_address = std::distance(global_sites.begin(),
+					       it_global_site_address);
       RankT rank_v = tci::rank(ctx,V[address]);
-      RankT rank_o = tci::rank(ctx,O[site]);
+      RankT rank_o = tci::rank(ctx,O[global_site_address]);
       RankT num_vb = rank_v-1;
       List<BondLabelT> label_v(rank_v);
       List<BondLabelT> label_o(rank_o);
       List<BondLabelT> label_r(rank_v+rank_o-2);
       ShapeT new_shape_v(rank_v);
       ShapeT shape_v = tci::shape(ctx,V[address]);
-      ShapeT shape_o = tci::shape(ctx,O[site]);
+      ShapeT shape_o = tci::shape(ctx,O[global_site_address]);
       for(RankT k=0; k < num_vb; k++) {
 	label_v[k] = static_cast<BondLabelT>(2*k+0);
 	label_o[k] = static_cast<BondLabelT>(2*k+1);
@@ -54,7 +61,7 @@ namespace tnbp {
       label_o[num_vb+1] = static_cast<BondLabelT>(2*num_vb+1);
       label_r[2*num_vb] = static_cast<BondLabelT>(2*num_vb+1);
       new_shape_v[num_vb] = shape_o[num_vb];
-      tci::contract(ctx,O[site],label_o,V[address],label_v,
+      tci::contract(ctx,O[global_site_address],label_o,V[address],label_v,
 		    V[address],label_r);
       tci::reshape(ctx,V[address],new_shape_v);
     }
@@ -77,6 +84,11 @@ namespace tnbp {
       
       if( mpi_rank_a == mpi_rank ) {
 
+	auto it_global_site_address_a = std::find(global_sites.begin(),
+						  global_sites.end(),
+						  site_a);
+	auto global_site_address_a = std::distance(global_sites.begin(),
+						   it_global_site_address_a);
 	std::vector<int> bond = GetSurroundingBondIndex(site_a,Edge);
 	
 	int target_edge = 0;
@@ -95,7 +107,7 @@ namespace tnbp {
 	  }
 	}
 
-	auto shape_O = tci::shape(ctx,O[site_a]);
+	auto shape_O = tci::shape(ctx,O[global_site_address_a]);
 	auto shape_E = tci::shape(ctx,E[address]);
 	ShapeT shape_I(2,shape_O[target_bond]);
 	ShapeT shape_N(2,shape_I[0]*shape_E[0]);
@@ -118,6 +130,12 @@ namespace tnbp {
 	
       } else if ( mpi_rank_b == mpi_rank ) {
 
+	auto it_global_site_address_b = std::find(global_sites.begin(),
+						  global_sites.end(),
+						  site_b);
+	auto global_site_address_b = std::distance(global_sites.begin(),
+						   it_global_site_address_b);
+	
 	std::vector<int> bond = GetSurroundingBondIndex(site_b,Edge);
 
 	int target_edge = 0;
@@ -136,7 +154,7 @@ namespace tnbp {
 	  }
 	}
 	
-	auto shape_O = tci::shape(ctx,O[site_b]);
+	auto shape_O = tci::shape(ctx,O[global_site_address_b]);
 	auto shape_E = tci::shape(ctx,E[address]);
 	ShapeT shape_I(2,shape_O[target_bond]);
 	ShapeT shape_N(2,shape_I[0]*shape_E[0]);
