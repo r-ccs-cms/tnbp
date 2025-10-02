@@ -241,6 +241,181 @@ namespace tnbp {
     }
     return line_edge;
   }
+
+/**
+ * @brief Extract edges that connect two disjoint vertex sets (line_a, line_b) from a global edge list.
+ *
+ * Given a global edge list and two vertex lists line_a and line_b, this function returns
+ * only those edges with one endpoint in line_a and the other in line_b.
+ *
+ * @tparam IntT Integral type for vertex labels.
+ * @param global_edges The full set of edges in the graph (undirected), as pairs of vertex labels.
+ * @param line_a Vertex labels for layer A.
+ * @param line_b Vertex labels for layer B.
+ * @return std::vector<std::pair<IntT,IntT>> Edges that connect line_a and line_b (original labels).
+ *
+ * @note An edge (u,v) is included iff (u ∈ A and v ∈ B) or (u ∈ B and v ∈ A).
+ * @complexity O(E) where E = global_edges.size().
+ */
+  template <std::integral IntT>
+  std::vector<std::pair<IntT,IntT>>
+  ExtractInterlayerEdges(const std::vector<std::pair<IntT,IntT>>& global_edges,
+			 const std::vector<IntT>& line_a,
+			 const std::vector<IntT>& line_b) {
+    std::unordered_set<IntT> A(line_a.begin(), line_a.end());
+    std::unordered_set<IntT> B(line_b.begin(), line_b.end());
+    
+    std::vector<std::pair<IntT,IntT>> inter_edges;
+    inter_edges.reserve(global_edges.size());
+    
+    for (const auto& [u,v] : global_edges) {
+      const bool uA = A.count(u), vA = A.count(v);
+      const bool uB = B.count(u), vB = B.count(v);
+      if ( (uA && vB) || (uB && vA) ) {
+	inter_edges.emplace_back(u, v);
+      }
+    }
+    return inter_edges;
+  }
+  
+/**
+ * @brief Extract interlayer edges and reindex endpoints locally per layer.
+ *
+ * Vertices in line_a are mapped to [0, |line_a|), and vertices in line_b are mapped to [0, |line_b|).
+ * Returned edges keep the original side information (A/B) only by where endpoints came from; the pairs
+ * are NOT forced into a single orientation.
+ *
+ * @tparam IntT Integral type for vertex labels.
+ * @param global_edges The full set of edges in the graph (undirected), as pairs of vertex labels.
+ * @param line_a Vertex labels for layer A (reindexed to [0, |A|)).
+ * @param line_b Vertex labels for layer B (reindexed to [0, |B|)).
+ * @return std::vector<std::pair<IntT,IntT>> Interlayer edges with endpoints reindexed
+ *         (A-side in [0,|A|), B-side in [0,|B|)). The first/second of the pair preserves the original ordering.
+ *
+ * @note If you need a canonical orientation (A->B), use the oriented variant below.
+ * @complexity O(E) where E = global_edges.size().
+ */
+  template <std::integral IntT>
+  std::vector<std::pair<IntT,IntT>>
+  ExtractInterlayerEdgesReindexed(const std::vector<std::pair<IntT,IntT>>& global_edges,
+				  const std::vector<IntT>& line_a,
+				  const std::vector<IntT>& line_b) {
+    std::unordered_map<IntT, IntT> a_local, b_local;
+    a_local.reserve(line_a.size());
+    b_local.reserve(line_b.size());
+    
+    for (size_t i = 0; i < line_a.size(); ++i) a_local[line_a[i]] = static_cast<IntT>(i);
+    for (size_t i = 0; i < line_b.size(); ++i) b_local[line_b[i]] = static_cast<IntT>(i);
+    
+    std::vector<std::pair<IntT,IntT>> inter_edges;
+    inter_edges.reserve(global_edges.size());
+    
+    for (const auto& [u,v] : global_edges) {
+      auto iuA = a_local.find(u), ivA = a_local.find(v);
+      auto iuB = b_local.find(u), ivB = b_local.find(v);
+      
+      if (iuA != a_local.end() && ivB != b_local.end()) {
+	// u in A, v in B
+	inter_edges.emplace_back(iuA->second, ivB->second);
+      } else if (iuB != b_local.end() && ivA != a_local.end()) {
+	// u in B, v in A
+	inter_edges.emplace_back(ivA->second, iuB->second);
+      }
+    }
+    return inter_edges;
+  }
+
+#include <vector>
+#include <unordered_set>
+#include <concepts>
+#include <utility>
+
+/**
+ * @brief Extract interlayer edges oriented from A to B without reindexing.
+ *
+ * Given an undirected global edge list and two disjoint vertex lists (line_a, line_b),
+ * this function returns only those edges that connect the sets. Each returned edge is
+ * oriented as (a_label, b_label): if an original edge is (u in B, v in A), it is flipped
+ * to (v, u).
+ *
+ * @tparam IntT Integral type for vertex labels.
+ * @param global_edges The full set of undirected edges as pairs of original vertex labels.
+ * @param line_a Vertex labels for layer A (original labels).
+ * @param line_b Vertex labels for layer B (original labels).
+ * @return std::vector<std::pair<IntT,IntT>> Interlayer edges oriented A→B (original labels).
+ *
+ * @note
+ * - Edges with both endpoints in A or both in B are ignored.
+ * - If the input contains both (u,v) and (v,u), both may appear (both normalized to A→B).
+ *   See below for a dedup hint.
+ * - Time complexity: O(E) average, where E = global_edges.size().
+ */
+  template <std::integral IntT>
+  std::vector<std::pair<IntT,IntT>>
+  ExtractInterlayerEdgesOriented(const std::vector<std::pair<IntT,IntT>>& global_edges,
+				 const std::vector<IntT>& line_a,
+				 const std::vector<IntT>& line_b) {
+    std::unordered_set<IntT> A(line_a.begin(), line_a.end());
+    std::unordered_set<IntT> B(line_b.begin(), line_b.end());
+    
+    std::vector<std::pair<IntT,IntT>> inter_edges;
+    inter_edges.reserve(global_edges.size());
+    
+    for (const auto& [u, v] : global_edges) {
+      const bool uA = A.count(u), vA = A.count(v);
+      const bool uB = B.count(u), vB = B.count(v);
+      
+      // Keep only cross edges, and orient to (A, B)
+      if (uA && vB) {
+	inter_edges.emplace_back(u, v);        // already A→B
+      } else if (uB && vA) {
+	inter_edges.emplace_back(v, u);        // flip to A→B
+      }
+    }
+    return inter_edges;
+  }
+
+/**
+ * @brief Extract interlayer edges reindexed and oriented from A to B.
+ *
+ * Always returns pairs (a_idx, b_idx) where a_idx ∈ [0, |A|), b_idx ∈ [0, |B|).
+ *
+ * @tparam IntT Integral type for vertex labels.
+ * @param global_edges The full set of edges in the graph (undirected), as pairs of vertex labels.
+ * @param line_a Vertex labels for layer A.
+ * @param line_b Vertex labels for layer B.
+ * @return std::vector<std::pair<IntT,IntT>> Interlayer edges oriented A→B with local indices.
+ *
+ * @complexity O(E).
+ */
+  template <std::integral IntT>
+  std::vector<std::pair<IntT,IntT>>
+  ExtractInterlayerEdgesReindexedOriented(const std::vector<std::pair<IntT,IntT>>& global_edges,
+					  const std::vector<IntT>& line_a,
+					  const std::vector<IntT>& line_b) {
+    std::unordered_map<IntT, IntT> a_local, b_local;
+    a_local.reserve(line_a.size());
+    b_local.reserve(line_b.size());
+    for (size_t i = 0; i < line_a.size(); ++i) a_local[line_a[i]] = static_cast<IntT>(i);
+    for (size_t i = 0; i < line_b.size(); ++i) b_local[line_b[i]] = static_cast<IntT>(i);
+    
+    std::vector<std::pair<IntT,IntT>> inter_edges;
+    inter_edges.reserve(global_edges.size());
+    
+    for (const auto& [u,v] : global_edges) {
+      auto iuA = a_local.find(u), ivA = a_local.find(v);
+      auto iuB = b_local.find(u), ivB = b_local.find(v);
+      
+      if (iuA != a_local.end() && ivB != b_local.end()) {
+	inter_edges.emplace_back(iuA->second, ivB->second);
+      } else if (iuB != b_local.end() && ivA != a_local.end()) {
+	inter_edges.emplace_back(ivA->second, iuB->second);
+      }
+    }
+    return inter_edges;
+  }
+
+  
   
 }
 

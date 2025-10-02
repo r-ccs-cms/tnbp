@@ -46,7 +46,9 @@ namespace tnbp {
     get_range(mpi_size,mpi_rank,SiteIdxStart,SiteIdxEnd);
 
     SiteIdx.resize(SiteIdxEnd-SiteIdxStart);
-    std::iota(SiteIdx.begin(),SiteIdx.end(),SiteIdxStart);
+    std::copy(Site.begin() + SiteIdxStart,
+	      Site.end()   + SiteIdxEnd,
+	      SiteIdx.begin());
     EdgeIdx.resize(0);
     V.resize(SiteIdxEnd-SiteIdxStart);
 
