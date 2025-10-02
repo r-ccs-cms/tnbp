@@ -16,7 +16,7 @@ namespace tnbp {
 			    const std::vector<std::pair<int,int>> & I,
 			    const std::vector<TenT> & V,
 			    const std::vector<int> & SiteIdx,
-			    const std::vector<int> & Site_To_MpiRank,
+			    const std::map<int,int> & Site_To_MpiRank,
 			    const std::vector<TenT> & E,
 			    const std::vector<int> EdgeIdx,
 			    MPI_Comm comm,
@@ -36,7 +36,7 @@ namespace tnbp {
     std::vector<elem_t<TenT>> result(Site.size(),elem_t<TenT>(0.0));
 
     for(int site_address=0; site_address < Site.size(); site_address++) {
-      if( mpi_rank == Site_To_MpiRank[Site[site_address]] ) {
+      if( mpi_rank == Site_To_MpiRank.at(Site[site_address]) ) {
 	auto it_siteidx_address = std::find(SiteIdx.begin(),
 					    SiteIdx.end(),
 					    Site[site_address]);
@@ -103,7 +103,7 @@ namespace tnbp {
 			    const std::vector<std::pair<int,int>> & I,
 			    const std::vector<TenT> & V,
 			    const std::vector<int> & SiteIdx,
-			    const std::vector<int> & Site_To_MpiRank,
+			    const std::map<int,int> & Site_To_MpiRank,
 			    const std::vector<TenT> & E,
 			    const std::vector<int> EdgeIdx,
 			    MPI_Comm comm,
@@ -127,8 +127,8 @@ namespace tnbp {
     for(int m=0; m < Edge.size(); m++) {
       int site_a = Edge[m].first;
       int site_b = Edge[m].second;
-      int mpi_rank_a = Site_To_MpiRank[site_a];
-      int mpi_rank_b = Site_To_MpiRank[site_b];
+      int mpi_rank_a = Site_To_MpiRank.at(site_a);
+      int mpi_rank_b = Site_To_MpiRank.at(site_b);
       int mpi_type = 0;
       if( mpi_rank_a == mpi_rank ) {
 	mpi_type += 2;

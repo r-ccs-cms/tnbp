@@ -20,7 +20,7 @@ namespace tnbp {
 		 const std::vector<int> & PhysicalBondDim,
 		 std::vector<TenT> & V,
 		 std::vector<int> & SiteIdx,
-		 std::vector<int> & Site_To_MpiRank,
+		 std::map<int,int> & Site_To_MpiRank,
 		 std::vector<TenT> & E,
 		 std::vector<int> & EdgeIdx,
 		 MPI_Comm comm) {
@@ -44,10 +44,9 @@ namespace tnbp {
     int SiteIdxStart = 0;
     int SiteIdxEnd   = NumSites;
     get_range(mpi_size,mpi_rank,SiteIdxStart,SiteIdxEnd);
-
     SiteIdx.resize(SiteIdxEnd-SiteIdxStart);
     std::copy(Site.begin() + SiteIdxStart,
-	      Site.end()   + SiteIdxEnd,
+	      Site.begin() + SiteIdxEnd,
 	      SiteIdx.begin());
     EdgeIdx.resize(0);
     V.resize(SiteIdxEnd-SiteIdxStart);
@@ -68,12 +67,14 @@ namespace tnbp {
     for(auto const & i : SiteIdx) {
       auto BondIdx = GetSurroundingBondIndex(i,I);
       auto NumBonds = BondIdx.size();
+      auto it_site_address = std::find(Site.begin(),Site.end(),i);
+      auto site_address = std::distance(Site.begin(),it_site_address);
       for(auto const & m : BondIdx) {
 	EdgeIdx.push_back(m);
       }
       ShapeT BondDimV(NumBonds+1,1);
-      BondDimV[NumBonds] = static_cast<BondDimT>(PhysicalBondDim[i]);
-      std::vector<ElemT> DataV(PhysicalBondDim[i],0.0);
+      BondDimV[NumBonds] = static_cast<BondDimT>(PhysicalBondDim[site_address]);
+      std::vector<ElemT> DataV(PhysicalBondDim[site_address],0.0);
       DataV[0] = static_cast<ElemT>(1.0);
       auto itDataV = DataV.begin();
       tci::assign_from_container(ctx,BondDimV,itDataV,
@@ -104,17 +105,22 @@ namespace tnbp {
     for(auto & Em : E) {
       tci::copy(ctx,Eorig,Em);
     }
-    Site_To_MpiRank.resize(NumSites,0);
+    std::vector<int> Site_To_MpiRank_Vector(NumSites,0);
     std::vector<int> Site_To_MpiRank_Send(NumSites,0);
     for(const auto & i : SiteIdx) {
-      Site_To_MpiRank_Send[i] = mpi_rank;
+      auto it_site_address = std::find(Site.begin(),Site.end(),i);
+      auto site_address = std::distance(Site.begin(),it_site_address);
+      Site_To_MpiRank_Send[site_address] = mpi_rank;
     }
     MPI_Allreduce(Site_To_MpiRank_Send.data(),
-		  Site_To_MpiRank.data(),
+		  Site_To_MpiRank_Vector.data(),
 		  NumSites,
 		  MPI_INT,
 		  MPI_SUM,
 		  comm);
+    for(size_t i=0; i < NumSites; i++) {
+      Site_To_MpiRank[Site[i]] = Site_To_MpiRank_Vector[i];
+    }
   }
 
   /**

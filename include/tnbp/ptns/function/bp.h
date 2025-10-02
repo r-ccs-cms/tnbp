@@ -67,7 +67,7 @@ namespace tnbp {
 			 const std::vector<std::pair<int,int>> & I,
 			 const std::vector<TenT> & V,
 			 const std::vector<int> & SiteIdx,
-			 const std::vector<int> & Site_To_MpiRank,
+			 const std::map<int,int> & Site_To_MpiRank,
 			 const std::vector<std::pair<int,int>> & J,
 			 const std::vector<TenT> & E,
 			 const std::vector<int> & EdgeIdx,
@@ -87,8 +87,8 @@ namespace tnbp {
     for(int m=0; m < J.size(); m++) {
       int SiteA = J[m].first;
       int SiteB = J[m].second;
-      int MpiRankA = Site_To_MpiRank[SiteA];
-      int MpiRankB = Site_To_MpiRank[SiteB];
+      int MpiRankA = Site_To_MpiRank.at(SiteA);
+      int MpiRankB = Site_To_MpiRank.at(SiteB);
       int type = 0;
 
       if( MpiRankA == mpi_rank ) {
@@ -270,7 +270,7 @@ namespace tnbp {
 				  const std::vector<std::pair<int,int>> & I,
 				  const std::vector<TenT> & V,
 				  const std::vector<int> & SiteIdx,
-				  const std::vector<int> & Site_To_MpiRank,
+				  const std::map<int,int> & Site_To_MpiRank,
 				  const std::vector<TenT> & E,
 				  const std::vector<int> & EdgeIdx,
 				  MPI_Comm comm,

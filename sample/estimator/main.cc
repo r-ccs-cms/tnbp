@@ -84,7 +84,7 @@ int main(int argc, char * argv[]) {
   std::vector<int> qubit = tnbp::GetSiteIndexFromBond(edges);
   std::vector<Tensor> V;
   std::vector<int> SiteIdx;
-  std::vector<int> Site_To_MpiRank;
+  std::map<int,int> Site_To_MpiRank;
   std::vector<Tensor> E;
   std::vector<int> EdgeIdx;
   std::vector<int> pdim(qubit.size(),2);

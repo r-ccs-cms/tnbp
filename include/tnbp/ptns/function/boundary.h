@@ -36,7 +36,7 @@ namespace tnbp {
        const std::vector<std::pair<int,int>> & boundary_edges,
        const std::vector<TenT> & V,
        const std::vector<int> & SiteIdx,
-       const std::vector<int> & Site_To_MpiRank,
+       const std::map<int,int> & Site_To_MpiRank,
        MPI_Comm comm,
        std::vector<TenT> & W) {
     

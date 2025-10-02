@@ -27,7 +27,7 @@ namespace tnbp {
     TensorProductState(const std::vector<TenT> & V,
 		       const std::vector<std::pair<int,int>> & I,
 		       const std::vector<int> SiteIdx,
-		       const std::vector<int> Site_To_MpiRank,
+		       const std::map<int,int> Site_To_MpiRank,
 		       MPI_Comm comm) :
       V_(V), I_(I), SiteIdx_(SiteIdx),
       Site_To_MpiRank_(Site_To_MpiRank), comm_(comm) {
@@ -107,7 +107,7 @@ namespace tnbp {
     std::vector<TenT> V_;
     std::vector<std::pair<int,int>> I_;
     std::vector<int> SiteIdx_;
-    std::vector<int> Site_To_MpiRank_;
+    std::map<int,int> Site_To_MpiRank_;
 
     MPI_Comm comm_;
     int mpi_master_;
