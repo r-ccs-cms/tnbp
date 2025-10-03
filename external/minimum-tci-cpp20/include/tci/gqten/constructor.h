@@ -1,12 +1,10 @@
+/// This file is a part of r-ccs-cms/tnbp
+/**
+@file tci/gqten/constructor.h
+@brief header to define TCI constructors and destructors for gqten::tensor<ElemT>
+*/
 #ifndef TCI_GQTEN_CONSTRUCTOR_H
 #define TCI_GQTEN_CONSTRUCTOR_H
-
-// C++17-compatible rewrite of constructor utilities for gqten backend.
-// - replaces `requires is_gqten_tensor_v<TenT>` with SFINAE on template parameter
-// - keeps original interfaces and semantics intact
-// - assumes tci/traits.h provides aliases: context_handle_t<T>, shape_t<T>, elem_t<T>, bond_dim_t<T>
-//
-// This header is intended as a drop-in replacement for the C++20 version.
 
 #include <vector>
 #include <complex>
@@ -19,7 +17,8 @@ namespace tci {
 
 //====================== allocate / zeros / eye / fill ====================
 
-template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT>
+requires is_gqten_tensor_v<TenT>
 inline void allocate(
   context_handle_t<TenT>&,
   const shape_t<TenT>& shape,
@@ -27,14 +26,16 @@ inline void allocate(
   a = TenT(shape);
 }
 
-template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT>
+requires is_gqten_tensor_v<TenT>
 inline TenT allocate(
   context_handle_t<TenT>&,
   const shape_t<TenT>& shape) {
   return TenT(shape);
 }
 
-template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT>
+requires is_gqten_tensor_v<TenT>
 inline void zeros(
   context_handle_t<TenT>&,
   const shape_t<TenT>& shape,
@@ -46,7 +47,8 @@ inline void zeros(
   a = TenT(shape, data);
 }
 
-template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT>
+requires is_gqten_tensor_v<TenT>
 inline TenT zeros(
   context_handle_t<TenT>&,
   const shape_t<TenT>& shape) {
@@ -57,7 +59,8 @@ inline TenT zeros(
   return TenT(shape, data);
 }
 
-template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT>
+requires is_gqten_tensor_v<TenT>
 inline void eye(
   context_handle_t<TenT>&,
   const bond_dim_t<TenT> N,
@@ -68,7 +71,8 @@ inline void eye(
   a = TenT({N, N}, data);
 }
 
-template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT>
+requires is_gqten_tensor_v<TenT>
 inline TenT eye(
   context_handle_t<TenT>&,
   const bond_dim_t<TenT> N) {
@@ -78,7 +82,8 @@ inline TenT eye(
   return TenT({N, N}, data);
 }
 
-template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT>
+requires is_gqten_tensor_v<TenT>
 inline void fill(
   context_handle_t<TenT>&,
   const shape_t<TenT>& shape,
@@ -91,7 +96,8 @@ inline void fill(
   a = TenT(shape, data);
 }
 
-template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT>
+requires is_gqten_tensor_v<TenT>
 inline TenT fill(
   context_handle_t<TenT>&,
   const shape_t<TenT>& shape,
@@ -109,8 +115,8 @@ inline TenT fill(
  * coors2idx: (const std::vector<size_t>&) -> size_t
  *  address = coor[0] + shape[0]*coor[1] + shape[1]*shape[0]*coor[2] + ...
  */
-template <typename TenT, typename RandomIt, typename Func,
-          typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT, typename RandomIt, typename Func>
+requires is_gqten_tensor_v<TenT>
 inline void assign_from_container(
   context_handle_t<TenT>&,
   const shape_t<TenT>& shape,
@@ -118,9 +124,9 @@ inline void assign_from_container(
   Func&& coors2idx,
   TenT& a) {
   if (shape.empty()) {
-    // For scalar
+    // For scaler
     elem_t<TenT> * data = static_cast<elem_t<TenT>*>(
-        std::malloc(static_cast<size_t>(1)));
+		    std::malloc(static_cast<size_t>(1)));
     *data = *init_elems_begin;
     a = TenT(shape, data);
     return;
@@ -149,13 +155,13 @@ inline void assign_from_container(
   a = TenT(shape, data);
 }
 
-template <typename TenT, typename RandomIt, typename Func,
-          typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT, typename RandomIt, typename Func>
+requires is_gqten_tensor_v<TenT>
 inline TenT assign_from_container(
   context_handle_t<TenT>& ctx,
   const shape_t<TenT>&    shape,
-  RandomIt                init_elems_begin,
-  Func&&                  coors2idx) {
+  RandomIt                                 init_elems_begin,
+  Func&&                                    coors2idx) {
   TenT a;
   assign_from_container(ctx, shape, init_elems_begin,
                         std::forward<Func>(coors2idx), a);
@@ -164,8 +170,8 @@ inline TenT assign_from_container(
 
 //========================== random (2 形) =========================
 
-template <typename TenT, typename RandNumGen,
-          typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT, typename RandNumGen>
+requires is_gqten_tensor_v<TenT>
 inline void random(
   context_handle_t<TenT> & ctx,
   const shape_t<TenT>& shape,
@@ -175,8 +181,8 @@ inline void random(
   a.Random(3, {}, gen);
 }
 
-template <typename TenT, typename RandNumGen,
-          typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT, typename RandNumGen>
+requires is_gqten_tensor_v<TenT>
 inline TenT random(
   context_handle_t<TenT> & ctx,
   const shape_t<TenT> & shape,
@@ -188,7 +194,8 @@ inline TenT random(
 
 //================== copy / move / clear ==================
 
-template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT>
+requires is_gqten_tensor_v<TenT>
 inline void copy(
   context_handle_t<TenT>&,
   const TenT& orig,
@@ -196,31 +203,35 @@ inline void copy(
   dist = orig;
 }
 
-template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT>
+requires is_gqten_tensor_v<TenT>
 inline TenT copy(
   context_handle_t<TenT>&,
   const TenT& orig) {
   return orig;
 }
 
-template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT>
+requires is_gqten_tensor_v<TenT>
 inline void move(
   context_handle_t<TenT>&,
   TenT& from,
   TenT& to) noexcept(
-  std::is_nothrow_move_assignable<TenT>::value) {
+  std::is_nothrow_move_assignable_v<TenT>) {
   to = std::move(from);
 }
 
-template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT>
+requires is_gqten_tensor_v<TenT>
 inline TenT move(
   context_handle_t<TenT>&,
   TenT& from) noexcept(
-    std::is_nothrow_move_constructible<TenT>::value) {
+    std::is_nothrow_move_constructible_v<TenT>) {
   return std::move(from);
 }
 
-template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+template <typename TenT>
+requires is_gqten_tensor_v<TenT>
 inline void clear(
   context_handle_t<TenT>&,
   TenT& a) {

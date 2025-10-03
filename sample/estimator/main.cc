@@ -197,14 +197,12 @@ int main(int argc, char * argv[]) {
     tnbp::Measure(ctx,edges,V,SiteIdx,Site_To_MpiRank,
 		  E,EdgeIdx,comm,exSite_one,exOp_one);
 
-  int meas_count = 0;
   std::cout.precision(16);
   for(int site_address=0; site_address < exSite_one.size(); site_address++) {
     if( mpi_rank == Site_To_MpiRank[exSite_one[site_address]] ) {
       std::cout << " Expectation value of single site operator at site "
 		<< exSite_one[site_address]
-		<< " " << GetReal(exVal_one[meas_count]) << std::endl;
-      meas_count++;
+		<< " " << GetReal(exVal_one[site_address]) << std::endl;
     }
   }
 

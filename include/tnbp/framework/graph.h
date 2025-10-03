@@ -14,14 +14,13 @@
 #include <unordered_map>
 #include <algorithm>
 #include <limits>
-#include <concepts>
 
 namespace tnbp {
 
   /**
      Function to extract sites from edges/bonds
    */
-  template <std::integral IntT>
+  template <typename IntT>
   std::vector<IntT> GetSiteIndexFromBond(
 	const std::vector<std::pair<IntT,IntT>> edge) {
     std::vector<IntT> site;
@@ -38,7 +37,7 @@ namespace tnbp {
   /**
      Function to extract surrounding edge labels
    */
-  template <std::integral IntT>
+  template <typename IntT>
   std::vector<IntT> GetSurroundingBondIndex(IntT SiteIdx,
 					    const std::vector<std::pair<IntT,IntT>> & edge) {
     std::vector<IntT> res;
@@ -55,7 +54,7 @@ namespace tnbp {
     return res;
   }
 
-  template <std::integral IntT>
+  template <typename IntT>
   std::vector<IntT> FindShortestPath(const std::vector<std::pair<IntT,IntT>> &E,
 				     IntT src, IntT dst)
   {
@@ -108,7 +107,7 @@ namespace tnbp {
     return path;
   }
 
-  template <std::integral IntT>
+  template <typename IntT>
   std::vector<std::pair<IntT,IntT>> CompressVertices(
 	       std::vector<std::pair<IntT,IntT>> edge) {
     std::vector<IntT> site;
@@ -170,7 +169,7 @@ namespace tnbp {
     return layers;
   }
 
-  template <std::integral IntT>
+  template <typename IntT>
   std::vector<std::vector<IntT>> BuildContractionLayers(
 	 const std::vector<std::pair<IntT, IntT>>& edges,
 	 const std::vector<IntT>& initial_boundary
@@ -239,7 +238,7 @@ namespace tnbp {
  *
  * @complexity O(E) where E is the number of edges in global_edge.
  */
-  template <std::integral IntT>
+  template <typename IntT>
   std::vector<std::pair<IntT, IntT>>
   ExtractLineEdges(const std::vector<std::pair<IntT, IntT>>& global_edge,
 		   const std::vector<IntT>& line) {
@@ -271,7 +270,7 @@ namespace tnbp {
  * @note An edge (u,v) is included iff (u ∈ A and v ∈ B) or (u ∈ B and v ∈ A).
  * @complexity O(E) where E = global_edges.size().
  */
-  template <std::integral IntT>
+  template <typename IntT>
   std::vector<std::pair<IntT,IntT>>
   ExtractInterlayerEdges(const std::vector<std::pair<IntT,IntT>>& global_edges,
 			 const std::vector<IntT>& line_a,
@@ -309,7 +308,7 @@ namespace tnbp {
  * @note If you need a canonical orientation (A->B), use the oriented variant below.
  * @complexity O(E) where E = global_edges.size().
  */
-  template <std::integral IntT>
+  template <typename IntT>
   std::vector<std::pair<IntT,IntT>>
   ExtractInterlayerEdgesReindexed(const std::vector<std::pair<IntT,IntT>>& global_edges,
 				  const std::vector<IntT>& line_a,
@@ -339,11 +338,6 @@ namespace tnbp {
     return inter_edges;
   }
 
-#include <vector>
-#include <unordered_set>
-#include <concepts>
-#include <utility>
-
 /**
  * @brief Extract interlayer edges oriented from A to B without reindexing.
  *
@@ -364,7 +358,7 @@ namespace tnbp {
  *   See below for a dedup hint.
  * - Time complexity: O(E) average, where E = global_edges.size().
  */
-  template <std::integral IntT>
+  template <typename IntT>
   std::vector<std::pair<IntT,IntT>>
   ExtractInterlayerEdgesOriented(const std::vector<std::pair<IntT,IntT>>& global_edges,
 				 const std::vector<IntT>& line_a,
@@ -402,7 +396,7 @@ namespace tnbp {
  *
  * @complexity O(E).
  */
-  template <std::integral IntT>
+  template <typename IntT>
   std::vector<std::pair<IntT,IntT>>
   ExtractInterlayerEdgesReindexedOriented(const std::vector<std::pair<IntT,IntT>>& global_edges,
 					  const std::vector<IntT>& line_a,

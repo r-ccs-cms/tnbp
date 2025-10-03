@@ -1,15 +1,13 @@
+/// This file is a part of r-ccs-cms/tnbp
+/**
+@file tci/gqten/getter.h
+@brief header to define TCI getters for TenT
+*/
 #ifndef TCI_GQTEN_GETTER_H
 #define TCI_GQTEN_GETTER_H
 
-// C++17-compatible rewrite of getters for gqten backend.
-// - replaces `requires is_gqten_tensor_v<TenT>` with SFINAE on template parameter
-// - preserves original interfaces and semantics
-// - depends on tci/traits.h providing rank_t<T>, shape_t<T>, ten_size_t<T>, elem_t<T>, elem_coors_t<T>, context_handle_t<T>,
-//   and is_gqten_tensor_v<T>.
-
 #include <cstddef>   // std::size_t
 #include <complex>   // std::complex
-#include <type_traits>
 
 namespace tci {
 
@@ -22,7 +20,8 @@ namespace tci {
   }
 
   // shape
-  template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   inline shape_t<TenT> shape(
       context_handle_t<TenT>& /*ctx*/,
       const TenT& a) {
@@ -30,7 +29,8 @@ namespace tci {
   }
 
   // size (number of elements)
-  template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   inline ten_size_t<TenT> size(
       context_handle_t<TenT>& /*ctx*/,
       const TenT& a) {
@@ -38,15 +38,17 @@ namespace tci {
   }
 
   // size in bytes
-  template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   inline std::size_t size_bytes(
       context_handle_t<TenT>& /*ctx*/,
       const TenT& a) {
-        return static_cast<std::size_t>(a.Size()) * sizeof(elem_t<TenT>);
+    return static_cast<std::size_t>(a.Size()) * sizeof(elem_t<TenT>);
   }
 
   // get_elem (out-param)
-  template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   inline void get_elem(
       context_handle_t<TenT>& /*ctx*/,
       const TenT& a,
@@ -55,7 +57,7 @@ namespace tci {
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
     ShapeT shape_a = a.Shape();
-    if (shape_a.size() == 0) {
+    if( shape_a.size() == 0 ) {
       elem = a.GetScale();
     } else {
       elem = a.GetElem(coors);
@@ -63,7 +65,8 @@ namespace tci {
   }
 
   // get_elem (by value)
-  template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+  template <typename TenT>
+  requires is_gqten_tensor_v<TenT>
   inline elem_t<TenT> get_elem(
       context_handle_t<TenT>& /*ctx*/,
       const TenT& a,
@@ -71,7 +74,7 @@ namespace tci {
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
     ShapeT shape_a = a.Shape();
-    if (shape_a.size() == 0) {
+    if( shape_a.size() == 0 ) {
       ElemT scale = a.GetScale();
       return scale;
     }

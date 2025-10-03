@@ -1,19 +1,10 @@
+/// This file is a part of r-ccs-cms/tnbp
+/**
+@file tci/gqten/traits.h
+@brief header to define traits for gqten::tensor<ElemT>
+*/
 #ifndef TCI_GQTEN_TRAITS_H
 #define TCI_GQTEN_TRAITS_H
-
-// Aligned to the original traits (traits_original.h) exactly:
-// - explicit specializations for float, double, complex<float>, complex<double>
-// - shape_t, elem_coor_t, elem_coors_t, bond_* types match the original
-// - provides gqten_handle and is_gqten_handle_v
-// - minimal C++17-only traits; no concepts/requires
-
-#include <vector>
-#include <complex>
-#include <cstdint>
-#include <type_traits>
-#include <string>
-
-namespace gqten { template <typename ElemT> class tensor; }
 
 namespace tci {
 
@@ -31,7 +22,7 @@ namespace tci {
   template <class T>
   inline constexpr bool is_gqten_handle_v =
     is_gqten_handle<std::remove_cv_t<std::remove_reference_t<T>>>::value;
-
+  
   // traits for gqten::tensor<float>
   template <>
   struct tensor_traits<gqten::tensor<float>> {
@@ -52,6 +43,7 @@ namespace tci {
     using context_handle_t = gqten_handle;
   };
 
+  
   // traits for gqten::tensor<double>
   template <>
   struct tensor_traits<gqten::tensor<double>> {
@@ -71,7 +63,7 @@ namespace tci {
     using cplx_ten_t = gqten::tensor<std::complex<double>>;
     using context_handle_t = gqten_handle;
   };
-
+  
   // traits for gqten::tensor<std::complex<float>>
   template <>
   struct tensor_traits<gqten::tensor<std::complex<float>>> {
@@ -111,7 +103,7 @@ namespace tci {
     using cplx_ten_t = gqten::tensor<std::complex<double>>;
     using context_handle_t = gqten_handle;
   };
+  
+}
 
-} // namespace tci
-
-#endif // TCI_GQTEN_TRAITS_H
+#endif

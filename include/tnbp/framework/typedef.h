@@ -8,18 +8,40 @@
 
 #include "tci/tci.h"
 
-#include <numbers>
 #include <vector>
 #include <utility>
 #include <map>
+
+#if __cplusplus >= 202002L
+#include <numbers>
+#endif
 
 namespace tnbp {
 
   /**
      Definition of pi
    */
+
+#if __cplusplus >= 202002L
   template <typename T>
   inline constexpr T PI_v = std::numbers::pi_v<T>;
+#else
+  // C++17 fallback:
+  template <typename T> struct _pi_impl;
+
+  template <> struct _pi_impl<float> {
+    static constexpr float value = 3.14159265358979323846f;
+  };
+  template <> struct _pi_impl<double> {
+    static constexpr double value = 3.14159265358979323846;
+  };
+  template <> struct _pi_impl<long double> {
+    static constexpr long double value = 3.141592653589793238462643383279502884L;
+  };
+
+  template <typename T>
+  inline constexpr T PI_v = _pi_impl<T>::value;
+#endif
 
   /**
      Definitions for tci::tensor_traits
