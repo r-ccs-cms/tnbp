@@ -117,6 +117,7 @@ int main(int argc, char * argv[]) {
        Perform belief propagation loop
      */
     for(size_t k=0; k < options.max_bp_iterations; k++) {
+      
       for(size_t p=0; p < layer_edges.size(); p++) {
 	tnbp::BeliefPropagation(
 	      ctx,edges,V,SiteIdx,
@@ -142,10 +143,10 @@ int main(int argc, char * argv[]) {
 	break;
       }
     }
-
+    
     /**
        Perform truncation
-     */
+    */
     tnbp::Truncation(ctx,edges,
 		     V,SiteIdx,Site_To_MpiRank,
 		     E,EdgeIdx,comm,
@@ -153,7 +154,7 @@ int main(int argc, char * argv[]) {
 		     options.sv_min,
 		     options.truncation_error,
 		     res_bond_dim,
-		     res_truncation_error);
+		       res_truncation_error);
     for(size_t k=0; k < EdgeIdx.size(); k++) {
       std::cout << " " << make_timestamp()
 		<< " truncation error for edge ("

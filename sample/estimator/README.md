@@ -106,6 +106,7 @@ We recommend keeping multiple configurations as commented-out blocks inside the 
 This script generates Floquet circuits of the kicked Ising model on a chosen IBM Quantum backend topology.
 The circuit is exported in QASM 2.0 format, and the number of gates per layer is printed to standard output.
 
+
 **Example**
 ```
 python kicked_ising_qasm.py --steps 10 --backend ibm_kawasaki --output circuit.qasm
@@ -156,14 +157,20 @@ mpirun -np 4 ./estimator \
   --backend ibm_kobe \
   --circuit circuit.qasm \
   --sparse_pauli hamiltonian.dat \
-  --num_gates 4,4,4,4 \
-  --max_bp_iterations 50
+  --max_bp_iterations 50 \
+  --bp_tolerance 1.0e-8 \
+  --max_bond_dim 100 \
+  --sv_min 1.0e-8 \
+  --truncation_error 1.0e-8
 ```
 
 **Options**:
 - `--backend <str>`: Target backend name (default: ibm_kobe).
 - `--circuit <str>`: Input QASM file describing the circuit (default: circuit.qasm).
 - `--sparse_pauli <str>`: Input file containing the sparse Pauli operator (default: sparsepauliop.txt).
-- `--num_gates <list>`: Comma-separated list of the number of gates per layer (e.g., 4,4,4,4).
+- `--num_gates <list>`: Comma-separated list of the number of gates per layer (e.g., 4,4,4,4). If this list is not specified, the circuit automatically divides the Tensor Product Operator (TPO) into layers according to the barrier lines written in the QASM file.
 - `--max_bp_iterations <int>`: Maximum number of belief propagation iterations (default: 50).
-- `--tolerance <float>`: Convergence tolerance for belief propagation (default: 1.0e-4).
+- `--bp_tolerance <float>`: Convergence tolerance for belief propagation (default: 1.0e-4).
+- `--max_bond_dim <float>`: Maximum bond dimension 
+- `--sv_min <float>`: Minimum cutoff of singular value to define the safe inverse.
+- `--truncation_error <float>`: Target truncation error.

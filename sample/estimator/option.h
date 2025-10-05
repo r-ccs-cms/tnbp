@@ -17,7 +17,7 @@ struct Option {
   double bp_tolerance = 1.0e-8;
   double sv_min = 1.0e-8;
   double truncation_error = 1.0e-8;
-  
+
 };
 
 Option generate_options(int argc, char *argv[]) {
