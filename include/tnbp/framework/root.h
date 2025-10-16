@@ -39,7 +39,7 @@ namespace tnbp {
     if constexpr (std::is_same_v<TenT,RealTenT>) {
       tci::move(ctx_r,E,D);
     } else {
-      tci::to_cplx(ctx_r,E,D);
+      D = tci::to_cplx(ctx_r,E);
     }
     tci::diag(ctx,D);
 
@@ -93,7 +93,7 @@ namespace tnbp {
     if constexpr (std::is_same_v<TenT,RealTenT>) {
       tci::copy(ctx_r,E,D);
     } else {
-      tci::to_cplx(ctx_r,E,D);
+      D = tci::to_cplx(ctx_r,E);
     }
     tci::for_each(ctx_r,E,[&sv_min](auto & elem) {
       if( std::abs(elem) > std::sqrt(sv_min)) { elem = elem/(elem*elem); }
@@ -101,7 +101,7 @@ namespace tnbp {
     if constexpr (std::is_same_v<TenT,RealTenT>) {
       tci::copy(ctx_r,E,F);
     } else {
-      tci::to_cplx(ctx_r,E,F);
+      F = tci::to_cplx(ctx_r,E);
     }
     tci::diag(ctx,D);
     tci::diag(ctx,F);

@@ -1,4 +1,4 @@
-# Sample code for emulating the estimate the expectation value of sparse Pauli operator in kicked-Ising model
+# Sample code for simulating the estimation of the expectation value of a sparse Pauli operator in the kicked-Ising model
 
 ## Overview
 
@@ -66,6 +66,18 @@ make install \
      CMDLINE_LINK_FLAGS="-L/opt/homebrew/opt/openblas/lib -llapack -lblas"
 ```
 
+**For the new version GraceQ/tensor-ng-dev with the to-tci-release branch**
+Go to to-tci-relase branch home directory, and type the following command
+```
+cmake -S . -B build -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm/bin/clang++ -DCMAKE_BUILD_TYPE=Debug \
+           -DLAPACK_LIBRARIES=/opt/homebrew/opt/openblas/lib/liblapack.dylib \
+	   -DBLAS_LIBRARIES=/opt/homebrew/opt/openblas/lib/libblas.dylib
+```
+to setup the build, and type
+```
+cmake --build build
+```
+to build the hptt.
 
 ### 3. Building the Simulator
 

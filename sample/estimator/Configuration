@@ -13,3 +13,10 @@ LIB_FLAGS= -L../../external/tensor-ng-dev/external/hptt/lib -lhptt -L/opt/homebr
 
 # flags for linking when we use the tci for cytnx.
 # LIB_FLAGS= -L../../../../tci-cytnx/develop/build-release/ -lTCI -L../../../../tci-cytnx/develop/build-release/external/Cytnx/ -lcytnx -L/opt/homebrew/opt/openblas/lib -llapack -lblas
+
+### compile and linking flags when we use new version of grace/gqten with to-tci-release branch
+# flags for compile
+# CXX_FLAGS= -std=c++17 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3 -I/Users/sirakawa/Physics/Package/GraceQ/tensor-ng-dev/to-tci-release/Source/gqten_tci/include -I/Users/sirakawa/Physics/Package/GraceQ/tensor-ng-dev/to-tci-release/Source/gqten/include -I/Users/sirakawa/Physics/Package/GraceQ/tensor-ng-dev/to-tci-release/Source/gqten/ext/hptt/include -I../../include
+
+# flags for linking
+# LIB_FLAGS= -L/Users/sirakawa/Physics/Package/GraceQ/tensor-ng-dev/to-tci-release/build/Source/gqten/ext/hptt/ -lhptt -L/opt/homebrew/opt/openblas/lib -llapack -lblas

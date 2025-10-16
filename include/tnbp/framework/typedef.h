@@ -103,7 +103,8 @@ namespace tnbp {
   using context_handle_t =
     typename tci::tensor_traits<TenT>::context_handle_t;
 
-  
+
+  /*
   template <typename ElemT>
   using List = tci::List<ElemT>;
 
@@ -112,6 +113,15 @@ namespace tnbp {
 
   template <typename Key, typename Value>
   using Map = tci::Map<Key,Value>;
+  */
+  template <typename ElemT>
+  using List = std::vector<ElemT>;
+
+  template <typename First, typename Second>
+  using Pair = std::pair<First,Second>;
+
+  template <typename Key, typename Value>
+  using Map = std::unordered_map<Key,Value>;
   
 }
 

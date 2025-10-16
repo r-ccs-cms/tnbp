@@ -139,9 +139,9 @@ namespace tnbp {
 	  tci::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
 	  tci::move(ctx_r,S,P);
 	} else {
-	  tci::to_cplx(ctx_r,S,Z);
+	  Z = tci::to_cplx(ctx_r,S);
 	  tci::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
-	  tci::to_cplx(ctx_r,S,P);
+	  P = tci::to_cplx(ctx_r,S);
 	}
 	tci::diag(ctx,Z);
 	tci::diag(ctx,P);

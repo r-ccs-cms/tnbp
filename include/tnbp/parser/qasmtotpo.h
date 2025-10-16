@@ -304,7 +304,7 @@ namespace tnbp {
       if constexpr (std::is_same_v<TenT,RealTenT>) {
 	tci::move(ctx_r,S,D);
       } else {
-	tci::to_cplx(ctx_r,S,D);
+	D = tci::to_cplx(ctx_r,S);
       }
       tci::diag(ctx,D);
       List<BondLabelT> IdxG(3);
@@ -522,7 +522,7 @@ namespace tnbp {
       if constexpr (std::is_same_v<TenT,RealTenT>) {
 	tci::move(ctx_r,S,D);
       } else {
-	tci::to_cplx(ctx_r,S,D);
+	D = tci::to_cplx(ctx_r,S);
       }
       tci::diag(ctx,D);
       List<BondLabelT> IdxGa(3);
@@ -556,7 +556,7 @@ namespace tnbp {
       if constexpr (std::is_same_v<TenT,RealTenT>) {
 	tci::move(ctx_r,S,D);
       } else {
-	tci::to_cplx(ctx_r,S,D);
+	D = tci::to_cplx(ctx_r,S);
       }
       tci::diag(ctx,D);
       List<BondLabelT> IdxGb(4);
