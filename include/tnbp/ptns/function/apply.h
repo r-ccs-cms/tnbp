@@ -118,7 +118,7 @@ namespace tnbp {
 	}
 	TenT I;
 	auto it_data_I = data_I.begin();
-	tci::assign_from_container(ctx,shape_I,it_data_I,
+	tci::assign_from_range(ctx,shape_I,it_data_I,
 	     [&shape_I](const auto & coor){
 	       return coor[0] + shape_I[0] * coor[1];
 	     },I);
@@ -165,7 +165,7 @@ namespace tnbp {
 	}
 	TenT I;
 	auto it_data_I = data_I.begin();
-	tci::assign_from_container(ctx,shape_I,it_data_I,
+	tci::assign_from_range(ctx,shape_I,it_data_I,
 	     [&shape_I](const auto & coor){
 	       return coor[0] + shape_I[0] * coor[1];
 	     },I);

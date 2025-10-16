@@ -65,7 +65,7 @@ namespace tnbp {
 	ShapeT shapeL(2,2);
 	auto mat = PauliOpMatrix<ElemT>(localop[k]);
 	auto itmat = mat.begin();
-	auto local = tci::assign_from_container<TenT>(
+	auto local = tci::assign_from_range<TenT>(
 	                ctx,shapeL,itmat,
 			[&shapeL](const CoorsT & coors) {
 			  return coors[0]+shapeL[0]*coors[1];

@@ -7,6 +7,8 @@
 #ifndef TNBP_FRAMEWORK_ROOT_H
 #define TNBP_FRAMEWORK_ROOT_H
 
+#include <type_traits>
+
 namespace tnbp {
 
   template <typename TenT>
@@ -34,7 +36,11 @@ namespace tnbp {
     tci::svd(ctx,T,lb_rt,U,E,V);
     tci::for_each(ctx_r,E,[](auto & elem){ elem = std::sqrt(elem); });
     TenT D;
-    tci::convert(ctx_r,E,ctx,D);
+    if constexpr (std::is_same_v<TenT,RealTenT>) {
+      tci::move(ctx_r,E,D);
+    } else {
+      tci::to_cplx(ctx_r,E,D);
+    }
     tci::diag(ctx,D);
 
     auto rank_U = tci::rank(ctx,U);
@@ -79,16 +85,24 @@ namespace tnbp {
     RealTenT E;
     RankT lb_rt = static_cast<RankT>(1);
     tci::svd(ctx,M,lb_rt,U,E,V);
+    TenT D;
+    TenT F;
     tci::for_each(ctx_r,E,[&sv_min](auto & elem){
       if( std::abs(elem) > sv_min ) { elem = std::sqrt(elem); }
       else { elem = 0.0; } });
-    TenT D;
-    tci::convert(ctx_r,E,ctx,D);
+    if constexpr (std::is_same_v<TenT,RealTenT>) {
+      tci::copy(ctx_r,E,D);
+    } else {
+      tci::to_cplx(ctx_r,E,D);
+    }
     tci::for_each(ctx_r,E,[&sv_min](auto & elem) {
       if( std::abs(elem) > std::sqrt(sv_min)) { elem = elem/(elem*elem); }
       else { elem = 0.0; } });
-    TenT F;
-    tci::convert(ctx_r,E,ctx,F);
+    if constexpr (std::is_same_v<TenT,RealTenT>) {
+      tci::copy(ctx_r,E,F);
+    } else {
+      tci::to_cplx(ctx_r,E,F);
+    }
     tci::diag(ctx,D);
     tci::diag(ctx,F);
     

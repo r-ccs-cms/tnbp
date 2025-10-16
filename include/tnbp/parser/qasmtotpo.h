@@ -6,6 +6,7 @@
 #ifndef TNBP_PARSER_QASMTOTPO_H
 #define TNBP_PARSER_QASMTOTPO_H
 
+#include <type_traits>
 #include <cmath>
 #include "qasm/ir.h"
 
@@ -174,7 +175,7 @@ namespace tnbp {
     std::vector<ElemT> data = InstructionMatrix<ElemT>(ins);
     auto it_data = data.begin();
     TenT res;
-    tci::assign_from_container(
+    tci::assign_from_range(
 	 ctx,shape,it_data,
 	 [&shape](const CoorsT & coor) {
 	   return address_from_coor(shape,coor);
@@ -215,7 +216,7 @@ namespace tnbp {
       data[2] = ElemT(0.0);
       data[3] = ElemT(1.0);
       auto it_data = data.begin();
-      tci::assign_from_container(ctx,shape,it_data,
+      tci::assign_from_range(ctx,shape,it_data,
 		  [&shape](const CoorsT & coor) {
 		    return address_from_coor(shape,coor);
 		  }, T[site_address]);
@@ -300,7 +301,11 @@ namespace tnbp {
 	if( std::abs(elem) > sv_min ) { elem = std::sqrt(std::abs(elem)); }
 	else { elem = 0.0; }});
       TenT D;
-      tci::convert(ctx_r,S,ctx,D);
+      if constexpr (std::is_same_v<TenT,RealTenT>) {
+	tci::move(ctx_r,S,D);
+      } else {
+	tci::to_cplx(ctx_r,S,D);
+      }
       tci::diag(ctx,D);
       List<BondLabelT> IdxG(3);
       List<BondLabelT> IdxD(2);
@@ -335,7 +340,7 @@ namespace tnbp {
 	  ShapeT dimX(1,vdim*2);
 	  std::vector<ElemT> dataX(2*vdim,ElemT(1.0));
 	  auto it_dataX = dataX.begin();
-	  tci::assign_from_container(ctx,dimX,it_dataX,
+	  tci::assign_from_range(ctx,dimX,it_dataX,
 				     [](const CoorsT & c) {
 				       return c[0]; },X);
 	  tci::diag(ctx,X);
@@ -514,7 +519,11 @@ namespace tnbp {
 	else             { elem = 0.0; }
       });
       TenT D;
-      tci::convert(ctx_r,S,ctx,D);
+      if constexpr (std::is_same_v<TenT,RealTenT>) {
+	tci::move(ctx_r,S,D);
+      } else {
+	tci::to_cplx(ctx_r,S,D);
+      }
       tci::diag(ctx,D);
       List<BondLabelT> IdxGa(3);
       List<BondLabelT> IdxD(2);
@@ -544,7 +553,11 @@ namespace tnbp {
 	if( std::abs(elem) > 0.0 ) { elem = std::sqrt(elem); }
 	else             { elem = 0.0; }
       });
-      tci::convert(ctx_r,S,ctx,D);
+      if constexpr (std::is_same_v<TenT,RealTenT>) {
+	tci::move(ctx_r,S,D);
+      } else {
+	tci::to_cplx(ctx_r,S,D);
+      }
       tci::diag(ctx,D);
       List<BondLabelT> IdxGb(4);
       List<BondLabelT> IdxGb_new(4);
@@ -590,7 +603,7 @@ namespace tnbp {
 	  ShapeT dimX(1,vdim*2);
 	  std::vector<ElemT> dataX(2*vdim,ElemT(1.0));
 	  auto it_dataX = dataX.begin();
-	  tci::assign_from_container(ctx,dimX,it_dataX,
+	  tci::assign_from_range(ctx,dimX,it_dataX,
 				     [](const CoorsT & c) {
 				       return c[0];
 				     }, X);

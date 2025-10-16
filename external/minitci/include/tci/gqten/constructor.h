@@ -103,7 +103,7 @@ inline TenT fill(
   return TenT(shape, data);
 }
 
-//================== assign_from_container (2 形) ==================
+//================== assign_from_range (2 形) ==================
 
 /**
  * coors2idx: (const std::vector<size_t>&) -> size_t
@@ -111,7 +111,7 @@ inline TenT fill(
  */
 template <typename TenT, typename RandomIt, typename Func,
           typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
-inline void assign_from_container(
+inline void assign_from_range(
   context_handle_t<TenT>&,
   const shape_t<TenT>& shape,
   RandomIt init_elems_begin,
@@ -151,14 +151,14 @@ inline void assign_from_container(
 
 template <typename TenT, typename RandomIt, typename Func,
           typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
-inline TenT assign_from_container(
+inline TenT assign_from_range(
   context_handle_t<TenT>& ctx,
   const shape_t<TenT>&    shape,
   RandomIt                init_elems_begin,
   Func&&                  coors2idx) {
   TenT a;
-  assign_from_container(ctx, shape, init_elems_begin,
-                        std::forward<Func>(coors2idx), a);
+  assign_from_range(ctx, shape, init_elems_begin,
+		    std::forward<Func>(coors2idx), a);
   return a;
 }
 

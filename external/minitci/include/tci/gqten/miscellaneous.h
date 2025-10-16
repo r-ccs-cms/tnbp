@@ -32,12 +32,12 @@ namespace tci {
   }
 
   //-------------------------------------------------------------------------
-  // to_container
+  // to_range
   //   coors2idx: (const std::vector<bond_dim_t<TenT>>&)->size_t
   //-------------------------------------------------------------------------
   template <typename TenT, typename RandomIt, typename Func,
             typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
-  inline void to_container(
+  inline void to_range(
        context_handle_t<TenT> &/*ctx*/,
        const TenT & a,
        RandomIt first,

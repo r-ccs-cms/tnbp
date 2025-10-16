@@ -108,7 +108,7 @@ namespace tnbp {
       
       data.resize(static_cast<size_t>(size_A));
       auto it_data = data.begin();
-      tci::to_container(ctx, A, it_data,
+      tci::to_range(ctx, A, it_data,
 	   [shape_A](const auto& coor) -> std::ptrdiff_t {
 	     return address_from_coor(shape_A, coor);
 	   });
@@ -134,7 +134,7 @@ namespace tnbp {
 	for (auto d : shape) *it++ = static_cast<BondDimT>(d);
       }
       auto it_data = data.begin();
-      tci::assign_from_container(
+      tci::assign_from_range(
 	   ctx, shape_A, it_data,
 	   [shape_A](const auto& coor) -> std::ptrdiff_t {
 	     return address_from_coor(shape_A, coor);
@@ -167,7 +167,7 @@ namespace tnbp {
     data.resize(static_cast<size_t>(size_A));
     {
       auto it_data = data.begin();
-      tci::to_container(
+      tci::to_range(
 	   ctx, A, it_data,
 	   [shape_A](const auto& coor) -> std::ptrdiff_t {
 	     return address_from_coor(shape_A, coor);
@@ -218,7 +218,7 @@ namespace tnbp {
     }
 
     auto it_data = data.begin();
-    tci::assign_from_container(
+    tci::assign_from_range(
        ctx, shape_A, it_data,
        [shape_A](const auto& coor) -> std::ptrdiff_t {
 	 return address_from_coor(shape_A, coor);

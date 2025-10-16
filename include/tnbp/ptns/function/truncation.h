@@ -6,6 +6,7 @@
 #ifndef TNBP_PTNS_FUNCTION_TRUNCATION_H
 #define TNBP_PTNS_FUNCTION_TRUNCATION_H
 
+#include <type_traits>
 #include "tnbp/framework/root.h"
 
 namespace tnbp {
@@ -132,10 +133,16 @@ namespace tnbp {
 	res_bond_dim[edge_address] = shape_s[0];
 	res_trunc_err[edge_address] = trunc_err;
 	TenT Z;
-	tci::convert(ctx_r,S,ctx,Z);
-	tci::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
 	TenT P;
-	tci::convert(ctx_r,S,ctx,P);
+	if constexpr (std::is_same_v<TenT,RealTenT>) {
+	  tci::copy(ctx_r,S,Z);
+	  tci::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
+	  tci::move(ctx_r,S,P);
+	} else {
+	  tci::to_cplx(ctx_r,S,Z);
+	  tci::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
+	  tci::to_cplx(ctx_r,S,P);
+	}
 	tci::diag(ctx,Z);
 	tci::diag(ctx,P);
 	tci::copy(ctx,Z,E[edge_address]);

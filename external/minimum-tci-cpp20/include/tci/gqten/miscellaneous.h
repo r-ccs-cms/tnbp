@@ -36,7 +36,7 @@ namespace tci {
   template <typename TenT,
           typename RandomIt,
           typename Func>
-  void to_container(
+  void to_range(
        context_handle_t<TenT> &ctx,
        const TenT &a,
        RandomIt first,
@@ -46,7 +46,7 @@ namespace tci {
           typename RandomIt,
           typename Func>
   requires is_gqten_tensor_v<TenT>
-  void to_container(
+  void to_range(
        context_handle_t<TenT> &ctx,
        const TenT & a,
        RandomIt first,
