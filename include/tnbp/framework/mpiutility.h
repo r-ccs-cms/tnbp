@@ -134,11 +134,11 @@ namespace tnbp {
 	for (auto d : shape) *it++ = static_cast<BondDimT>(d);
       }
       auto it_data = data.begin();
-      tci::assign_from_range(
+      A = tci::assign_from_range<TenT>(
 	   ctx, shape_A, it_data,
 	   [shape_A](const auto& coor) -> std::ptrdiff_t {
 	     return address_from_coor(shape_A, coor);
-	   },A);
+	   });
     }
   }
 
@@ -218,12 +218,11 @@ namespace tnbp {
     }
 
     auto it_data = data.begin();
-    tci::assign_from_range(
+    A = tci::assign_from_range<TenT>(
        ctx, shape_A, it_data,
        [shape_A](const auto& coor) -> std::ptrdiff_t {
 	 return address_from_coor(shape_A, coor);
-       },
-       A);
+       });
   }
   
 }

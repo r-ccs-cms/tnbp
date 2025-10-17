@@ -174,12 +174,11 @@ namespace tnbp {
     std::vector<BondDimT> shape(2*OpQubitCount(ins),2);
     std::vector<ElemT> data = InstructionMatrix<ElemT>(ins);
     auto it_data = data.begin();
-    TenT res;
-    tci::assign_from_range(
+    TenT res = tci::assign_from_range<TenT>(
 	 ctx,shape,it_data,
 	 [&shape](const CoorsT & coor) {
 	   return address_from_coor(shape,coor);
-	 },res);
+	 });
     return res;
   }
 
@@ -216,10 +215,10 @@ namespace tnbp {
       data[2] = ElemT(0.0);
       data[3] = ElemT(1.0);
       auto it_data = data.begin();
-      tci::assign_from_range(ctx,shape,it_data,
+      T[site_address] = tci::assign_from_range<TenT>(ctx,shape,it_data,
 		  [&shape](const CoorsT & coor) {
 		    return address_from_coor(shape,coor);
-		  }, T[site_address]);
+		  });
     }
   }
 
@@ -340,9 +339,9 @@ namespace tnbp {
 	  ShapeT dimX(1,vdim*2);
 	  std::vector<ElemT> dataX(2*vdim,ElemT(1.0));
 	  auto it_dataX = dataX.begin();
-	  tci::assign_from_range(ctx,dimX,it_dataX,
+	  X = tci::assign_from_range<TenT>(ctx,dimX,it_dataX,
 				     [](const CoorsT & c) {
-				       return c[0]; },X);
+				       return c[0]; });
 	  tci::diag(ctx,X);
 	  ShapeT shapeX(4);
 	  shapeX[0] = static_cast<BondDimT>(vdim);
@@ -603,10 +602,10 @@ namespace tnbp {
 	  ShapeT dimX(1,vdim*2);
 	  std::vector<ElemT> dataX(2*vdim,ElemT(1.0));
 	  auto it_dataX = dataX.begin();
-	  tci::assign_from_range(ctx,dimX,it_dataX,
+	  X = tci::assign_from_range<TenT>(ctx,dimX,it_dataX,
 				     [](const CoorsT & c) {
 				       return c[0];
-				     }, X);
+				     });
 	  tci::diag(ctx,X);
 	  ShapeT shapeX(4);
 	  shapeX[0] = static_cast<BondDimT>(vdim);

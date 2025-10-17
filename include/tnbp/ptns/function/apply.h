@@ -116,12 +116,11 @@ namespace tnbp {
 	for(size_t k=0; k < shape_O[target_bond]; k++) {
 	  data_I[k+shape_O[target_bond]*k] = static_cast<ElemT>(1.0);
 	}
-	TenT I;
 	auto it_data_I = data_I.begin();
-	tci::assign_from_range(ctx,shape_I,it_data_I,
+	TenT I = tci::assign_from_range<TenT>(ctx,shape_I,it_data_I,
 	     [&shape_I](const auto & coor){
 	       return coor[0] + shape_I[0] * coor[1];
-	     },I);
+	     });
 	TenT T;
 	tci::contract(ctx,E[address],Idx_E,I,Idx_I,T,Idx_T);
 	tci::reshape(ctx,T,shape_N,E[address]);
@@ -163,12 +162,11 @@ namespace tnbp {
 	for(size_t k=0; k < shape_O[target_bond]; k++) {
 	  data_I[k+shape_O[target_bond]*k] = static_cast<ElemT>(1.0);
 	}
-	TenT I;
 	auto it_data_I = data_I.begin();
-	tci::assign_from_range(ctx,shape_I,it_data_I,
+	TenT I = tci::assign_from_range<TenT>(ctx,shape_I,it_data_I,
 	     [&shape_I](const auto & coor){
 	       return coor[0] + shape_I[0] * coor[1];
-	     },I);
+	     });
 	TenT T;
 	tci::contract(ctx,E[address],Idx_E,I,Idx_I,T,Idx_T);
 	tci::reshape(ctx,T,shape_N,E[address]);

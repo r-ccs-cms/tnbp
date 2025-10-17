@@ -77,9 +77,9 @@ namespace tnbp {
       std::vector<ElemT> DataV(PhysicalBondDim[site_address],0.0);
       DataV[0] = static_cast<ElemT>(1.0);
       auto itDataV = DataV.begin();
-      tci::assign_from_range(ctx,BondDimV,itDataV,
-				 [&BondDimV](const CoorsT & coors) {
-				   return address_from_coor(BondDimV,coors); }, *itV);
+      *itV = tci::assign_from_range<TenT>(ctx,BondDimV,itDataV,
+		    [&BondDimV](const CoorsT & coors) {
+		      return address_from_coor(BondDimV,coors); });
       itV++;
     }
     std::sort(EdgeIdx.begin(),EdgeIdx.end());
