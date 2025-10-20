@@ -14,6 +14,7 @@
 #include "tci/gqten/manipulator.h"
 #include "tci/gqten/linalg.h"
 #include "tci/gqten/miscellaneous.h"
+#include "tci/gqten/io.h"
 
 #endif
 
