@@ -20,7 +20,7 @@ void measops(tci::context_handle_t<TenT> & ctx,
     { ElemT(1.0), ElemT(0.0),
       ElemT(0.0), ElemT(-1.0) };
   auto it_data_z = data_z.begin();
-  TenT Zi = tci::assign_from_container<TenT>(
+  TenT Zi = tci::assign_from_range<TenT>(
 	       ctx,shape_z,it_data_z,
 	       [](const CoorsT & coors) {
 		 return coors[0]+coors[1]*2;
@@ -31,7 +31,7 @@ void measops(tci::context_handle_t<TenT> & ctx,
     { ElemT(0.0), ElemT(1.0),
       ElemT(1.0), ElemT(0.0) };
   auto it_data_x = data_x.begin();
-  TenT Xi = tci::assign_from_container<TenT>(
+  TenT Xi = tci::assign_from_range<TenT>(
 	       ctx,shape_x,it_data_x,
 	       [](const CoorsT & coors) {
 		 return coors[0]+coors[1]*2;
@@ -44,7 +44,7 @@ void measops(tci::context_handle_t<TenT> & ctx,
       ElemT(0.0), ElemT( 0.0), ElemT(-1.0), ElemT(0.0),
       ElemT(0.0), ElemT( 0.0), ElemT( 0.0), ElemT(1.0) };
   auto it_data_j = data_j.begin();
-  TenT Ji = tci::assign_from_container<TenT>(
+  TenT Ji = tci::assign_from_range<TenT>(
 	       ctx,shape_j,it_data_j,
 	       [](const CoorsT & coors) {
 		 return coors[0]+coors[1]*2+coors[2]*4+coors[3]*8;

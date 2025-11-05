@@ -47,7 +47,7 @@ std::vector<TenT> CircuitTPO(
       ElemT(0.0), ElemT(0.0), ElemT(cos(dt*Jz), sin(dt*Jz)), ElemT(0.0),
       ElemT(0.0), ElemT(0.0), ElemT(0.0), ElemT(cos(dt*Jz),-sin(dt*Jz)) };
   auto it_data_j = data_j.begin();
-  TenT Uj = tci::assign_from_container<TenT>(
+  TenT Uj = tci::assign_from_range<TenT>(
 	      ctx,shape_j,it_data_j,
 	      [](const CoorsT & coors) {
 		return coors[0]+coors[1]*2+coors[2]*4+coors[3]*8;
@@ -80,7 +80,7 @@ std::vector<TenT> CircuitTPO(
     { ElemT(cos(dt*hz),-sin(dt*hz)), ElemT(0.0),
       ElemT(0.0), ElemT(cos(dt*hz), sin(dt*hz)) };
   auto it_data_z = data_z.begin();
-  TenT Uz = tci::assign_from_container<TenT>(
+  TenT Uz = tci::assign_from_range<TenT>(
 	      ctx,shape_z,it_data_z,
 	      [](const CoorsT & coors) {
 		return coors[0]+coors[1]*2;
@@ -91,7 +91,7 @@ std::vector<TenT> CircuitTPO(
     { ElemT(cos(dt*hx)), ElemT(0.0,-sin(dt*hx)),
       ElemT(0.0,-sin(dt*hx)), ElemT(cos(dt*hx)) };
   auto it_data_x = data_x.begin();
-  TenT Ux = tci::assign_from_container<TenT>(
+  TenT Ux = tci::assign_from_range<TenT>(
 	      ctx,shape_x,it_data_x,
 	      [](const CoorsT & coors) {
 		return coors[0]+coors[1]*2;
@@ -111,7 +111,7 @@ std::vector<TenT> CircuitTPO(
     shape_v[bonds.size()+0] = 2;
     shape_v[bonds.size()+1] = 2;
     auto it_data_i = data_i.begin();
-    V[sites[addr]] = tci::assign_from_container<TenT>(
+    V[sites[addr]] = tci::assign_from_range<TenT>(
 	     ctx,shape_v,it_data_i,
 	     [&shape_v](const CoorsT & coors) {
 	       return address_from_coor(shape_v,coors);
