@@ -48,15 +48,16 @@ def kicked_ising_layer(
         qc.rz(theta_z, q)
         count += 1
 
-    # ZZ interation (cx-rz-cx)
-    for i, j in edges:
-        qc.cx(i, j)
-        qc.rz(phi, j)
-        qc.cx(i, j)
-        count += 3
+    # ZZ interation per parallelizable layer (cx-rz-cx)
+    for layer in layers:
+        for i, j in layer:
+            qc.cx(i, j)
+            qc.rz(phi, j)
+            qc.cx(i, j)
+            count += 3
+        # barrier between parallel layers
+        qc.barrier(*qc.qubits)
 
-    qc.barrier(*qc.qubits)
-    
     return count
 
 
@@ -72,8 +73,10 @@ def build_kicked_ising_circuit(
     qc = QuantumCircuit(n_qubits, n_qubits if measure else 0)
     step_counts = []
 
+        # compute parallelizable layers from edges
+    layers = greedy_matching_layers(edges)
     for step in range(steps):
-        c = kicked_ising_layer(qc, edges, theta_x, theta_z, phi)
+        c = kicked_ising_layer(qc, layers, theta_x, theta_z, phi)
         step_counts.append(c)
 
     if measure:
