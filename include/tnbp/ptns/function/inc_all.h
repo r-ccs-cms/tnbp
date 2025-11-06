@@ -11,5 +11,6 @@
 #include "tnbp/ptns/function/apply.h"
 #include "tnbp/ptns/function/truncation.h"
 #include "tnbp/ptns/function/measure.h"
+#include "tnbp/ptns/function/optsvdtpo.h"
 
 #endif

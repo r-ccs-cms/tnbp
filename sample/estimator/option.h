@@ -18,6 +18,10 @@ struct Option {
   double sv_min = 1.0e-8;
   double truncation_error = 1.0e-8;
 
+  // optimization of tpo
+  bool do_opt_tpo = true;
+  double eps_opt_tpo = 1.0e-8;
+
 };
 
 Option generate_options(int argc, char *argv[]) {
@@ -55,6 +59,14 @@ Option generate_options(int argc, char *argv[]) {
     if ( std::string(argv[i]) == "--sparse_pauli" ) {
       option.sparsepauli = std::string(argv[++i]);
     }
+    if ( std::string(argv[i]) == "--do_opt_tpo" ) {
+      if( std::atoi(argv[++i]) != 0 ) {
+	option.do_opt_tpo = true;
+      }
+    }
+    if ( std::string(argv[i]) == "--eps_opt_tpo" ) {
+      option.eps_opt_tpo = std::atof(argv[++i]);
+    }
   }
   return option;
 }
@@ -74,4 +86,12 @@ void cout_options(const Option & option) {
   std::cout << "# max_bond_dim: " << option.max_bond_dim << std::endl;
   std::cout << "# sv_min: " << option.sv_min << std::endl;
   std::cout << "# truncation_error: " << option.truncation_error << std::endl;
+  std::cout << "# do_opt_tpo:";
+  if( option.do_opt_tpo ) {
+    std::cout << " true" << std::endl;
+    std::cout << "# eps_opt_tpo: " << option.eps_opt_tpo << std::endl;
+  } else {
+    std::cout << " false" << std::endl;
+  }
+  
 }

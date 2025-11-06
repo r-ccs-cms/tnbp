@@ -81,6 +81,14 @@ int main(int argc, char * argv[]) {
     }
   }
 
+  if( options.do_opt_tpo ) {
+    for(size_t l=0; l < TPO.size(); l++) {
+      tnbp::OptTPObySVD(ctx,edges,TPO[l],options.eps_opt_tpo);
+      std::cout << " " << make_timestamp()
+		<< " optimization of tpo for layer " << l << " is performed " << std::endl;
+    }
+  }
+
   std::vector<int> qubit = tnbp::GetSiteIndexFromBond(edges);
   std::vector<Tensor> V;
   std::vector<int> SiteIdx;
