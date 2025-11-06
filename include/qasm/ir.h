@@ -11,7 +11,7 @@ namespace qasm {
   struct CReg { std::string name; std::size_t size{}; };
   
   enum class Op {
-    U3,U2,U1,RX,RY,RZ,H,X,Y,Z,S,SDG,T,TDG,ID,CX,CZ,SWAP,CCX,CSWAP,
+    U3,U2,U1,RX,RY,RZ,H,X,Y,Z,S,SDG,T,TDG,ID,CX,CZ,SWAP,RZZ,CCX,CSWAP,
     MEASURE,BARRIER,RESET,CUSTOM
   };
   
@@ -49,7 +49,7 @@ namespace qasm {
     case Op::H: return "h";  case Op::X: return "x";  case Op::Y: return "y";  case Op::Z: return "z";
     case Op::S: return "s";  case Op::SDG: return "sdg"; case Op::T: return "t"; case Op::TDG: return "tdg";
     case Op::ID: return "id";
-    case Op::CX: return "cx"; case Op::CZ: return "cz"; case Op::SWAP: return "swap";
+    case Op::CX: return "cx"; case Op::CZ: return "cz"; case Op::SWAP: return "swap"; case Op::RZZ: return "rzz";
     case Op::CCX: return "ccx"; case Op::CSWAP: return "cswap";
     case Op::MEASURE: return "measure"; case Op::BARRIER: return "barrier"; case Op::RESET: return "reset";
     case Op::CUSTOM: return "custom";

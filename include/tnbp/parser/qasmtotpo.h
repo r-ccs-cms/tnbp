@@ -103,6 +103,15 @@ namespace tnbp {
       m[0*4+0]=1; m[1*4+2]=1; m[2*4+1]=1; m[3*4+3]=1;
       return m;
     }
+    case qasm::Op::RZZ: {
+      double th=ins.params[0];
+      std::vector<ElemT> m(16,ElemT(0.0));
+      m[0*4+0]=ElemT(std::cos(-th/2),std::sin(-th/2));
+      m[1*4+1]=ElemT(std::cos(th/2),std::sin(th/2));
+      m[2*4+2]=ElemT(std::cos(th/2),std::sin(th/2));
+      m[3*4+3]=ElemT(std::cos(-th/2),std::sin(-th/2));
+      return m;
+    }
       
       // ===== 3 qubit gates (8x8) =====
     case qasm::Op::CCX: {
@@ -146,7 +155,7 @@ namespace tnbp {
     case qasm::Op::S:  case qasm::Op::SDG: case qasm::Op::T: case qasm::Op::TDG:
     case qasm::Op::ID:
       return 1;
-    case qasm::Op::CX: case qasm::Op::CZ: case qasm::Op::SWAP:
+    case qasm::Op::CX: case qasm::Op::CZ: case qasm::Op::SWAP: case qasm::Op::RZZ:
       return 2;
     case qasm::Op::CCX: case qasm::Op::CSWAP:
       return 3;

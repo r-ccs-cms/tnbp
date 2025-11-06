@@ -342,6 +342,7 @@ class Parser {
     if (L("cx")||L("cnot")) return qasm::Op::CX;
     if (L("cz")) return qasm::Op::CZ;
     if (L("swap")) return qasm::Op::SWAP;
+    if (L("rzz")) return qasm::Op::RZZ;
     if (L("ccx")||L("toffoli")) return qasm::Op::CCX;
     if (L("cswap")) return qasm::Op::CSWAP;
     return qasm::Op::CUSTOM;
@@ -354,7 +355,7 @@ class Parser {
       case qasm::Op::H: case qasm::Op::X: case qasm::Op::Y: case qasm::Op::Z:
       case qasm::Op::S: case qasm::Op::SDG: case qasm::Op::T: case qasm::Op::TDG:
       case qasm::Op::ID: return 1;
-      case qasm::Op::CX: case qasm::Op::CZ: case qasm::Op::SWAP: return 2;
+      case qasm::Op::CX: case qasm::Op::CZ: case qasm::Op::SWAP: case qasm::Op::RZZ: return 2;
       case qasm::Op::CCX: case qasm::Op::CSWAP: return 3;
       default: return 0;
     }
