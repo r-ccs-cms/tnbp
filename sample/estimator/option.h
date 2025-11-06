@@ -19,7 +19,7 @@ struct Option {
   double truncation_error = 1.0e-8;
 
   // optimization of tpo
-  bool do_opt_tpo = true;
+  bool do_opt_tpo = false;
   double eps_opt_tpo = 1.0e-8;
 
 };
@@ -62,6 +62,8 @@ Option generate_options(int argc, char *argv[]) {
     if ( std::string(argv[i]) == "--do_opt_tpo" ) {
       if( std::atoi(argv[++i]) != 0 ) {
 	option.do_opt_tpo = true;
+      } else {
+	option.do_opt_tpo = false;
       }
     }
     if ( std::string(argv[i]) == "--eps_opt_tpo" ) {
