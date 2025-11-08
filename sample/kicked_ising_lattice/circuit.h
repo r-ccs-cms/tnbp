@@ -23,7 +23,7 @@ std::vector<TenT> CircuitTPO(
 
   using ElemT = typename tci::tensor_traits<TenT>::elem_t;
   using RealT = typename tci::tensor_traits<TenT>::real_t;
-  using RankT = typename tci::tensor_traits<TenT>::rank_t;
+  using OrderT = typename tci::tensor_traits<TenT>::order_t;
   using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
   using BondIdxT = typename tci::tensor_traits<TenT>::bond_idx_t;
   using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
@@ -58,7 +58,7 @@ std::vector<TenT> CircuitTPO(
   TenT Ua;
   TenT Ub;
   RealTenT S;
-  RankT lb = 2;
+  OrderT lb = 2;
   tci::svd(ctx,Uj,lb,Ua,S,Ub);
   tci::for_each(ctx_r,S,[](auto & elem) { elem = std::sqrt(elem); } );
   TenT D;
@@ -121,16 +121,16 @@ std::vector<TenT> CircuitTPO(
   // x terms
   /*
   for(size_t i=0; i < sites.size(); i++) {
-    auto rank_v = tci::rank(ctx,V[i]);
-    auto rank_x = tci::rank(ctx,Ux);
-    auto rank_w = tci::rank(ctx,V[i]);
-    tci::List<BondLabelT> label_v(rank_v);
-    tci::List<BondLabelT> label_x(rank_x);
-    tci::List<BondLabelT> label_w(rank_w);
+    auto order_v = tci::order(ctx,V[i]);
+    auto order_x = tci::order(ctx,Ux);
+    auto order_w = tci::order(ctx,V[i]);
+    tci::List<BondLabelT> label_v(order_v);
+    tci::List<BondLabelT> label_x(order_x);
+    tci::List<BondLabelT> label_w(order_w);
     std::iota(label_v.begin(),label_v.end(),0);
-    label_v[rank_v-1] = -1;
+    label_v[order_v-1] = -1;
     label_x[0] = -1;
-    label_x[1] = rank_v-1;
+    label_x[1] = order_v-1;
     std::iota(label_w.begin(),label_w.end(),0);
     tci::contract(ctx,V[i],label_v,Ux,label_x,V[i],label_w);
   }
@@ -141,15 +141,15 @@ std::vector<TenT> CircuitTPO(
     TenT W;
     // a-site
     auto site_a = edges[m].first;
-    auto rank_ta = tci::rank(ctx,V[site_a]);
-    auto rank_va = tci::rank(ctx,Va);
-    auto rank_wa = rank_ta + 1;
-    tci::List<BondLabelT> label_ta(rank_ta);
-    tci::List<BondLabelT> label_va(rank_va);
-    tci::List<BondLabelT> label_wa(rank_wa);
+    auto order_ta = tci::order(ctx,V[site_a]);
+    auto order_va = tci::order(ctx,Va);
+    auto order_wa = order_ta + 1;
+    tci::List<BondLabelT> label_ta(order_ta);
+    tci::List<BondLabelT> label_va(order_va);
+    tci::List<BondLabelT> label_wa(order_wa);
     ShapeT shape_ta = tci::shape(ctx,V[site_a]);
     ShapeT shape_va = tci::shape(ctx,Va);
-    ShapeT shape_wa(rank_ta);
+    ShapeT shape_wa(order_ta);
     auto bonds_a = tnbp::GetSurroundingBondIndex(site_a,edges);
     BondLabelT contract_label = 0;
     for(size_t k=0; k < bonds_a.size(); k++) {
@@ -162,27 +162,27 @@ std::vector<TenT> CircuitTPO(
 	shape_wa[k] = shape_ta[k];
       }
     }
-    label_ta[rank_ta-2] = contract_label++;
-    label_ta[rank_ta-1] = -1;
+    label_ta[order_ta-2] = contract_label++;
+    label_ta[order_ta-1] = -1;
     label_va[1] = -1;
     label_va[2] = contract_label++;
-    shape_wa[rank_ta-2] = shape_ta[rank_ta-2];
-    shape_wa[rank_ta-1] = shape_ta[rank_ta-1];
+    shape_wa[order_ta-2] = shape_ta[order_ta-2];
+    shape_wa[order_ta-1] = shape_ta[order_ta-1];
     std::iota(label_wa.begin(),label_wa.end(),0);
     tci::contract(ctx,V[site_a],label_ta,Va,label_va,W,label_wa);
     tci::reshape(ctx,W,shape_wa,V[site_a]);
 
     // b-site
     auto site_b = edges[m].second;
-    auto rank_tb = tci::rank(ctx,V[site_b]);
-    auto rank_vb = tci::rank(ctx,Vb);
-    auto rank_wb = rank_tb + 1;
-    tci::List<BondLabelT> label_tb(rank_tb);
-    tci::List<BondLabelT> label_vb(rank_vb);
-    tci::List<BondLabelT> label_wb(rank_wb);
+    auto order_tb = tci::order(ctx,V[site_b]);
+    auto order_vb = tci::order(ctx,Vb);
+    auto order_wb = order_tb + 1;
+    tci::List<BondLabelT> label_tb(order_tb);
+    tci::List<BondLabelT> label_vb(order_vb);
+    tci::List<BondLabelT> label_wb(order_wb);
     ShapeT shape_tb = tci::shape(ctx,V[site_b]);
     ShapeT shape_vb = tci::shape(ctx,Vb);
-    ShapeT shape_wb(rank_tb);
+    ShapeT shape_wb(order_tb);
     auto bonds_b = tnbp::GetSurroundingBondIndex(site_b,edges);
     contract_label = 0;
     for(size_t k=0; k < bonds_b.size(); k++) {
@@ -195,12 +195,12 @@ std::vector<TenT> CircuitTPO(
 	shape_wb[k] = shape_tb[k];
       }
     }
-    label_tb[rank_tb-2] = contract_label++;
-    label_tb[rank_tb-1] = -1;
+    label_tb[order_tb-2] = contract_label++;
+    label_tb[order_tb-1] = -1;
     label_vb[1] = -1;
     label_vb[2] = contract_label++;
-    shape_wb[rank_tb-2] = shape_tb[rank_tb-2];
-    shape_wb[rank_tb-1] = shape_tb[rank_tb-1];
+    shape_wb[order_tb-2] = shape_tb[order_tb-2];
+    shape_wb[order_tb-1] = shape_tb[order_tb-1];
     std::iota(label_wb.begin(),label_wb.end(),0);
     tci::contract(ctx,V[site_b],label_tb,Vb,label_vb,W,label_wb);
     tci::reshape(ctx,W,shape_wb,V[site_b]);
@@ -208,32 +208,32 @@ std::vector<TenT> CircuitTPO(
 
   // z terms
   for(size_t i=0; i < sites.size(); i++) {
-    auto rank_v = tci::rank(ctx,V[i]);
-    auto rank_z = tci::rank(ctx,Uz);
-    auto rank_w = tci::rank(ctx,V[i]);
-    tci::List<BondLabelT> label_v(rank_v);
-    tci::List<BondLabelT> label_z(rank_z);
-    tci::List<BondLabelT> label_w(rank_v);
+    auto order_v = tci::order(ctx,V[i]);
+    auto order_z = tci::order(ctx,Uz);
+    auto order_w = tci::order(ctx,V[i]);
+    tci::List<BondLabelT> label_v(order_v);
+    tci::List<BondLabelT> label_z(order_z);
+    tci::List<BondLabelT> label_w(order_v);
     std::iota(label_v.begin(),label_v.end(),0);
-    label_v[rank_v-1] = -1;
+    label_v[order_v-1] = -1;
     label_z[0] = -1;
-    label_z[1] = rank_v-1;
+    label_z[1] = order_v-1;
     std::iota(label_w.begin(),label_w.end(),0);
     tci::contract(ctx,V[i],label_v,Uz,label_z,V[i],label_w);
   }
 
   // x terms
   for(size_t i=0; i < sites.size(); i++) {
-    auto rank_v = tci::rank(ctx,V[i]);
-    auto rank_x = tci::rank(ctx,Ux);
-    auto rank_w = tci::rank(ctx,V[i]);
-    tci::List<BondLabelT> label_v(rank_v);
-    tci::List<BondLabelT> label_x(rank_x);
-    tci::List<BondLabelT> label_w(rank_w);
+    auto order_v = tci::order(ctx,V[i]);
+    auto order_x = tci::order(ctx,Ux);
+    auto order_w = tci::order(ctx,V[i]);
+    tci::List<BondLabelT> label_v(order_v);
+    tci::List<BondLabelT> label_x(order_x);
+    tci::List<BondLabelT> label_w(order_w);
     std::iota(label_v.begin(),label_v.end(),0);
-    label_v[rank_v-1] = -1;
+    label_v[order_v-1] = -1;
     label_x[0] = -1;
-    label_x[1] = rank_v-1;
+    label_x[1] = order_v-1;
     std::iota(label_w.begin(),label_w.end(),0);
     tci::contract(ctx,V[i],label_v,Ux,label_x,V[i],label_w);
   }

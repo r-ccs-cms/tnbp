@@ -35,7 +35,7 @@ namespace tnbp {
     using RealT = typename tci::tensor_traits<TenT>::real_t;
     using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
-    using RankT = typename tci::tensor_traits<TenT>::rank_t;
+    using OrderT = typename tci::tensor_traits<TenT>::order_t;
     using SizeT = typename tci::tensor_traits<TenT>::ten_size_t;
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
     using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
@@ -123,7 +123,7 @@ namespace tnbp {
 	TenT X;
 	TenT Y;
 	RealTenT S;
-	RankT num_rows = 1;
+	OrderT num_rows = 1;
 	RealT trunc_err;
 	BondDimT chi_max = max_dim;
 	tci::trunc_svd(ctx,T,num_rows,X,S,Y,
@@ -172,9 +172,9 @@ namespace tnbp {
 					site_a);
 	  site_address_a = std::distance(SiteIdx.begin(),it_site_address_a);
 
-	  RankT rank_a = tci::rank(ctx,V[site_address_a]);
-	  List<BondLabelT> IdxA(rank_a);
-	  List<BondLabelT> IdxC(rank_a);
+	  OrderT order_a = tci::order(ctx,V[site_address_a]);
+	  List<BondLabelT> IdxA(order_a);
+	  List<BondLabelT> IdxC(order_a);
 	  std::iota(IdxA.begin(),IdxA.end(),0);
 	  std::iota(IdxC.begin(),IdxC.end(),0);
 	  IdxA[bond_address_a] = static_cast<BondLabelT>(-1);
@@ -203,9 +203,9 @@ namespace tnbp {
 	  auto it_site_address_b = std::find(SiteIdx.begin(),SiteIdx.end(),
 					     site_b);
 	  site_address_b = std::distance(SiteIdx.begin(),it_site_address_b);
-	  RankT rank_b = tci::rank(ctx,V[site_address_b]);
-	  List<BondLabelT> IdxB(rank_b);
-	  List<BondLabelT> IdxC(rank_b);
+	  OrderT order_b = tci::order(ctx,V[site_address_b]);
+	  List<BondLabelT> IdxB(order_b);
+	  List<BondLabelT> IdxC(order_b);
 	  std::iota(IdxB.begin(),IdxB.end(),0);
 	  std::iota(IdxC.begin(),IdxC.end(),0);
 	  IdxB[bond_address_b] = static_cast<BondLabelT>(-1);

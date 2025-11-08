@@ -4,7 +4,7 @@
 // C++17-compatible rewrite of getters for gqten backend.
 // - replaces `requires is_gqten_tensor_v<TenT>` with SFINAE on template parameter
 // - preserves original interfaces and semantics
-// - depends on tci/traits.h providing rank_t<T>, shape_t<T>, ten_size_t<T>, elem_t<T>, elem_coors_t<T>, context_handle_t<T>,
+// - depends on tci/traits.h providing order_t<T>, shape_t<T>, ten_size_t<T>, elem_t<T>, elem_coors_t<T>, context_handle_t<T>,
 //   and is_gqten_tensor_v<T>.
 
 #include <cstddef>   // std::size_t
@@ -13,9 +13,9 @@
 
 namespace tci {
 
-  // rank
+  // order
   template <typename TenT>
-  inline rank_t<TenT> rank(
+  inline order_t<TenT> order(
       context_handle_t<TenT>& /*ctx*/,
       const TenT& a) {
     return a.Rank();

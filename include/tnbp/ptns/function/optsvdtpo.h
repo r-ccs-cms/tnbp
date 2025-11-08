@@ -94,7 +94,7 @@ namespace tnbp {
     using RealT = typename tci::tensor_traits<TenT>::real_t;
     using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
-    using RankT = typename tci::tensor_traits<TenT>::rank_t;
+    using OrderT = typename tci::tensor_traits<TenT>::order_t;
     using SizeT = typename tci::tensor_traits<TenT>::ten_size_t;
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
     using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
@@ -127,17 +127,17 @@ namespace tnbp {
 					 edge_address);
       bond_address_b = std::distance(bond_b.begin(),it_bond_address_b);
 
-      RankT rank_a = tci::rank(ctx,O[global_site_address_a]);
-      RankT rank_b = tci::rank(ctx,O[global_site_address_b]);
-      RankT rank_c = rank_a+rank_b-2;
+      OrderT order_a = tci::order(ctx,O[global_site_address_a]);
+      OrderT order_b = tci::order(ctx,O[global_site_address_b]);
+      OrderT order_c = order_a+order_b-2;
       ShapeT shape_a = tci::shape(ctx,O[global_site_address_a]);
       ShapeT shape_b = tci::shape(ctx,O[global_site_address_b]);
-      List<BondLabelT> label_a(rank_a);
-      List<BondLabelT> label_b(rank_b);
-      List<BondLabelT> label_c(rank_c);
+      List<BondLabelT> label_a(order_a);
+      List<BondLabelT> label_b(order_b);
+      List<BondLabelT> label_c(order_c);
       int uncont_label = 0;
       int k_c = 0;
-      for(int k=0; k < rank_a; k++) {
+      for(int k=0; k < order_a; k++) {
 	if( k == bond_address_a ) {
 	  label_a[k] = -1;
 	} else {
@@ -147,7 +147,7 @@ namespace tnbp {
 	  k_c++;
 	}
       }
-      for(int k=0; k < rank_b; k++) {
+      for(int k=0; k < order_b; k++) {
 	if( k == bond_address_b ) {
 	  label_b[k] = -1;
 	} else {
@@ -167,7 +167,7 @@ namespace tnbp {
       TenT V;
       RealTenT S;
       TenT D;
-      RankT num_rows = rank_a-1;
+      OrderT num_rows = order_a-1;
       RealT trunc_err;
       BondDimT chi_max = shape_a[bond_address_a];
       tci::trunc_svd(ctx,C,num_rows,U,S,V,
@@ -179,11 +179,11 @@ namespace tnbp {
 	D = tci::to_cplx(ctx_r,S);
       }
       tci::diag(ctx,D);
-      List<BondLabelT> label_u(rank_a);
+      List<BondLabelT> label_u(order_a);
       List<BondLabelT> label_d(2);
-      for(int k=0; k < rank_a; k++) {
+      for(int k=0; k < order_a; k++) {
 	if( k == bond_address_a ) {
-	  label_u[rank_a-1] = -1;
+	  label_u[order_a-1] = -1;
 	} else if ( k < bond_address_a ) {
 	  label_u[k] = k;
 	} else {
@@ -195,8 +195,8 @@ namespace tnbp {
       std::iota(label_a.begin(),label_a.end(),0);
       tci::contract(ctx,U,label_u,D,label_d,
 		    O[global_site_address_a],label_a);
-      List<BondLabelT> label_v(rank_b);
-      for(int k=0; k < rank_b; k++) {
+      List<BondLabelT> label_v(order_b);
+      for(int k=0; k < order_b; k++) {
 	if ( k == bond_address_b ) {
 	  label_v[0] = -1;
 	} else if( k < bond_address_b ) {

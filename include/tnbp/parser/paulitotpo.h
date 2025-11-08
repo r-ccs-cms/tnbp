@@ -46,7 +46,7 @@ namespace tnbp {
     using RealT = typename tci::tensor_traits<TenT>::real_t;
     using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
     using BondIdxT = typename tci::tensor_traits<TenT>::bond_idx_t;
-    using RankT = typename tci::tensor_traits<TenT>::rank_t;
+    using OrderT = typename tci::tensor_traits<TenT>::order_t;
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
 
@@ -73,7 +73,7 @@ namespace tnbp {
 	if( k == 0 ) {
 	  tci::copy(ctx,local,opten);
 	} else {
-	  RankT rank = tci::rank(ctx,opten);
+	  OrderT order = tci::order(ctx,opten);
 	  List<BondLabelT> labelO(2*k);
 	  List<BondLabelT> labelL(2);
 	  List<BondLabelT> labelT(2*(k+1));

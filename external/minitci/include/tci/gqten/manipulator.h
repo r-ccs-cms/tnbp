@@ -313,14 +313,14 @@ namespace tci {
     using ShapeT   = typename Traits::shape_t;
     
     const ShapeT shape = inout.Shape();
-    const size_t rank  = shape.size();
+    const size_t order = shape.size();
     
     ShapeT new_shape = shape;
     for (const auto& kv : bd_idx_el_coor_pair_map) {
       const auto axis = kv.first;
       const auto& range = kv.second;
       const BondIdxT a = static_cast<BondIdxT>(axis);
-      if (a >= rank) throw std::out_of_range("shrink: axis out of range");
+      if (a >= order) throw std::out_of_range("shrink: axis out of range");
       const auto first  = range.first;
       const auto second = range.second;
       if (first > second || second > shape[a])
@@ -334,14 +334,14 @@ namespace tci {
     if (!raw) throw std::bad_alloc();
     TenT out(new_shape, raw);
     
-    std::vector<BondIdxT> src(rank), dst(rank);
+    std::vector<BondIdxT> src(order), dst(order);
     for (size_t i = 0; i < new_size; ++i) {
       size_t t = i;
-      for (size_t ax = 0; ax < rank; ++ax) {
+      for (size_t ax = 0; ax < order; ++ax) {
         dst[ax] = static_cast<BondIdxT>(t % new_shape[ax]);
         t      /= new_shape[ax];
       }
-      for (size_t ax = 0; ax < rank; ++ax) {
+      for (size_t ax = 0; ax < order; ++ax) {
         auto it = bd_idx_el_coor_pair_map.find(ax);
         if (it != bd_idx_el_coor_pair_map.end()) {
           src[ax] = static_cast<BondIdxT>(dst[ax] + it->second.first);

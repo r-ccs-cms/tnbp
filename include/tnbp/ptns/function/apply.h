@@ -26,7 +26,7 @@ namespace tnbp {
     using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
     using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
-    using RankT = typename tci::tensor_traits<TenT>::rank_t;
+    using OrderT = typename tci::tensor_traits<TenT>::order_t;
 
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
@@ -40,16 +40,16 @@ namespace tnbp {
 					      site);
       auto global_site_address = std::distance(global_sites.begin(),
 					       it_global_site_address);
-      RankT rank_v = tci::rank(ctx,V[address]);
-      RankT rank_o = tci::rank(ctx,O[global_site_address]);
-      RankT num_vb = rank_v-1;
-      List<BondLabelT> label_v(rank_v);
-      List<BondLabelT> label_o(rank_o);
-      List<BondLabelT> label_r(rank_v+rank_o-2);
-      ShapeT new_shape_v(rank_v);
+      OrderT order_v = tci::order(ctx,V[address]);
+      OrderT order_o = tci::order(ctx,O[global_site_address]);
+      OrderT num_vb = order_v-1;
+      List<BondLabelT> label_v(order_v);
+      List<BondLabelT> label_o(order_o);
+      List<BondLabelT> label_r(order_v+order_o-2);
+      ShapeT new_shape_v(order_v);
       ShapeT shape_v = tci::shape(ctx,V[address]);
       ShapeT shape_o = tci::shape(ctx,O[global_site_address]);
-      for(RankT k=0; k < num_vb; k++) {
+      for(OrderT k=0; k < num_vb; k++) {
 	label_v[k] = static_cast<BondLabelT>(2*k+0);
 	label_o[k] = static_cast<BondLabelT>(2*k+1);
 	label_r[2*k+0] = static_cast<BondLabelT>(2*k+0);

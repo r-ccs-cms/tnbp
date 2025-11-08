@@ -250,7 +250,7 @@ namespace tnbp {
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using RealT = typename tci::tensor_traits<TenT>::real_t;
     using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
-    using RankT = typename tci::tensor_traits<TenT>::rank_t;
+    using OrderT = typename tci::tensor_traits<TenT>::order_t;
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
     using BondIdxT = typename tci::tensor_traits<TenT>::bond_idx_t;
     using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
@@ -261,8 +261,8 @@ namespace tnbp {
     tci::create_context(ctx_r);
     
     TenT gate = InstructionTensor<TenT>(ctx,ins);
-    auto rank_tensor = tci::rank(ctx,gate);
-    int num_qubits = rank_tensor/2;
+    auto order_tensor = tci::order(ctx,gate);
+    int num_qubits = order_tensor/2;
 
     if( num_qubits == 1 ) {
       /**
@@ -299,7 +299,7 @@ namespace tnbp {
       TenT A;
       TenT B;
       RealTenT S;
-      RankT num_row_bonds = 2;
+      OrderT num_row_bonds = 2;
       BondDimT chi_max = 4;
       RealT trunc_err;
       RealT sv_min = 1.0e-12;
@@ -372,10 +372,10 @@ namespace tnbp {
 	auto vb_a = GetSurroundingBondIndex(path[i],edges);
 	auto it_site_address_a = std::find(sites.begin(),sites.end(),path[i]);
 	auto site_address_a = std::distance(sites.begin(),it_site_address_a);
-	auto rank_A = tci::rank(ctx,T[site_address_a]);
-	auto rank_X = tci::rank(ctx,X);
-	List<BondLabelT> IdxA(rank_A);
-	List<BondLabelT> IdxX(rank_X);
+	auto order_A = tci::order(ctx,T[site_address_a]);
+	auto order_X = tci::order(ctx,X);
+	List<BondLabelT> IdxA(order_A);
+	List<BondLabelT> IdxX(order_X);
 	int target_bond_m = static_cast<int>(vb_a.size())+2;
 	if( i > 0 ) {
 	  target_bond_m = 0;
@@ -409,7 +409,7 @@ namespace tnbp {
 	int ka = 0;
 	int kx = 0;
 	ShapeT shapeA = tci::shape(ctx,T[site_address_a]);
-	ShapeT new_shapeA(rank_A);
+	ShapeT new_shapeA(order_A);
 	for(int b=0; b < vb_a.size(); b++) {
 	  if( b == target_bond_m ) {
 	    IdxA[b] = static_cast<BondLabelT>(ka++);
@@ -430,7 +430,7 @@ namespace tnbp {
 	IdxX[kx++] = static_cast<BondLabelT>(ka++);
 	new_shapeA[vb_a.size()+0] = shapeA[vb_a.size()+0];
 	new_shapeA[vb_a.size()+1] = shapeA[vb_a.size()+1];
-	List<BondLabelT> IdxP(rank_X+rank_A-2);
+	List<BondLabelT> IdxP(order_X+order_A-2);
 	std::iota(IdxP.begin(),IdxP.end(),0);
 	tci::contract(ctx,X,IdxX,T[site_address_a],IdxA,T[site_address_a],IdxP);
 	tci::reshape(ctx,T[site_address_a],new_shapeA);
@@ -520,7 +520,7 @@ namespace tnbp {
       TenT Gc;
       RealTenT S;
       TenT Gv; // temporary
-      RankT num_row_bonds = 2;
+      OrderT num_row_bonds = 2;
       tci::svd(ctx,gate,num_row_bonds,Ga,S,Gv);
       tci::for_each(ctx_r,S,[](auto & elem) {
 	if( std::abs(elem) > 0.0 ) { elem = std::sqrt(elem); }
@@ -632,11 +632,11 @@ namespace tnbp {
 	auto vb_A = GetSurroundingBondIndex(path[i],edges);
 	auto it_site_address_a = std::find(sites.begin(),sites.end(),path[i]);
 	auto site_address_a = std::distance(sites.begin(),it_site_address_a);
-	auto rank_A = tci::rank(ctx,T[site_address_a]);
-	auto rank_X = tci::rank(ctx,X);
-	List<BondLabelT> IdxA(rank_A);
-	List<BondLabelT> IdxX(rank_X);
-	List<BondLabelT> IdxN(rank_A+rank_X-2);
+	auto order_A = tci::order(ctx,T[site_address_a]);
+	auto order_X = tci::order(ctx,X);
+	List<BondLabelT> IdxA(order_A);
+	List<BondLabelT> IdxX(order_X);
+	List<BondLabelT> IdxN(order_A+order_X-2);
 	int target_bond_m = static_cast<int>(vb_A.size())+2;
 	if( i > 0 ) {
 	  target_bond_m = 0;
@@ -670,7 +670,7 @@ namespace tnbp {
 	int ka=0;
 	int kx = 0;
 	ShapeT shapeA = tci::shape(ctx,T[site_address_a]);
-	ShapeT new_shapeA(rank_A);
+	ShapeT new_shapeA(order_A);
 	for(int b=0; b < vb_A.size(); b++) {
 	  if( b == target_bond_m ) {
 	    IdxA[b] = static_cast<BondLabelT>(ka++);

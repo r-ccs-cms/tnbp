@@ -92,8 +92,8 @@ namespace tci {
     if (shape_a.size() != shape_b.size()) {
       return false;
     }
-    auto rank = a.Rank();
-    for (size_t k = 0; k < rank; ++k) {
+    auto order = a.Rank();
+    for (size_t k = 0; k < order; ++k) {
       if (shape_a[k] != shape_b[k]) return false;
     }
     using RealT = typename tensor_traits<TenT>::real_t;

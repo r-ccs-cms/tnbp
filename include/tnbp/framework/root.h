@@ -21,7 +21,7 @@ namespace tnbp {
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using RealT = typename tci::tensor_traits<TenT>::real_t;
     using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
-    using RankT = typename tci::tensor_traits<TenT>::rank_t;
+    using OrderT = typename tci::tensor_traits<TenT>::order_t;
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
     using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
@@ -31,7 +31,7 @@ namespace tnbp {
     TenT U;
     TenT V;
     RealTenT E;
-    RankT lb_rt = static_cast<RankT>(lb);
+    OrderT lb_rt = static_cast<OrderT>(lb);
 
     tci::svd(ctx,T,lb_rt,U,E,V);
     tci::for_each(ctx_r,E,[](auto & elem){ elem = std::sqrt(elem); });
@@ -43,20 +43,20 @@ namespace tnbp {
     }
     tci::diag(ctx,D);
 
-    auto rank_U = tci::rank(ctx,U);
-    auto rank_V = tci::rank(ctx,V);
-    auto rank_D = tci::rank(ctx,D);
-    auto Idx_U = List<BondLabelT>(rank_U);
-    auto Idx_V = List<BondLabelT>(rank_V);    
-    auto Idx_D = List<BondLabelT>(rank_D);
+    auto order_U = tci::order(ctx,U);
+    auto order_V = tci::order(ctx,V);
+    auto order_D = tci::order(ctx,D);
+    auto Idx_U = List<BondLabelT>(order_U);
+    auto Idx_V = List<BondLabelT>(order_V);    
+    auto Idx_D = List<BondLabelT>(order_D);
     std::iota(Idx_U.begin(),Idx_U.end(),0);
-    Idx_U[rank_U-1] = -1;
+    Idx_U[order_U-1] = -1;
     Idx_D[0] = -1;
-    Idx_D[1] = rank_U-1;
+    Idx_D[1] = order_U-1;
     tci::contract(ctx,U,Idx_U,D,Idx_D,U);
     std::iota(Idx_U.begin(),Idx_U.end(),0);
-    std::iota(Idx_V.begin(),Idx_V.end(),rank_U-1);
-    Idx_U[rank_U-1] = -1;
+    std::iota(Idx_V.begin(),Idx_V.end(),order_U-1);
+    Idx_U[order_U-1] = -1;
     Idx_V[0] = -1;
     tci::contract(ctx,U,Idx_U,V,Idx_D,S);
     
@@ -73,7 +73,7 @@ namespace tnbp {
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using RealT = typename tci::tensor_traits<TenT>::real_t;
     using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
-    using RankT = typename tci::tensor_traits<TenT>::rank_t;
+    using OrderT = typename tci::tensor_traits<TenT>::order_t;
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
     using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
     using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
@@ -83,7 +83,7 @@ namespace tnbp {
     TenT U;
     TenT V;
     RealTenT E;
-    RankT lb_rt = static_cast<RankT>(1);
+    OrderT lb_rt = static_cast<OrderT>(1);
     tci::svd(ctx,M,lb_rt,U,E,V);
     TenT D;
     TenT F;
@@ -106,9 +106,9 @@ namespace tnbp {
     tci::diag(ctx,D);
     tci::diag(ctx,F);
     
-    auto Rank_U = tci::rank(ctx,U);
-    auto Rank_V = tci::rank(ctx,V);
-    auto Rank_D = tci::rank(ctx,D);
+    auto Order_U = tci::order(ctx,U);
+    auto Order_V = tci::order(ctx,V);
+    auto Order_D = tci::order(ctx,D);
     auto Idx_U = List<BondLabelT>(2);
     auto Idx_V = List<BondLabelT>(2);
     auto Idx_D = List<BondLabelT>(2);

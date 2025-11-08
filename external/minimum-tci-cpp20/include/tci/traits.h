@@ -20,7 +20,7 @@ namespace tci {
   using ten_t = typename tensor_traits<TenT>::ten_t;
 
   template <typename TenT>
-  using rank_t = typename tensor_traits<TenT>::rank_t;
+  using order_t = typename tensor_traits<TenT>::order_t;
 
   template <typename TenT>
   using shape_t = typename tensor_traits<TenT>::shape_t;

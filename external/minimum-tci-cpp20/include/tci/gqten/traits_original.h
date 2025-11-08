@@ -27,7 +27,7 @@ namespace tci {
   template <>
   struct tensor_traits<gqten::tensor<float>> {
     using ten_t = gqten::tensor<float>;
-    using rank_t = int32_t;
+    using order_t = int32_t;
     using shape_t = std::vector<int32_t>;
     using bond_dim_t = int32_t;
     using bond_idx_t = int32_t;
@@ -48,7 +48,7 @@ namespace tci {
   template <>
   struct tensor_traits<gqten::tensor<double>> {
     using ten_t = gqten::tensor<double>;
-    using rank_t = int32_t;
+    using order_t = int32_t;
     using shape_t = std::vector<int32_t>;
     using bond_dim_t = int32_t;
     using bond_idx_t = size_t;
@@ -68,7 +68,7 @@ namespace tci {
   template <>
   struct tensor_traits<gqten::tensor<std::complex<float>>> {
     using ten_t = gqten::tensor<std::complex<float>>;
-    using rank_t = int32_t;
+    using order_t = int32_t;
     using shape_t = std::vector<int32_t>;
     using bond_dim_t = int32_t;
     using bond_idx_t = int32_t;
@@ -88,7 +88,7 @@ namespace tci {
   template <>
   struct tensor_traits<gqten::tensor<std::complex<double>>> {
     using ten_t = gqten::tensor<std::complex<double>>;
-    using rank_t = int32_t;
+    using order_t = int32_t;
     using shape_t = std::vector<int32_t>;
     using bond_dim_t = int32_t;
     using bond_idx_t = int32_t;

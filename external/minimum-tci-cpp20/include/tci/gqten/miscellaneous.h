@@ -111,8 +111,8 @@ namespace tci {
       return false;
     }
     bool res = true;
-    auto rank = a.Rank();
-    for(size_t k=0; k < rank; ++k) {
+    auto order = a.Rank();
+    for(size_t k=0; k < order; ++k) {
       if( shape_a[k] != shape_b[k] ) {
 	return false;
       }

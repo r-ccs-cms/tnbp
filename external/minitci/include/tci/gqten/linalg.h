@@ -4,7 +4,7 @@
 // C++17-compatible rewrite of linear algebra utilities for gqten backend.
 // - replaces `requires is_gqten_tensor_v<TenT>` with SFINAE on template parameter
 // - preserves original interfaces and semantics
-// - depends on tci/traits.h providing: elem_t<T>, real_t<T>, cplx_t<T>, real_ten_t<T>, rank_t<T>, bond_dim_t<T>,
+// - depends on tci/traits.h providing: elem_t<T>, real_t<T>, cplx_t<T>, real_ten_t<T>, order_t<T>, bond_dim_t<T>,
 //   bond_idx_t<T>, bond_label_t<T>, context_handle_t<T>, and is_gqten_tensor_v<T>.
 
 #include <vector>
@@ -155,7 +155,7 @@ namespace tci {
   inline void exp(
        context_handle_t<TenT> &ctx,
        TenT &inout,
-       const rank_t<TenT> & num_of_bonds_as_rows) {
+       const order_t<TenT> & num_of_bonds_as_rows) {
     TenT temp;
     gqten::ExpHermExact(&inout,num_of_bonds_as_rows,&temp);
     inout = std::move(temp);
@@ -168,7 +168,7 @@ namespace tci {
   inline void exp(
        context_handle_t<TenT> &ctx,
        const TenT &in,
-       const rank_t<TenT> & num_of_bonds_as_rows,
+       const order_t<TenT> & num_of_bonds_as_rows,
        TenT &out) {
     gqten::ExpHermExact(&in,num_of_bonds_as_rows,&out);
   }
@@ -180,7 +180,7 @@ namespace tci {
   inline void inverse(
        context_handle_t<TenT> &ctx,
        TenT &inout,
-       const rank_t<TenT> & num_of_bonds_as_rows) {
+       const order_t<TenT> & num_of_bonds_as_rows) {
     TenT temp;
     gqten::Inverse(&inout,num_of_bonds_as_rows,&temp);
     inout = std::move(temp);
@@ -193,7 +193,7 @@ namespace tci {
   inline void inverse(
        context_handle_t<TenT> &ctx,
        const TenT &in,
-       const rank_t<TenT> & num_of_bonds_as_rows,
+       const order_t<TenT> & num_of_bonds_as_rows,
        TenT &out) {
     gqten::Inverse(&in,num_of_bonds_as_rows,&out);
   }
@@ -474,7 +474,7 @@ namespace tci {
   inline void svd(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &u,
        real_ten_t<TenT> &s_diag,
        TenT &v_dag) {
@@ -492,7 +492,7 @@ namespace tci {
   inline void trunc_svd(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &u,
        real_ten_t<TenT> &s_diag,
        TenT &v_dag,
@@ -503,13 +503,13 @@ namespace tci {
     RealT * ps_raw = nullptr;
     size_t chi;
     const auto shape_a = a.Shape();
-    const size_t rank_a = a.Rank();
+    const size_t order_a = a.Rank();
     size_t ldims = static_cast<size_t>(num_of_bonds_as_rows);
 
     size_t m = 1;
     size_t n = 1;
     for(size_t i=0; i < ldims; i++) m *= shape_a[i];
-    for(size_t i=ldims; i < rank_a; i++) n *= shape_a[i];
+    for(size_t i=ldims; i < order_a; i++) n *= shape_a[i];
 
     size_t chi_max = std::min(m,n);
 
@@ -526,7 +526,7 @@ namespace tci {
   inline void trunc_svd(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &u,
        real_ten_t<TenT> &s_diag,
        TenT &v_dag,
@@ -549,7 +549,7 @@ namespace tci {
   inline void trunc_svd(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &u,
        real_ten_t<TenT> &s_diag,
        TenT &v_dag,
@@ -576,7 +576,7 @@ namespace tci {
   inline void qr(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &q,
        TenT &r) {
     gqten::QR(&a,num_of_bonds_as_rows,&q,&r);
@@ -589,19 +589,19 @@ namespace tci {
   inline void lq(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &l,
        TenT &q) {
-    using RankT = typename tensor_traits<TenT>::rank_t;
+    using OrderT = typename tensor_traits<TenT>::order_t;
     using BondLabelT = typename tensor_traits<TenT>::bond_label_t;
-    RankT num_bonds = a.Rank();
-    RankT num_cols = num_bonds - num_of_bonds_as_rows;
+    OrderT num_bonds = a.Rank();
+    OrderT num_cols = num_bonds - num_of_bonds_as_rows;
     List<BondLabelT> trans_labs(num_bonds);
     for(size_t k=0; k < static_cast<size_t>(num_cols); k++) {
-      trans_labs[k] = num_of_bonds_as_rows + static_cast<RankT>(k);
+      trans_labs[k] = num_of_bonds_as_rows + static_cast<OrderT>(k);
     }
     for(size_t k=static_cast<size_t>(num_cols); k < static_cast<size_t>(num_bonds); k++) {
-      trans_labs[k] = static_cast<RankT>(k) - num_cols;
+      trans_labs[k] = static_cast<OrderT>(k) - num_cols;
     }
     auto adag = a;
     adag.Transpose(trans_labs);
@@ -623,20 +623,20 @@ namespace tci {
   inline void eigh(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        real_ten_t<TenT> &w_diag,
        TenT &v) {
     using RealT = typename tensor_traits<TenT>::real_t;
     using ShapeT = typename tensor_traits<TenT>::shape_t;
 
     const auto shape_a = a.Shape();
-    const size_t rank_a = shape_a.size();
+    const size_t order_a = shape_a.size();
     const size_t ldims  = static_cast<size_t>(num_of_bonds_as_rows);
-    assert(ldims > 0 && ldims <= rank_a);
+    assert(ldims > 0 && ldims <= order_a);
 
     size_t m = 1, ncols = 1;
     for (size_t i = 0; i < ldims; ++i)       m     *= shape_a[i];
-    for (size_t i = ldims; i < rank_a; ++i)  ncols *= shape_a[i];
+    for (size_t i = ldims; i < order_a; ++i)  ncols *= shape_a[i];
     assert(m == ncols && "eigh: Hermitian matrix must be square after flattening");
 
     RealT * pw = nullptr;

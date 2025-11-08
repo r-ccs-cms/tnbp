@@ -82,25 +82,25 @@ namespace tnbp {
     using ShapeT   = typename tci::tensor_traits<TenT>::shape_t;
     using SizeT    = typename tci::tensor_traits<TenT>::ten_size_t;
     using ElemT    = typename tci::tensor_traits<TenT>::elem_t;
-    using RankT    = typename tci::tensor_traits<TenT>::rank_t;
+    using OrderT   = typename tci::tensor_traits<TenT>::order_t;
     using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
     
     int mpi_rank = -1;
     MPI_Comm_rank(comm, &mpi_rank);
     
-    uint32_t size = 0, rank = 0;
+    uint32_t size = 0, order = 0;
     std::vector<uint32_t> shape;
     std::vector<ElemT>    data;
     
     if (mpi_rank == root) {
       const SizeT  size_A  = tci::size(ctx, A);
-      const RankT  rank_A  = tci::rank(ctx, A);
+      const OrderT order_A  = tci::order(ctx, A);
       const ShapeT shape_A = tci::shape(ctx, A);
       
       size = static_cast<uint32_t>(size_A);
-      rank = static_cast<uint32_t>(rank_A);
+      order = static_cast<uint32_t>(order_A);
       
-      shape.resize(rank);
+      shape.resize(order);
       {
 	auto it = shape.begin();
 	for (auto d : shape_A) *it++ = static_cast<uint32_t>(d);
@@ -116,10 +116,10 @@ namespace tnbp {
     
     // bcast meta-data and shape
     MPI_Bcast(&size, 1, MPI_UINT32_T, root, comm);
-    MPI_Bcast(&rank, 1, MPI_UINT32_T, root, comm);
+    MPI_Bcast(&order, 1, MPI_UINT32_T, root, comm);
     
-    if (mpi_rank != root) shape.resize(rank);
-    MPI_Bcast(shape.data(), rank, MPI_UINT32_T, root, comm);
+    if (mpi_rank != root) shape.resize(order);
+    MPI_Bcast(shape.data(), order, MPI_UINT32_T, root, comm);
     
     // data
     if (mpi_rank != root) data.resize(size);
@@ -128,7 +128,7 @@ namespace tnbp {
     
     // Reconstruct A in reciever 
     if (mpi_rank != root) {
-      ShapeT shape_A(rank);
+      ShapeT shape_A(order);
       {
 	auto it = shape_A.begin();
 	for (auto d : shape) *it++ = static_cast<BondDimT>(d);
@@ -149,15 +149,15 @@ namespace tnbp {
     using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
     using SizeT  = typename tci::tensor_traits<TenT>::ten_size_t;
     using ElemT  = typename tci::tensor_traits<TenT>::elem_t;
-    using RankT  = typename tci::tensor_traits<TenT>::rank_t;
+    using OrderT = typename tci::tensor_traits<TenT>::order_t;
     
-    // shape / rank / size
+    // shape / order / size
     const SizeT  size_A  = tci::size(ctx, A);
-    const RankT  rank_A  = tci::rank(ctx, A);
+    const OrderT order_A = tci::order(ctx, A);
     const ShapeT shape_A = tci::shape(ctx, A);
     
     std::vector<uint32_t> shape;
-    shape.resize(static_cast<size_t>(rank_A));
+    shape.resize(static_cast<size_t>(order_A));
     {
       auto it = shape.begin();
       for (auto dim : shape_A) *it++ = static_cast<uint32_t>(dim);
@@ -175,12 +175,12 @@ namespace tnbp {
     }
 
     const uint32_t size = static_cast<uint32_t>(size_A);
-    const uint32_t rank = static_cast<uint32_t>(rank_A);
+    const uint32_t order = static_cast<uint32_t>(order_A);
   
     // Send data
     MPI_Send(&size,  1, MPI_UINT32_T, dst, 0, comm);
-    MPI_Send(&rank,  1, MPI_UINT32_T, dst, 1, comm);
-    MPI_Send(shape.data(), rank, MPI_UINT32_T, dst, 2, comm);
+    MPI_Send(&order,  1, MPI_UINT32_T, dst, 1, comm);
+    MPI_Send(shape.data(), order, MPI_UINT32_T, dst, 2, comm);
     
     MPI_Datatype DataT = GetMpiType<ElemT>();
     MPI_Send(data.data(), size, DataT, dst, 3, comm);
@@ -194,24 +194,24 @@ namespace tnbp {
     using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
     
     uint32_t size = 0;
-    uint32_t rank = 0;
+    uint32_t order = 0;
     std::vector<uint32_t> shape;
     std::vector<ElemT>    data;
     MPI_Status status{};
     
     // Recieve data
     MPI_Recv(&size, 1, MPI_UINT32_T, src, 0, comm, &status);
-    MPI_Recv(&rank, 1, MPI_UINT32_T, src, 1, comm, &status);
+    MPI_Recv(&order, 1, MPI_UINT32_T, src, 1, comm, &status);
     
-    shape.resize(rank);
-    MPI_Recv(shape.data(), rank, MPI_UINT32_T, src, 2, comm, &status);
+    shape.resize(order);
+    MPI_Recv(shape.data(), order, MPI_UINT32_T, src, 2, comm, &status);
     
     data.resize(size);
     MPI_Datatype DataT = GetMpiType<ElemT>();
     MPI_Recv(data.data(), size, DataT, src, 3, comm, &status);
     
     // Reconstruction of TenT
-    ShapeT shape_A(rank);
+    ShapeT shape_A(order);
     {
       auto it = shape_A.begin();
       for (auto d : shape) *it++ = static_cast<BondDimT>(d);

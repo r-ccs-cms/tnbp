@@ -11,9 +11,9 @@
 
 namespace tci {
 
-  // rank
+  // order
   template <typename TenT>
-  inline rank_t<TenT> rank(
+  inline order_t<TenT> order(
       context_handle_t<TenT>& /*ctx*/,
       const TenT& a) {
     return a.Rank();

@@ -48,8 +48,8 @@ namespace tnbp {
    */
   
   template <typename TenT>
-  using rank_t =
-    typename tci::tensor_traits<TenT>::rank_t;
+  using order_t =
+    typename tci::tensor_traits<TenT>::order_t;
 
   template <typename TenT>
   using shape_t =

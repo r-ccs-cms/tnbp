@@ -9,7 +9,7 @@ void measops(tci::context_handle_t<TenT> & ctx,
 
   using ElemT = typename tci::tensor_traits<TenT>::elem_t;
   using RealT = typename tci::tensor_traits<TenT>::real_t;
-  using RankT = typename tci::tensor_traits<TenT>::rank_t;
+  using OrderT = typename tci::tensor_traits<TenT>::order_t;
   using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
   using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
 

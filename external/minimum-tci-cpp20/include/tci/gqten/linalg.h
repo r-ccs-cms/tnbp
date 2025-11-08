@@ -197,14 +197,14 @@ namespace tci {
   void exp(
        context_handle_t<TenT> &ctx,
        TenT &inout,
-       const rank_t<TenT> num_of_bonds_as_rows);
+       const order_t<TenT> num_of_bonds_as_rows);
   */
   template <typename TenT>
   requires is_gqten_tensor_v<TenT>
   void exp(
        context_handle_t<TenT> &ctx,
        TenT &inout,
-       const rank_t<TenT> & num_of_bonds_as_rows) {
+       const order_t<TenT> & num_of_bonds_as_rows) {
     TenT temp;
     gqten::ExpHermExact(&inout,num_of_bonds_as_rows,&temp);
     inout = std::move(temp);
@@ -215,7 +215,7 @@ namespace tci {
   void exp(
        context_handle_t<TenT> &ctx,
        const TenT &in,
-       const rank_t<TenT> num_of_bonds_as_rows,
+       const order_t<TenT> num_of_bonds_as_rows,
        TenT &out);
   */
   template <typename TenT>
@@ -223,7 +223,7 @@ namespace tci {
   void exp(
        context_handle_t<TenT> &ctx,
        const TenT &in,
-       const rank_t<TenT> & num_of_bonds_as_rows,
+       const order_t<TenT> & num_of_bonds_as_rows,
        TenT &out) {
     gqten::ExpHermExact(&in,num_of_bonds_as_rows,&out);
   }
@@ -233,14 +233,14 @@ namespace tci {
   void inverse(
        context_handle_t<TenT> &ctx,
        TenT &inout,
-       const rank_t<TenT> num_of_bonds_as_rows);
+       const order_t<TenT> num_of_bonds_as_rows);
   */
   template <typename TenT>
   requires is_gqten_tensor_v<TenT>
   void inverse(
        context_handle_t<TenT> &ctx,
        TenT &inout,
-       const rank_t<TenT> & num_of_bonds_as_rows) {
+       const order_t<TenT> & num_of_bonds_as_rows) {
     TenT temp;
     gqten::Inverse(&inout,num_of_bonds_as_rows,&temp);
     inout = std::move(temp);
@@ -251,7 +251,7 @@ namespace tci {
   void inverse(
        context_handle_t<TenT> &ctx,
        const TenT &in,
-       const rank_t<TenT> num_of_bonds_as_rows,
+       const order_t<TenT> num_of_bonds_as_rows,
        TenT &out);
   */
   template <typename TenT>
@@ -259,7 +259,7 @@ namespace tci {
   void inverse(
        context_handle_t<TenT> &ctx,
        const TenT &in,
-       const rank_t<TenT> & num_of_bonds_as_rows,
+       const order_t<TenT> & num_of_bonds_as_rows,
        TenT &out) {
     gqten::Inverse(&in,num_of_bonds_as_rows,&out);
   }
@@ -582,7 +582,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void svd(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &u,
        real_ten_t<TenT> &s_diag,
        TenT &v_dag);
@@ -592,7 +592,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void svd(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &u,
        real_ten_t<TenT> &s_diag,
        TenT &v_dag) {
@@ -603,13 +603,13 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
     s_diag = gqten::tensor<RealT>({static_cast<int32_t>(k)},ps_raw);
   }
 
-  /// rank_t<TenT> & num_of_bonds_as_rows; should be rank_t<TenT> num_of_bonds_as_rows; 
+  /// order_t<TenT> & num_of_bonds_as_rows; should be order_t<TenT> num_of_bonds_as_rows; 
   /**
   template <typename TenT>
   void trunc_svd(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &u,
        real_ten_t<TenT> &s_diag,
        TenT &v_dag,
@@ -621,7 +621,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void trunc_svd(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &u,
        real_ten_t<TenT> &s_diag,
        TenT &v_dag,
@@ -632,13 +632,13 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
     RealT * ps_raw = nullptr;
     size_t chi;
     const auto shape_a = a.Shape();
-    const size_t rank_a = a.Rank();
+    const size_t order_a = a.Rank();
     size_t ldims = static_cast<size_t>(num_of_bonds_as_rows);
     
     size_t m = 1;
     size_t n = 1;
     for(size_t i=0; i < ldims; i++) m *= shape_a[i];
-    for(size_t i=ldims; i < rank_a; i++) n *= shape_a[i];
+    for(size_t i=ldims; i < order_a; i++) n *= shape_a[i];
     
     size_t chi_max = std::min(m,n);
     
@@ -648,13 +648,13 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
     s_diag = gqten::tensor<RealT>({static_cast<int32_t>(chi)},ps_raw);
   }
 
-  /// rank_t<TenT> & num_of_bonds_as_rows; should be rank_t<TenT> num_of_bonds_as_rows; 
+  /// order_t<TenT> & num_of_bonds_as_rows; should be order_t<TenT> num_of_bonds_as_rows; 
   /**
   template <typename TenT>
   void trunc_svd(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &u,
        real_ten_t<TenT> &s_diag,
        TenT &v_dag,
@@ -667,7 +667,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void trunc_svd(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &u,
        real_ten_t<TenT> &s_diag,
        TenT &v_dag,
@@ -683,13 +683,13 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
     s_diag = gqten::tensor<RealT>({static_cast<int32_t>(chi)},ps_raw);
   }
 
-  /// rank_t<TenT> & num_of_bonds_as_rows; should be rank_t<TenT> num_of_bonds_as_rows; 
+  /// order_t<TenT> & num_of_bonds_as_rows; should be order_t<TenT> num_of_bonds_as_rows; 
   /**
   template <typename TenT>
   void trunc_svd(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows, TenT &u,
+       const order_t<TenT> &num_of_bonds_as_rows, TenT &u,
        real_ten_t<TenT> &s_diag,
        TenT &v_dag,
        real_t<TenT> &trunc_err,
@@ -703,7 +703,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void trunc_svd(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &u,
        real_ten_t<TenT> &s_diag,
        TenT &v_dag,
@@ -728,7 +728,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void qr(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &q,
        TenT &r);
   */
@@ -737,7 +737,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void qr(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &q,
        TenT &r) {
     gqten::QR(&a,num_of_bonds_as_rows,&q,&r);
@@ -748,7 +748,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void lq(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &l,
        TenT &q);
   */
@@ -757,13 +757,13 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void lq(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        TenT &l,
        TenT &q) {
-    using RankT = typename tensor_traits<TenT>::rank_t;
+    using OrderT = typename tensor_traits<TenT>::order_t;
     using BondLabelT = typename tensor_traits<TenT>::bond_label_t;
-    RankT num_bonds = a.Rank();
-    RankT num_cols = num_bonds - num_of_bonds_as_rows;
+    OrderT num_bonds = a.Rank();
+    OrderT num_cols = num_bonds - num_of_bonds_as_rows;
     List<BondLabelT> trans_labs(num_bonds);
     for(size_t k=0; k < num_cols; k++) {
       trans_labs[k] = num_of_bonds_as_rows + k;
@@ -790,7 +790,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void eigvals(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        cplx_ten_t<TenT> &w_diag);
   */
 
@@ -799,7 +799,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void eigvalsh(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        real_ten_t<TenT> &w_diag);
   */
 
@@ -808,7 +808,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void eig(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        cplx_ten_t<TenT> &w_diag,
        cplx_ten_t<TenT> &v);
   */
@@ -818,7 +818,7 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void eigh(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        real_ten_t<TenT> &w_diag,
        TenT &v);
   */
@@ -827,20 +827,20 @@ CntIdxHelper(Label_A,Label_B,Label_C,Idx_A,Idx_B);
   void eigh(
        context_handle_t<TenT> &ctx,
        const TenT &a,
-       const rank_t<TenT> &num_of_bonds_as_rows,
+       const order_t<TenT> &num_of_bonds_as_rows,
        real_ten_t<TenT> &w_diag,
        TenT &v) {
     using RealT = typename tensor_traits<TenT>::real_t;
     using ShapeT = typename tensor_traits<TenT>::shape_t;
 
     const auto shape_a = a.Shape();
-    const size_t rank_a = shape_a.size();
+    const size_t order_a = shape_a.size();
     const size_t ldims  = static_cast<size_t>(num_of_bonds_as_rows);
-    assert(ldims > 0 && ldims <= rank_a);
+    assert(ldims > 0 && ldims <= order_a);
 
     size_t m = 1, ncols = 1;
     for (size_t i = 0; i < ldims; ++i)       m     *= shape_a[i];
-    for (size_t i = ldims; i < rank_a; ++i)  ncols *= shape_a[i];
+    for (size_t i = ldims; i < order_a; ++i)  ncols *= shape_a[i];
     assert(m == ncols && "eigh: Hermitian matrix must be square after flattening");    
     
     RealT * pw = nullptr;

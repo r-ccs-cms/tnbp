@@ -18,7 +18,7 @@ namespace tnbp {
  * @details Each site is associated with a site tensor that has some
  *          physical bonds. In the BP procedure, messenger tensors are defined
  *          on the doubled virtual bonds obtained by contracting the physical
- *          bonds of each site. Consequently, each messenger tensor has rank 2.
+ *          bonds of each site. Consequently, each messenger tensor has order 2.
  *
  * @param[in] ctx
  *     Context handle for TCI functionality.
@@ -130,10 +130,10 @@ namespace tnbp {
 	  AddressA = std::distance(SiteIdx.begin(),itAddressA);
 	  TenT T;
 	  tci::copy(ctx,V[AddressA],T);
-	  auto RankA = tci::rank(ctx,T);
-	  List<BondLabelT> IdxA(RankA);
+	  auto OrderA = tci::order(ctx,T);
+	  List<BondLabelT> IdxA(OrderA);
 	  List<BondLabelT> IdxE(2);
-	  List<BondLabelT> IdxA_res(RankA);
+	  List<BondLabelT> IdxA_res(OrderA);
 
 	  for(int k=0; k < EdgeIdxA.size(); k++) {
 	    auto itMpA = std::find(EdgeIdx.begin(),EdgeIdx.end(),
@@ -156,10 +156,10 @@ namespace tnbp {
 	  tci::copy(ctx,V[AddressA],AdagA);
 	  tci::cplx_conj(ctx,AdagA);
 	  
-	  List<BondLabelT> IdxT(RankA);
+	  List<BondLabelT> IdxT(OrderA);
 	  List<BondLabelT> IdxN(2);
-	  std::iota(IdxA.begin(),IdxA.end(),-RankA);
-	  std::iota(IdxT.begin(),IdxT.end(),-RankA);
+	  std::iota(IdxA.begin(),IdxA.end(),-OrderA);
+	  std::iota(IdxT.begin(),IdxT.end(),-OrderA);
 	  std::iota(IdxN.begin(),IdxN.end(),0);
 	  IdxT[BondIdxA] = static_cast<BondLabelT>(0);
 	  IdxA[BondIdxA] = static_cast<BondLabelT>(1);
@@ -182,10 +182,10 @@ namespace tnbp {
 	  AddressB = std::distance(SiteIdx.begin(),itAddressB);
 	  TenT T;
 	  tci::copy(ctx,V[AddressB],T);
-	  auto RankB = tci::rank(ctx,T);
-	  List<BondLabelT> IdxB(RankB);
+	  auto OrderB = tci::order(ctx,T);
+	  List<BondLabelT> IdxB(OrderB);
 	  List<BondLabelT> IdxE(2);
-	  List<BondLabelT> IdxB_res(RankB);
+	  List<BondLabelT> IdxB_res(OrderB);
 
 	  for(int k=0; k < EdgeIdxB.size(); k++) {
 	    auto itMpB = std::find(EdgeIdx.begin(),EdgeIdx.end(),
@@ -208,10 +208,10 @@ namespace tnbp {
 	  tci::copy(ctx,V[AddressB],BdagB);
 	  tci::cplx_conj(ctx,BdagB);
 	  
-	  List<BondLabelT> IdxT(RankB);
+	  List<BondLabelT> IdxT(OrderB);
 	  List<BondLabelT> IdxN(2);
-	  std::iota(IdxB.begin(),IdxB.end(),-RankB);
-	  std::iota(IdxT.begin(),IdxT.end(),-RankB);
+	  std::iota(IdxB.begin(),IdxB.end(),-OrderB);
+	  std::iota(IdxT.begin(),IdxT.end(),-OrderB);
 	  std::iota(IdxN.begin(),IdxN.end(),0);
 	  IdxT[BondIdxB] = static_cast<BondLabelT>(0);
 	  IdxB[BondIdxB] = static_cast<BondLabelT>(1);
@@ -279,7 +279,7 @@ namespace tnbp {
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using RealT = typename tci::tensor_traits<TenT>::real_t;
     using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
-    using RankT = typename tci::tensor_traits<TenT>::rank_t;
+    using OrderT = typename tci::tensor_traits<TenT>::order_t;
     using BondLabelT  = typename tci::tensor_traits<TenT>::bond_label_t;
 
     size_t num_v = SiteIdx.size();
@@ -294,7 +294,7 @@ namespace tnbp {
       for(size_t k=0; k < BondIdx.size(); k++) {
 	TenT T;
 	tci::copy(ctx,V[address],T);
-	auto RankV = tci::rank(ctx,T);
+	auto OrderV = tci::order(ctx,T);
 	for(size_t l=0; l < BondIdx.size(); l++) {
 	  if( l != k ) {
 	    auto itEdgeAddress = std::find(EdgeIdx.begin(),EdgeIdx.end(),
@@ -306,8 +306,8 @@ namespace tnbp {
 	    TenT F;
 	    tci::copy(ctx,E[EdgeAddress],F);
 	    List<BondLabelT> IdxE(2);
-	    List<BondLabelT> IdxV(RankV);
-	    List<BondLabelT> IdxV_res(RankV);
+	    List<BondLabelT> IdxV(OrderV);
+	    List<BondLabelT> IdxV_res(OrderV);
 	    std::iota(IdxV.begin(),IdxV.end(),0);
 	    std::iota(IdxV_res.begin(),IdxV_res.end(),0);
 	    IdxV[l] = static_cast<BondLabelT>(-1);
@@ -325,11 +325,11 @@ namespace tnbp {
 	TenT C;
 	tci::copy(ctx,V[address],C);
 	tci::cplx_conj(ctx,C);
-	List<BondLabelT> IdxV(RankV);
-	List<BondLabelT> IdxC(RankV);
+	List<BondLabelT> IdxV(OrderV);
+	List<BondLabelT> IdxC(OrderV);
 	List<BondLabelT> IdxN(2);
-	std::iota(IdxV.begin(),IdxV.end(),-RankV);
-	std::iota(IdxC.begin(),IdxC.end(),-RankV);
+	std::iota(IdxV.begin(),IdxV.end(),-OrderV);
+	std::iota(IdxC.begin(),IdxC.end(),-OrderV);
 	IdxV[k] = static_cast<BondLabelT>(0);
 	IdxC[k] = static_cast<BondLabelT>(1);
 	IdxN[0] = static_cast<BondLabelT>(0);
