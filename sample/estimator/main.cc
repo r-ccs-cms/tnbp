@@ -23,6 +23,10 @@ int main(int argc, char * argv[]) {
   
   Option options =generate_options(argc,argv);
 
+  if( mpi_rank == mpi_master ) {
+    cout_options(options);
+  }
+
   std::string qasm_source;
   if( mpi_rank == mpi_master ) {
     qasm_source = qasm::read_all_file(options.circuit);
