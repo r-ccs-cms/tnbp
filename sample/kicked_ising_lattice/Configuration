@@ -3,7 +3,7 @@ CCCOM=mpicxx
 
 ### compile and linking flags when we use tci for gqten
 # flags for compile: include path to openmp, tci for gqten, gqten, hptt.  The following is the case using homebrew's llvm on macOS.
-CXX_FLAGS= -std=c++20 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3 -I../../external/minitci/include -I../../external/tensor-ng-dev/include -I../../external/tensor-ng-dev/external/hptt/include -I../../include
+CXX_FLAGS= -std=c++20 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3 -I../../external/min-tci/include -I../../external/tensor-ng-dev/include -I../../external/tensor-ng-dev/external/hptt/include -I../../include
 
 # flags for linking when we use the tci for gqten
 LIB_FLAGS= -L../../external/tensor-ng-dev/external/hptt/lib -lhptt -L/opt/homebrew/opt/openblas/lib -llapack -lblas

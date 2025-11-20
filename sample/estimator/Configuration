@@ -2,7 +2,7 @@
 CCCOM=mpicxx
 
 # flags for compile: include path to openmp, tci for gqten, gqten, hptt.  The following is the case using homebrew's llvm on Mac
-CXX_FLAGS= -std=c++17 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3 -I../../external/minitci/include -I../../external/tensor-ng-dev/include -I../../external/tensor-ng-dev/external/hptt/include -I../../include -DINIT_DEBUG
+CXX_FLAGS= -std=c++17 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3 -I../../external/min-tci/include -I../../external/tensor-ng-dev/include -I../../external/tensor-ng-dev/external/hptt/include -I../../include
 
 # flags for linking
 LIB_FLAGS= -L../../external/tensor-ng-dev/external/hptt/lib -lhptt -L/opt/homebrew/opt/openblas/lib -llapack -lblas
