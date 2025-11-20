@@ -13,10 +13,10 @@ using **belief propagation** on tensor networks. The library targets tensor-prod
 
 ## Tensor Computing Interface (TCI)
 
-This repository provides a lightweight version of the **Tensor Computing Interface (TCI)**, derived from [GraceQ/tensor-dev-ng](https://github.com/GraceQ/tensor-dev-ng).  
+This repository provides a lightweight version of the **Tensor Computing Interface (TCI)**, derived from [GraceQ/tensor-ng-dev](https://github.com/GraceQ/tensor-ng-dev).
 The simplified TCI implementation is placed under:
 ```
-/external/minitci
+/external/min-tci
 ```
 
 ## Requirements
