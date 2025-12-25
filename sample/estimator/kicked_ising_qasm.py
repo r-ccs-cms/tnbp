@@ -28,10 +28,30 @@ def undirected_edges_from_cmap(cmap: CouplingMap) -> Set[Tuple[int, int]]:
             edges.add((a, b))
     return edges
 
+def greedy_matching_layers(edges: List[Tuple[int, int]]) -> List[List[Tuple[int, int]]]:
+    """
+    Decompose edges into layers where each layer is a matching (no shared vertices).
+    Greedy construction; heavy-hex often fits in ~3 layers, but may vary.
+    """
+    remaining: Set[Tuple[int, int]] = set(edges)
+    layers: List[List[Tuple[int, int]]] = []
+    while remaining:
+        used: Set[int] = set()
+        layer: List[Tuple[int, int]] = []
+        for (u, v) in sorted(remaining):
+            if (u not in used) and (v not in used):
+                layer.append((u, v))
+                used.add(u)
+                used.add(v)
+        for e in layer:
+            remaining.remove(e)
+        layers.append(layer)
+    return layers
+
 
 def kicked_ising_layer(
     qc: QuantumCircuit,
-    edges: Iterable[Tuple[int, int]],
+    layers: List[List[Tuple[int, int]]],
     theta_x: float,
     theta_z: float,
         phi: float,
