@@ -49,33 +49,16 @@ git submodule update
 ```
 This will place the source under `external/tensor-ng-dev/`
 
-**Installing GraceQ/tensor-ng-dev**
-Follow the official installation guide.
-A simplified installation command is:
-```
-make install \
-     CXX="your_preferred_compiler" \
-     CMDLINE_CXX_FLAGS="include paths for OpenMP or other dependencies" \
-     CMDLINE_LINK_FLAGS="linker flags for LAPACK, BLAS, etc."
-```
-For example, in a macOS environment, when using `clang++` installed via `brew install llvm`, we add the following options:
-```
-make install \
-     CXX="/opt/homebrew/opt/llvm/bin/clang++" \
-     CMDLINE_CXX_FLAGS="-std=c++20 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3" \
-     CMDLINE_LINK_FLAGS="-L/opt/homebrew/opt/openblas/lib -llapack -lblas"
-```
-
-**For the new version GraceQ/tensor-ng-dev with the to-tci-release branch**
+**Installing GraceQ/tensor-ng-dev with the to-tci-release branch**
 Go to to-tci-relase branch home directory, and type the following command
 ```
-cmake -S . -B build -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm/bin/clang++ -DCMAKE_BUILD_TYPE=Debug \
-           -DLAPACK_LIBRARIES=/opt/homebrew/opt/openblas/lib/liblapack.dylib \
-	   -DBLAS_LIBRARIES=/opt/homebrew/opt/openblas/lib/libblas.dylib
+cmake -S . -B build \
+  -DCMAKE_C_COMPILER="$(brew --prefix llvm)/bin/clang" \
+  -DCMAKE_CXX_COMPILER="$(brew --prefix llvm)/bin/clang++"
 ```
 to setup the build, and type
 ```
-cmake --build build
+cmake --build build -j
 ```
 to build the hptt.
 

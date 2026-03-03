@@ -1,7 +1,8 @@
 # Parallelized tensor network simulator with belief propagation
 
-This repository provides a parallelized simulator for estimating expectation values of quantum circuits
-using **belief propagation** on tensor networks. The library targets tensor-product-state representations---primarily **MPS** and **PEPS**-- and exposes utilities to build circuit-induced factor graphs, run BP (loopy BP where appropriate), and aggregate observables efficiently across distributed resources.
+This repository provides a parallelized simulator for estimating expectation values of quantum circuits using **belief propagation** on tensor networks.
+The library targets tensor-product-state representations---primarily **MPS** and **PEPS**-- and exposes utilities to build circuit-induced factor graphs,
+run BP (loopy BP where appropriate), and aggregate observables efficiently across distributed resources.
 
 **Key points**
 - Focus: expectation-value evaluation of quantum circuit via tensor network simulation with belief propagation
