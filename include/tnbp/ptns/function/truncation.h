@@ -54,9 +54,9 @@ namespace tnbp {
     res_trunc_err.resize(num_e);
     res_bond_dim.resize(num_e);
 
-    for(int edge_address=0; edge_address < EdgeIdx.size(); edge_address++) {
-      int site_a = I[EdgeIdx[edge_address]].first;
-      int site_b = I[EdgeIdx[edge_address]].second;
+    for(int global_edge_address=0; global_edge_address < I.size(); global_edge_address++) {
+      int site_a = I[global_edge_address].first;
+      int site_b = I[global_edge_address].second;
       int mpi_rank_a = Site_To_MpiRank.at(site_a);
       int mpi_rank_b = Site_To_MpiRank.at(site_b);
       int mpi_type = 0;
@@ -95,6 +95,9 @@ namespace tnbp {
 
 	int site_address_a;
 	int site_address_b;
+	auto it_edge_address = std::find(EdgeIdx.begin(),EdgeIdx.end(),
+					 target_edge);
+	int edge_address = std::distance(EdgeIdx.begin(),it_edge_address);
 
 	if( direction == 0 ) {
 	  SquareRootAndInverse(ctx,E[edge_address],Ra,Sa,eps);

@@ -2,10 +2,10 @@
 CCCOM=mpicxx
 
 # flags for compile: include path to openmp, tci for gqten, gqten, hptt.  The following is the case using homebrew's llvm on Mac
-CXX_FLAGS= -std=c++17 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3 -I../../external/min-tci/include -I../../external/tensor-ng-dev/include -I../../external/tensor-ng-dev/external/hptt/include -I../../include
+CXX_FLAGS= -std=c++17 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3 -I../../external/min-tci/include -I../../external/tensor-ng-dev/Source/gqten/include -I../../external/tensor-ng-dev/Source/gqten/ext/hptt/include -I../../include
 
 # flags for linking
-LIB_FLAGS= -L../../external/tensor-ng-dev/external/hptt/lib -lhptt -L/opt/homebrew/opt/openblas/lib -llapack -lblas
+LIB_FLAGS= -L../../external/tensor-ng-dev/build/Source/gqten/ext/hptt/ -lhptt -L/opt/homebrew/opt/openblas/lib -llapack -lblas
 
 ### compile and linking flags when we use tci for cytnx
 # flags for compile: include path to openmp, tci for cytnx, cytnx, boost. The following is the case using homebrew's llvm, openblas, and boost on macOS.
