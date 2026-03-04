@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite the software as below."
+title: "tnbp"
+type: software
+version: 0.1.0
+date-released: 2026-03-03
+authors:
+  - family-names: Shirakawa
+    given-names: Tomonori
+    affiliation: RIKEN Center for Computational Science
+license: Apache-2.0
+repository-code: https://github.com/r-ccs-cms/tnbp
+abstract: >
+  tnbp is an application layer built on top of the Tensor Contraction Infrastructure (TCI)
+  for tensor network based algorithms.
+keywords:
+  - tensor network
+  - tensor contraction
+  - quantum many-body
+  - HPC
