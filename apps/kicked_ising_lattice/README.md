@@ -13,7 +13,7 @@ This simulator is implemented on top of the Tensor Computing Interface (TCI), wh
 
 In order to run, both of the following components are required:
 
-**(a) TCI interface** (`external/minitci`)
+**(a) TCI interface** (`external/min-tci`)
 This repository includes `/external/minitci`, a header-only implementation of TCI that provides the interface layer required by the simulator.
 It is included directly in this repository, so no additional setup is required.
 
@@ -26,22 +26,18 @@ git submodule update
 ```
 This will place the source under `external/tensor-ng-dev/`
 
-**Installing GraceQ/tensor-ng-dev**
-Follow the official installation guide.
-A simplified installation command is:
+**Installing GraceQ/tensor-ng-dev with the to-tci-release branch**
+Go to to-tci-relase branch home directory, and type the following command
 ```
-make install \
-     CXX="your_preferred_compiler" \
-     CMDLINE_CXX_FLAGS="include paths for OpenMP or other dependencies" \
-     CMDLINE_LINK_FLAGS="linker flags for LAPACK, BLAS, etc."
+cmake -S . -B build \
+  -DCMAKE_C_COMPILER="$(brew --prefix llvm)/bin/clang" \
+  -DCMAKE_CXX_COMPILER="$(brew --prefix llvm)/bin/clang++"
 ```
-For example, in a macOS environment, when using `clang++` installed via `brew install llvm`, we add the following options:
+to setup the build, and type
 ```
-make install \
-     CXX="/opt/homebrew/opt/llvm/bin/clang++" \
-     CMDLINE_CXX_FLAGS="-std=c++20 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3" \
-     CMDLINE_LINK_FLAGS="-L/opt/homebrew/opt/openblas/lib -llapack -lblas"
+cmake --build build -j
 ```
+to build the hptt.
 
 ### 2. Building the simulator
 
