@@ -91,7 +91,7 @@ namespace tnbp {
       if( std::abs(elem) > sv_min ) { elem = std::sqrt(elem); }
       else { elem = 0.0; } });
     if constexpr (std::is_same_v<TenT,RealTenT>) {
-      tci::copy(ctx_r,E,D);
+      D = tci::copy(ctx_r,E);
     } else {
       D = tci::to_cplx(ctx_r,E);
     }
@@ -99,7 +99,7 @@ namespace tnbp {
       if( std::abs(elem) > std::sqrt(sv_min)) { elem = elem/(elem*elem); }
       else { elem = 0.0; } });
     if constexpr (std::is_same_v<TenT,RealTenT>) {
-      tci::copy(ctx_r,E,F);
+      F = tci::copy(ctx_r,E);
     } else {
       F = tci::to_cplx(ctx_r,E);
     }
