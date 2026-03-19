@@ -450,6 +450,18 @@ namespace tci {
   }
 
   //----------------------------------------------------------------------------
+  // linear_combine (uniform coefficients)
+  //----------------------------------------------------------------------------
+  template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+  inline TenT void linear_combine(
+       context_handle_t<TenT> & ctx,
+       const List<TenT> & ins) {
+    TenT out;
+    linear_combine(ctx,ins,out);
+    return out;
+  }
+
+  //----------------------------------------------------------------------------
   // linear_combine (explicit coefficients)
   //----------------------------------------------------------------------------
   template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
@@ -466,6 +478,20 @@ namespace tci {
     }
     gqten::LinearCombine(coefs,pins,&out);
   }
+
+  //----------------------------------------------------------------------------
+  // linear_combine (explicit coefficients, return-value-type)
+  //----------------------------------------------------------------------------
+  template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
+  inline TenT linear_combine(
+       context_handle_t<TenT> &ctx,
+       const List<TenT> &ins,
+       const List<elem_t<TenT>> &coefs) {
+    TenT out;
+    linear_combine(ctx,ins,coefs,out);
+    return out;
+  }
+  
 
   //----------------------------------------------------------------------------
   // svd

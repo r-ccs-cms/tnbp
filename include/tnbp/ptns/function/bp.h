@@ -345,8 +345,7 @@ namespace tnbp {
 	std::cout << " belief propagation: Before linear_combine " << std::endl;
 #endif
 
-	TenT D;
-	tci::linear_combine(ctx,{T,F},{ElemT(1.0),ElemT(-1.0)},D);
+	TenT D = tci::linear_combine(ctx,{T,F},{ElemT(1.0),ElemT(-1.0)});
 	RealT NormD = tci::norm(ctx,D);
 	result_rank += NormD * result_volume;
 	
