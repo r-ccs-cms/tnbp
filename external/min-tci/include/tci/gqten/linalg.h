@@ -453,7 +453,7 @@ namespace tci {
   // linear_combine (uniform coefficients)
   //----------------------------------------------------------------------------
   template <typename TenT, typename std::enable_if<is_gqten_tensor_v<TenT>, int>::type = 0>
-  inline TenT void linear_combine(
+  inline TenT linear_combine(
        context_handle_t<TenT> & ctx,
        const List<TenT> & ins) {
     TenT out;
