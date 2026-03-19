@@ -62,7 +62,11 @@ std::vector<TenT> CircuitTPO(
   tci::svd(ctx,Uj,lb,Ua,S,Ub);
   tci::for_each(ctx_r,S,[](auto & elem) { elem = std::sqrt(elem); } );
   TenT D;
-  tci::convert(ctx_r,S,ctx,D);
+  if constexpr (std::is_same_v<TenT,RealTenT>) {
+    D = tci::copy(ctx_r,S);
+  } else {
+    D = tci::to_cplx(ctx_r,S);
+  }
   tci::diag(ctx,D);
   tci::List<BondLabelT> label_ua = {0,1,-1};
   tci::List<BondLabelT> label_da = {-1,2};
@@ -118,24 +122,6 @@ std::vector<TenT> CircuitTPO(
 	     });
   }
 
-  // x terms
-  /*
-  for(size_t i=0; i < sites.size(); i++) {
-    auto order_v = tci::order(ctx,V[i]);
-    auto order_x = tci::order(ctx,Ux);
-    auto order_w = tci::order(ctx,V[i]);
-    tci::List<BondLabelT> label_v(order_v);
-    tci::List<BondLabelT> label_x(order_x);
-    tci::List<BondLabelT> label_w(order_w);
-    std::iota(label_v.begin(),label_v.end(),0);
-    label_v[order_v-1] = -1;
-    label_x[0] = -1;
-    label_x[1] = order_v-1;
-    std::iota(label_w.begin(),label_w.end(),0);
-    tci::contract(ctx,V[i],label_v,Ux,label_x,V[i],label_w);
-  }
-  */
-  
   // j terms
   for(size_t m=0; m < edges.size(); m++) {
     TenT W;

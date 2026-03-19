@@ -43,10 +43,8 @@ namespace tnbp {
 	auto siteidx_address = std::distance(SiteIdx.begin(),
 					     it_siteidx_address);
 	
-	TenT W;
-	tci::copy(ctx,V[siteidx_address],W);
-	TenT Wdag;
-	tci::copy(ctx,V[siteidx_address],Wdag);
+	TenT W = tci::copy(ctx,V[siteidx_address]);
+	TenT Wdag = tci::copy(ctx,V[siteidx_address]);
 	tci::cplx_conj(ctx,Wdag);
 	OrderT order_w = tci::order(ctx,W);
 	List<BondLabelT> IdxW(order_w);
@@ -171,7 +169,7 @@ namespace tnbp {
 	  auto it_site_address_a = std::find(SiteIdx.begin(),
 					     SiteIdx.end(),site_a);
 	  site_address_a = std::distance(SiteIdx.begin(),it_site_address_a);
-	  tci::copy(ctx,V[site_address_a],A);
+	  A = tci::copy(ctx,V[site_address_a]);
 	  OrderT order_a = tci::order(ctx,A);
 	  List<BondLabelT> IdxA(order_a);
 	  List<BondLabelT> IdxC(order_a);
@@ -193,7 +191,7 @@ namespace tnbp {
 	      auto norm = tci::normalize(ctx,A);
 	    }
 	  }
-	  tci::copy(ctx,V[site_address_a],AdagA);
+	  AdagA = tci::copy(ctx,V[site_address_a]);
 	  tci::cplx_conj(ctx,AdagA);
 	  std::iota(IdxA.begin(),IdxA.end(),-order_a);
 	  std::iota(IdxC.begin(),IdxC.end(),-order_a);
@@ -210,7 +208,7 @@ namespace tnbp {
 	  auto it_site_address_b = std::find(SiteIdx.begin(),SiteIdx.end(),
 					     site_b);
 	  site_address_b = std::distance(SiteIdx.begin(),it_site_address_b);
-	  tci::copy(ctx,V[site_address_b],B);
+	  B = tci::copy(ctx,V[site_address_b]);
 	  OrderT order_b = tci::order(ctx,B);
 	  List<BondLabelT> IdxB(order_b);
 	  List<BondLabelT> IdxC(order_b);
@@ -233,7 +231,7 @@ namespace tnbp {
 	      auto norm = tci::normalize(ctx,B);
 	    }
 	  }
-	  tci::copy(ctx,V[site_address_b],BdagB);
+	  BdagB = tci::copy(ctx,V[site_address_b]);
 	  tci::cplx_conj(ctx,BdagB);
 	  std::iota(IdxB.begin(),IdxB.end(),-order_b);
 	  std::iota(IdxC.begin(),IdxC.end(),-order_b);

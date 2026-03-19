@@ -135,7 +135,7 @@ namespace tnbp {
 	TenT Z;
 	TenT P;
 	if constexpr (std::is_same_v<TenT,RealTenT>) {
-	  tci::copy(ctx_r,S,Z);
+	  Z = tci::copy(ctx_r,S);
 	  tci::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
 	  tci::move(ctx_r,S,P);
 	} else {
@@ -145,8 +145,8 @@ namespace tnbp {
 	}
 	tci::diag(ctx,Z);
 	tci::diag(ctx,P);
-	tci::copy(ctx,Z,E[edge_address]);
-	tci::copy(ctx,Z,E[edge_address+num_e]);
+	E[edge_address] = tci::copy(ctx,Z);
+	E[edge_address+num_e] = tci::copy(ctx,Z);
 
 	List<BondLabelT> IdxU(2);
 	List<BondLabelT> IdxS(2);

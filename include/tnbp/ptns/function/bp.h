@@ -128,8 +128,7 @@ namespace tnbp {
 	if( type == 3 || type == 2 ) {
 	  auto itAddressA = std::find(SiteIdx.begin(),SiteIdx.end(),SiteA);
 	  AddressA = std::distance(SiteIdx.begin(),itAddressA);
-	  TenT T;
-	  tci::copy(ctx,V[AddressA],T);
+	  TenT T = tci::copy(ctx,V[AddressA]);
 	  auto OrderA = tci::order(ctx,T);
 	  List<BondLabelT> IdxA(OrderA);
 	  List<BondLabelT> IdxE(2);
@@ -153,7 +152,7 @@ namespace tnbp {
 	    }
 	    auto norm_a = tci::normalize(ctx,T);
 	  }
-	  tci::copy(ctx,V[AddressA],AdagA);
+	  AdagA = tci::copy(ctx,V[AddressA]);
 	  tci::cplx_conj(ctx,AdagA);
 	  
 	  List<BondLabelT> IdxT(OrderA);
@@ -169,9 +168,9 @@ namespace tnbp {
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
 	  if( I[TargetEdgeIdx].first == SiteA ) {
-	    tci::copy(ctx,AdagA,F[MpT]);
+	    F[MpT] = tci::copy(ctx,AdagA);
 	  } else {
-	    tci::copy(ctx,AdagA,F[MpT+size_e]);
+	    F[MpT+size_e] = tci::copy(ctx,AdagA);
 	  }
 	  
 	}
@@ -180,8 +179,7 @@ namespace tnbp {
 
 	  auto itAddressB = std::find(SiteIdx.begin(),SiteIdx.end(),SiteB);
 	  AddressB = std::distance(SiteIdx.begin(),itAddressB);
-	  TenT T;
-	  tci::copy(ctx,V[AddressB],T);
+	  TenT T = tci::copy(ctx,V[AddressB]);
 	  auto OrderB = tci::order(ctx,T);
 	  List<BondLabelT> IdxB(OrderB);
 	  List<BondLabelT> IdxE(2);
@@ -205,7 +203,7 @@ namespace tnbp {
 	    }
 	    auto norm_b = tci::normalize(ctx,T);
 	  }
-	  tci::copy(ctx,V[AddressB],BdagB);
+	  BdagB = tci::copy(ctx,V[AddressB]);
 	  tci::cplx_conj(ctx,BdagB);
 	  
 	  List<BondLabelT> IdxT(OrderB);
@@ -221,9 +219,9 @@ namespace tnbp {
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
 	  if( I[TargetEdgeIdx].first == SiteB ) {
-	    tci::copy(ctx,BdagB,F[MpT]);
+	    F[MpT] = tci::copy(ctx,BdagB);
 	  } else {
-	    tci::copy(ctx,BdagB,F[MpT+size_e]);
+	    F[MpT+size_e] = tci::copy(ctx,BdagB);
 	  }
 	  
 	}
@@ -237,9 +235,9 @@ namespace tnbp {
 				 TargetEdgeIdx);
 	  auto MpT = std::distance(EdgeIdx.begin(),itMpT);
 	  if( I[TargetEdgeIdx].first == SiteB ) {
-	    tci::copy(ctx,BdagB,F[MpT]);
+	    F[MpT] = tci::copy(ctx,BdagB);
 	  } else {
-	    tci::copy(ctx,BdagB,F[MpT+size_e]);
+	    F[MpT+size_e] = tci::copy(ctx,BdagB);
 	  }
 	}
 
@@ -252,9 +250,9 @@ namespace tnbp {
 				 TargetEdgeIdx);
 	  auto MpT = std::distance(EdgeIdx.begin(),itMpT);
 	  if( I[TargetEdgeIdx].first == SiteA ) {
-	    tci::copy(ctx,AdagA,F[MpT]);
+	    F[MpT] = tci::copy(ctx,AdagA);
 	  } else {
-	    tci::copy(ctx,AdagA,F[MpT+size_e]);
+	    F[MpT+size_e] = tci::copy(ctx,AdagA);
 	  }
 	}
 	
@@ -292,8 +290,7 @@ namespace tnbp {
     for(size_t address=0; address < SiteIdx.size(); address++) {
       std::vector<int> BondIdx = GetSurroundingBondIndex(SiteIdx[address],I);
       for(size_t k=0; k < BondIdx.size(); k++) {
-	TenT T;
-	tci::copy(ctx,V[address],T);
+	TenT T = tci::copy(ctx,V[address]);
 	auto OrderV = tci::order(ctx,T);
 	for(size_t l=0; l < BondIdx.size(); l++) {
 	  if( l != k ) {
@@ -303,8 +300,7 @@ namespace tnbp {
 	    if( I[BondIdx[l]].first == SiteIdx[address] ) {
 	      EdgeAddress += num_e;
 	    }
-	    TenT F;
-	    tci::copy(ctx,E[EdgeAddress],F);
+	    TenT F = tci::copy(ctx,E[EdgeAddress]);
 	    List<BondLabelT> IdxE(2);
 	    List<BondLabelT> IdxV(OrderV);
 	    List<BondLabelT> IdxV_res(OrderV);
@@ -322,8 +318,7 @@ namespace tnbp {
 	std::cout << " belief propagation: Before physical contruction " << std::endl;
 #endif
 	
-	TenT C;
-	tci::copy(ctx,V[address],C);
+	TenT C = tci::copy(ctx,V[address]);
 	tci::cplx_conj(ctx,C);
 	List<BondLabelT> IdxV(OrderV);
 	List<BondLabelT> IdxC(OrderV);
@@ -343,16 +338,14 @@ namespace tnbp {
 	if( I[BondIdx[k]].second == SiteIdx[address] ) {
 	  EdgeAddress += num_e;
 	}
-	TenT F;
-	tci::copy(ctx,E[EdgeAddress],F);
+	TenT F = tci::copy(ctx,E[EdgeAddress]);
 	auto norm_f = tci::normalize(ctx,F);
 
 #ifdef BP_DEBUG
 	std::cout << " belief propagation: Before linear_combine " << std::endl;
 #endif
 
-	TenT D;
-	tci::linear_combine(ctx,{T,F},{ElemT(1.0),ElemT(-1.0)},D);
+	TenT D = tci::linear_combine<TenT>(ctx,{T,F},{ElemT(1.0),ElemT(-1.0)});
 	RealT NormD = tci::norm(ctx,D);
 	result_rank += NormD * result_volume;
 	

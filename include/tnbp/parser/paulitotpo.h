@@ -71,7 +71,7 @@ namespace tnbp {
 			  return coors[0]+shapeL[0]*coors[1];
 			});
 	if( k == 0 ) {
-	  tci::copy(ctx,local,opten);
+	  opten = tci::copy(ctx,local);
 	} else {
 	  OrderT order = tci::order(ctx,opten);
 	  List<BondLabelT> labelO(2*k);
@@ -88,11 +88,11 @@ namespace tnbp {
 	  labelL[1] = label++;
 	  std::iota(labelT.begin(),labelT.end(),0);
 	  tci::contract(ctx,opten,labelO,local,labelL,tempo,labelT);
-	  tci::copy(ctx,tempo,opten);
+	  opten = tci::copy(ctx,tempo);
 	}
       }
       *it_qubits++ = qubits;
-      tci::copy(ctx,opten,*it_tensor++);
+      *it_tensor++ = tci::copy(ctx,opten);
     }
   }
 	     
@@ -140,7 +140,7 @@ namespace tnbp {
     auto it_one_site = onesite.begin();
     auto it_one_tensor = onesite_tensor.begin();
     for(size_t i=0; i < onesite_address.size(); i++) {
-      tci::copy(ctx,tensor[onesite_address[i]],*it_one_tensor++);
+      *it_one_tensor++ = tci::copy(ctx,tensor[onesite_address[i]]);
       *it_one_site++ = qubits[onesite_address[i]][0];
     }
     auto it_two_site = twosite.begin();
@@ -148,8 +148,7 @@ namespace tnbp {
     for(size_t i=0; i < twosite_address.size(); i++) {
       *it_two_site++ = std::make_pair(qubits[twosite_address[i]][0],
 				      qubits[twosite_address[i]][1]);
-      tci::copy(ctx,tensor[twosite_address[i]],
-		*it_two_tensor++);
+      *it_two_tensor++ = tci::copy(ctx,tensor[twosite_address[i]]);
     }
   }
 		    
