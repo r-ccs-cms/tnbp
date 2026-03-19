@@ -74,7 +74,7 @@ namespace tnbp {
     tci::fill(ctx,BondDimE,static_cast<ElemT>(1.0),Eorig);
     E.resize(2*NumEdges);
     for(auto & Em : E) {
-      tci::copy(ctx,Eorig,Em);
+      Em = tci::copy(ctx,Eorig);
     }
     std::vector<int> Site_To_MpiRank_Vector(NumSites,0);
     std::vector<int> Site_To_MpiRank_Send(NumSites,0);

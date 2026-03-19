@@ -365,9 +365,9 @@ namespace tnbp {
 	  new_order_X[3] = static_cast<BondIdxT>(3);
 	  tci::transpose(ctx,X,new_order_X);
 	} else if ( i == 0 ) {
-	  tci::copy(ctx,A,X);
+	  X = tci::copy(ctx,A);
 	} else if ( i == path.size()-1 ) {
-	  tci::copy(ctx,B,X);
+	  X = tci::copy(ctx,B);
 	}
 	auto vb_a = GetSurroundingBondIndex(path[i],edges);
 	auto it_site_address_a = std::find(sites.begin(),sites.end(),path[i]);
@@ -598,12 +598,12 @@ namespace tnbp {
 	
 	TenT X;
 	if( path[i] == site_a ) {
-	  tci::copy(ctx,Ga,X);
+	  X = tci::copy(ctx,Ga);
 	} else if ( path[i] == site_b ) {
-	  tci::copy(ctx,Gb,X);
+	  X = tci::copy(ctx,Gb);
 	  ib = i;
 	} else if ( path[i] == site_c ) {
-	  tci::copy(ctx,Gc,X);
+	  X = tci::copy(ctx,Gc);
 	} else {
 	  if( i > ib ) {
 	    vdim = vdim_bc;
