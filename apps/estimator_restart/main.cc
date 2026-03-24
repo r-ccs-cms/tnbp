@@ -82,7 +82,7 @@ int main(int argc, char * argv[]) {
   std::vector<Tensor> F;
 
   if( !options.loadname.empty() ) {
-    std::string filename = make_rank_filename(options.loadname,mpi_rank);
+    std::string filename = tnbp::make_rank_filename(options.loadname,mpi_rank);
     std::ifstream ifs(filename,std::ios::binary);
     std::cout << " " << make_timestamp()
 	      << " Start loading of TPS data at rank " << mpi_rank << std::endl;
@@ -251,7 +251,7 @@ int main(int argc, char * argv[]) {
   }
 
   if( !options.savename.empty() ) {
-    std::string filename = make_rank_filename(options.savename,mpi_rank);
+    std::string filename = tnbp::make_rank_filename(options.savename,mpi_rank);
     std::ofstream ofs(filename,std::ios::binary);
     tnbp::SaveTPS(ctx,ofs,V,SiteIdx,Site_To_MpiRank,E,EdgeIdx);
   }
