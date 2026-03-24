@@ -1,42 +1,41 @@
-# Parallel TNO-TNS time-evolution code based on the belief propagation (ptnos-bp) for simulating the estimation of the expectation value of a sparse Pauli operator
+# Sample code for simulating the estimation of the expectation value of a sparse Pauli operator in the kicked-Ising model
 
 ## Overview
 
 This repository provides a simplified simulator that performs two-dimensional tensor network simulations based on belief propagation along a given device topology. The simulator takes as input
-1. a **QASM file** describing **a layer** of quantum circuit, and
+1. a **QASM file** describing the quantum circuit, and
 2. a **sparse Pauli operator file** for expectation value evaluation.
 By combining these inputs, the simulator computes expectation values of quantum observables for models such as the transeverse and longitudinal field Ising Hamiltonian.
 
 ## Contents
 
-- `ptnos-bp`
-  The simulator reads the above QASM files and sparse Pauli operator data, and then executes belief-propagation-based tensor-network-operator - tensor-network-state contraction-based time-evolving  simulations. Expectation values are computed as the final output.
+- `estimator`
+  The simulator reads the above QASM files and sparse Pauli operator data, and then executes belief-propagation-based two-dimensional tensor network simulations. Expectation values are computed as the final output.
   
 
 ## Installation
 
-The simulator is implemented on top of the TNBP library (git@github.com:r-ccs-cms/tnbp.git),
-which is written at the top of TCI (e.g., for **gqten** backend implementation, git@github.com:gracequantum/tensor-ng-dev.git).
+### 2. Estimator (c++ implementation)
+
+The simulator is implemented on top of the Tensor Computing Interface (TCI),
+which provides a unified API for tensor operations across different backends.
 
 In order to run, both of the following components are required:
 
-**(a) TCI interface** (`external/min-tci`)
-This repository includes `/external/tnbp/external/min-tci`, a header-only implementation of TCI that provides the interface layer required by the simulator.0
+**(a) TCI interface** (`external/minitci`)
+This repository includes `/external/minitci`, a header-only implementation of TCI that provides the interface layer required by the simulator.
 It is included directly in this repository, so no additional setup is required.
 
 **(b) Tensor backend** (`GraceQ/tensor-ng-dev`)
 The actual tensor computations are carried out by GraceQ/tensor-ng-dev.
-
-
-These libraries is included as a git submodule. To fetch it,
+This library is included as a git submodule. To fetch it,
 ```
 git submodule init
-git submodule update --init --recursive
+git submodule update
 ```
-This will place the source under `/external/tnbp` and `/external/tnbp/external/tensor-ng-dev`.
+This will place the source under `external/tensor-ng-dev/`
 
-**Installing GraceQ/tensor-ng-dev**
-Follow the official installation guide.
+**Installing GraceQ/tensor-ng-dev with the to-tci-release branch**
 Go to to-tci-relase branch home directory, and type the following command
 ```
 cmake -S . -B build \
@@ -83,13 +82,14 @@ We recommend keeping multiple configurations as commented-out blocks inside the 
 
 ## Usage
 
+### Estimator
 This program performs a real-space parallelized two-dimensional tensor network simulation based on belief propagation.
 It takes as input a QASM circuit file and a sparse Pauli operator file, and computes expectation values of observables on a given device topology.
 The simulation runs in parallel using MPI, so you should launch it with mpirun or mpiexec.
 
 **Example**:
 ```
-mpirun -np 4 ./ptnos-bp \
+mpirun -np 4 ./estimator \
   --backend ibm_kobe \
   --circuit circuit.qasm \
   --sparse_pauli hamiltonian.dat \
@@ -98,15 +98,29 @@ mpirun -np 4 ./ptnos-bp \
   --max_bond_dim 100 \
   --sv_min 1.0e-8 \
   --truncation_error 1.0e-8
+  --savename tnsdata
 ```
 
 **Options**:
-- `--backend <str>`: Target backend name (default: ibm_kobe).
-- `--circuit <str>`: Input QASM file describing the circuit (default: circuit.qasm).
-- `--sparse_pauli <str>`: Input file containing the sparse Pauli operator (default: sparsepauliop.txt).
-- `--measurement_barrier <list>`: Comma-separated list to perform the measurement calculation in a layer. If this list is not specified, we skip the measurement.
-- `--max_bp_iterations <int>`: Maximum number of belief propagation iterations (default: 50).
-- `--bp_tolerance <float>`: Convergence tolerance for belief propagation (default: 1.0e-4).
-- `--max_bond_dim <float>`: Maximum bond dimension 
-- `--sv_min <float>`: Minimum cutoff of singular value to define the safe inverse.
-- `--truncation_error <float>`: Target truncation error.
+- `--backend <str>`:
+  Target backend name (default: ibm_kobe).
+- `--circuit <str>`:
+  Input QASM file describing the circuit (default: circuit.qasm).
+- `--sparse_pauli <str>`:
+  Input file containing the sparse Pauli operator (default: sparsepauliop.txt).
+- `--num_gates <list>`:
+  Comma-separated list of the number of gates per layer (e.g., 4,4,4,4). If this list is not specified, the circuit automatically divides the Tensor Product Operator (TPO) into layers according to the barrier lines written in the QASM file.
+- `--max_bp_iterations <int>`:
+  Maximum number of belief propagation iterations (default: 50).
+- `--bp_tolerance <float>`:
+  Convergence tolerance for belief propagation (default: 1.0e-4).
+- `--max_bond_dim <float>`:
+  Maximum bond dimension 
+- `--sv_min <float>`:
+  Minimum cutoff of singular value to define the safe inverse.
+- `--truncation_error <float>`:
+  Target truncation error.
+- `--savename <str>`:
+  Filename to dump the tensor network state data
+- `--loadname <str>`:
+  Filename to load the tensor network state data for restart
