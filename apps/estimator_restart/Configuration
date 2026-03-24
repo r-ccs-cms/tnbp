@@ -1,0 +1,15 @@
+GQTEN_INCLUDE_FLAG="../../external/tnbp/external/tensor-ng-dev/Source/gqten/include"
+HPTT_INCLUDE_FLAG="../../external/tnbp/external/tensor-ng-dev/Source/gqten/ext/hptt/include"
+TCI_INCLUDE_FLAG="../../external/tnbp/external/min-tci/include"
+TNBP_INCLUDE_FLAG="../../external/tnbp/include"
+HPTT_LINK_FLAG="../../external/tnbp/external/tensor-ng-dev/build/Source/gqten/ext/hptt/"
+
+# c++ compiler
+CCCOM=mpicxx
+
+# flags for compile: include path to openmp, tci for gqten, gqten, hptt.  The following is the case using homebrew's llvm on Mac
+CXX_FLAGS=-std=c++17 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3 -I${TCI_INCLUDE_FLAG} -I${GQTEN_INCLUDE_FLAG} -I${HPTT_INCLUDE_FLAG} -I${TNBP_INCLUDE_FLAG}
+
+# flags for linking
+LIB_FLAGS=-L${HPTT_LINK_FLAG} -lhptt -L/opt/homebrew/opt/openblas/lib -llapack -lblas
+
