@@ -73,7 +73,7 @@ namespace tnbp {
 			 const std::vector<int> & EdgeIdx,
 			 MPI_Comm comm,
 			 std::vector<TenT> & F) {
-
+    
     using ElemT = typename tci::tensor_traits<TenT>::elem_t;
     using RealT = typename tci::tensor_traits<TenT>::real_t;
     using BondLabelT  = typename tci::tensor_traits<TenT>::bond_label_t;
