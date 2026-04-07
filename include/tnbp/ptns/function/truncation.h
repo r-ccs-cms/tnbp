@@ -27,7 +27,8 @@ namespace tnbp {
 		  real_t<TenT> eps,
 		  real_t<TenT> err,
 		  std::vector<bond_dim_t<TenT>> & res_bond_dim,
-		  std::vector<real_t<TenT>> & res_trunc_err) {
+		  std::vector<real_t<TenT>> & res_trunc_err,
+		  std::vector<real_t<TenT>> * site_norms = nullptr) {
     
     using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
     using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
@@ -119,6 +120,7 @@ namespace tnbp {
 	IdxRR[1] = static_cast<BondLabelT>(1);
 	tci::contract(ctx,Ra,IdxRa,Rb,IdxRb,T,IdxRR);
 	auto norm_t = tci::normalize(ctx,T);
+	if (site_norms) site_norms->push_back(norm_t);
 
 	TenT X;
 	TenT Y;
@@ -183,6 +185,7 @@ namespace tnbp {
 	  tci::contract(ctx,V[site_address_a],IdxA,T,IdxT,
 			V[site_address_a],IdxC);
 	  auto norm_a = tci::normalize(ctx,V[site_address_a]);
+	  if (site_norms) site_norms->push_back(norm_a);
 	}
 
 	if( mpi_type == 1 || mpi_type == 3 ) {
@@ -214,6 +217,7 @@ namespace tnbp {
 	  tci::contract(ctx,T,IdxT,V[site_address_b],IdxB,
 			V[site_address_b],IdxC);
 	  auto norm_b = tci::normalize(ctx,V[site_address_b]);
+	  if (site_norms) site_norms->push_back(norm_b);
 	}
       }
     }
