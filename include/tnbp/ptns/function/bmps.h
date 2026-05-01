@@ -116,15 +116,16 @@ namespace tnbp {
 	  bond_type[k] = 1;
 	}
       }
-      auto it_type_zero = std::find(bond_type.begin(),
-				    bond_type.end(),
-				    0);
+      auto rit_type_zero = std::find(bond_type.rbegin(),
+				     bond_type.rend(),
+				     0);
       auto it_type_one  = std::find(bond_type.begin(),
 				    bond_type.end(),
 				    1);
       size_t target_bond_index;
       IntT target_edge_adrs;
-      if( it_type_zero != bond_type.end() ) {
+      if( rit_type_zero != bond_type.rend() ) {
+	auto it_type_zero = rit_type_zero.base()-1;
 	auto target_bond_index = std::distance(bond_type.begin(),
 					       it_type_zero);
 	target_edge_adrs = bond_in[target_bond_index];
