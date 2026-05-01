@@ -33,46 +33,81 @@ namespace tnbp {
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
     std::size_t min_adrs_line_in = 0;
     std::size_t max_adrs_line_in = (line_in.size()>0) ? (line_in.size()-1) : 0;
+    auto edges_orig = edges;
     for(std::size_t adrs_line_in = min_adrs_line_in;
 	adrs_line_in <= max_adrs_line_in;
 	++adrs_line_in) {
       auto site_in = line_in[adrs_line_in];
-      auto bond_in = GetSurroundingBondIndex(site_in,edges);
-      std::vector<IntT> bond_type(bond_in.size(),2);
-      for(size_t k=0; k < bond_in.size(); k++) {
-	auto site_a = edges[bond_in[k]].first;
-	auto site_b = edges[bond_in[k]].second;
+      auto bond_orig = GetSurroundingBondIndex(site_in,edges_orig);
+      std::vector<IntT> bond_otype(bond_orig.size(),2);
+      for(std::size_t k=0; k < bond_orig.size(); k++) {
+	auto site_a = edges_orig[bond_orig[k]].first;
+	auto site_b = edges_orig[bond_orig[k]].second;
 	auto site_next = (site_a == site_in) ? site_b : site_a;
 	auto it_is_zero = std::find(line_out.begin(),
-				    line_out.end(),
-				    site_next);
-	auto it_is_one  = std::find(line_in.begin(),
-				    line_in.end(),
-				    site_next);
+					line_out.end(),
+					site_next);
 	if( it_is_zero != line_out.end() ) {
-	  bond_type[k] = 0;
-	}
-	if( it_is_one  != line_in.end() ) {
-	  bond_type[k] = 1;
+	  bond_otype[k] = 0;
 	}
       }
-      auto rit_type_zero = std::find(bond_type.rbegin(),
-				    bond_type.rend(),
-				    0);
-      auto it_type_one  = std::find(bond_type.begin(),
-				    bond_type.end(),
-				    1);
-      size_t target_bond_index;
+      auto it_otype_zero = std::find(bond_otype.begin(),
+				     bond_otype.end(),
+				     0);
+      auto bond_in = GetSurroundingBondIndex(site_in,edges);
       IntT target_edge_adrs;
-      if( rit_type_zero != bond_type.rend() ) {
-	auto it_type_zero = rit_type_zero.base()-1;
-	auto target_bond_index = std::distance(bond_type.begin(),
-					       it_type_zero);
+      if( it_otype_zero != bond_otype.end() ) {
+	auto k_orig = std::distance(bond_otype.begin(),
+				    it_otype_zero);
+	auto site_orig_a = edges_orig[bond_orig[k_orig]].first;
+	auto site_orig_b = edges_orig[bond_orig[k_orig]].second;
+	auto site_orig_next = (site_orig_a == site_in) ? site_orig_b : site_orig_a;
+	std::size_t target_bond_index;
+	for(std::size_t k=0; k < bond_in.size(); k++) {
+	  auto site_a = edges[bond_in[k]].first;
+	  auto site_b = edges[bond_in[k]].second;
+	  auto site_next = (site_a == site_in) ? site_b : site_a;
+	  if( site_next == site_orig_next ) {
+	    target_bond_index = k;
+	    break;
+	  }
+	}
 	target_edge_adrs = bond_in[target_bond_index];
-      } else if (it_type_one != bond_type.end()) {
-	auto target_bond_index = std::distance(bond_type.begin(),
-					       it_type_one);
-	target_edge_adrs = bond_in[target_bond_index];
+      } else {
+	std::vector<IntT> bond_type(bond_in.size(),2);
+	for(std::size_t k=0; k < bond_in.size(); k++) {
+	  auto site_a = edges[bond_in[k]].first;
+	  auto site_b = edges[bond_in[k]].second;
+	  auto site_next = (site_a == site_in) ? site_b : site_a;
+	  auto it_is_zero = std::find(line_out.begin(),
+				      line_out.end(),
+				      site_next);
+	  auto it_is_one  = std::find(line_in.begin(),
+				      line_in.end(),
+				      site_next);
+	  if( it_is_zero != line_out.end() ) {
+	    bond_type[k] = 0;
+	  }
+	  if( it_is_one  != line_in.end() ) {
+	    bond_type[k] = 1;
+	  }
+	}
+	auto it_type_zero = std::find(bond_type.begin(),
+				       bond_type.end(),
+				       0);
+	auto it_type_one  = std::find(bond_type.begin(),
+				      bond_type.end(),
+				      1);
+	size_t target_bond_index;
+	if( it_type_zero != bond_type.end() ) {
+	  auto target_bond_index = std::distance(bond_type.begin(),
+						 it_type_zero);
+	  target_edge_adrs = bond_in[target_bond_index];
+	} else if (it_type_one != bond_type.end()) {
+	  auto target_bond_index = std::distance(bond_type.begin(),
+						 it_type_one);
+	  target_edge_adrs = bond_in[target_bond_index];
+	}
       }
       auto site_a = edges[target_edge_adrs].first;
       auto site_b = edges[target_edge_adrs].second;
@@ -93,46 +128,81 @@ namespace tnbp {
   void bmps_increment_line_for_edges(const std::vector<IntT> & line_in,
 				     const std::vector<IntT> & line_out,
 				     std::vector<std::pair<IntT,IntT>> & edges) {
+    auto edges_orig = edges;
     for(size_t adrs_line_in=0;
 	adrs_line_in < line_in.size();
 	++adrs_line_in) {
       auto site_in = line_in[adrs_line_in];
-      auto bond_in = GetSurroundingBondIndex(site_in,edges);
-      std::vector<IntT> bond_type(bond_in.size(),2);
-      for(size_t k=0; k < bond_in.size(); k++) {
-	auto site_a = edges[bond_in[k]].first;
-	auto site_b = edges[bond_in[k]].second;
+      auto bond_orig = GetSurroundingBondIndex(site_in,edges_orig);
+      std::vector<IntT> bond_otype(bond_orig.size(),2);
+      for(std::size_t k=0; k < bond_orig.size(); k++) {
+	auto site_a = edges_orig[bond_orig[k]].first;
+	auto site_b = edges_orig[bond_orig[k]].second;
 	auto site_next = (site_a == site_in) ? site_b : site_a;
 	auto it_is_zero = std::find(line_out.begin(),
-				    line_out.end(),
-				    site_next);
-	auto it_is_one  = std::find(line_in.begin(),
-				    line_in.end(),
-				    site_next);
+					line_out.end(),
+					site_next);
 	if( it_is_zero != line_out.end() ) {
-	  bond_type[k] = 0;
-	}
-	if( it_is_one  != line_in.end() ) {
-	  bond_type[k] = 1;
+	  bond_otype[k] = 0;
 	}
       }
-      auto rit_type_zero = std::find(bond_type.rbegin(),
-				     bond_type.rend(),
+      auto it_otype_zero = std::find(bond_otype.begin(),
+				     bond_otype.end(),
 				     0);
-      auto it_type_one  = std::find(bond_type.begin(),
-				    bond_type.end(),
-				    1);
-      size_t target_bond_index;
+      auto bond_in = GetSurroundingBondIndex(site_in,edges);
       IntT target_edge_adrs;
-      if( rit_type_zero != bond_type.rend() ) {
-	auto it_type_zero = rit_type_zero.base()-1;
-	auto target_bond_index = std::distance(bond_type.begin(),
-					       it_type_zero);
+      if( it_otype_zero != bond_otype.end() ) {
+	auto k_orig = std::distance(bond_otype.begin(),
+				    it_otype_zero);
+	auto site_orig_a = edges_orig[bond_orig[k_orig]].first;
+	auto site_orig_b = edges_orig[bond_orig[k_orig]].second;
+	auto site_orig_next = (site_orig_a == site_in) ? site_orig_b : site_orig_a;
+	std::size_t target_bond_index;
+	for(std::size_t k=0; k < bond_in.size(); k++) {
+	  auto site_a = edges[bond_in[k]].first;
+	  auto site_b = edges[bond_in[k]].second;
+	  auto site_next = (site_a == site_in) ? site_b : site_a;
+	  if( site_next == site_orig_next ) {
+	    target_bond_index = k;
+	    break;
+	  }
+	}
 	target_edge_adrs = bond_in[target_bond_index];
-      } else if (it_type_one != bond_type.end()) {
-	auto target_bond_index = std::distance(bond_type.begin(),
-					       it_type_one);
-	target_edge_adrs = bond_in[target_bond_index];
+      } else {
+	std::vector<IntT> bond_type(bond_in.size(),2);
+	for(std::size_t k=0; k < bond_in.size(); k++) {
+	  auto site_a = edges[bond_in[k]].first;
+	  auto site_b = edges[bond_in[k]].second;
+	  auto site_next = (site_a == site_in) ? site_b : site_a;
+	  auto it_is_zero = std::find(line_out.begin(),
+				      line_out.end(),
+				      site_next);
+	  auto it_is_one  = std::find(line_in.begin(),
+				      line_in.end(),
+				      site_next);
+	  if( it_is_zero != line_out.end() ) {
+	    bond_type[k] = 0;
+	  }
+	  if( it_is_one  != line_in.end() ) {
+	    bond_type[k] = 1;
+	  }
+	}
+	auto it_type_zero = std::find(bond_type.begin(),
+				       bond_type.end(),
+				       0);
+	auto it_type_one  = std::find(bond_type.begin(),
+				      bond_type.end(),
+				      1);
+	size_t target_bond_index;
+	if( it_type_zero != bond_type.end() ) {
+	  auto target_bond_index = std::distance(bond_type.begin(),
+						 it_type_zero);
+	  target_edge_adrs = bond_in[target_bond_index];
+	} else if (it_type_one != bond_type.end()) {
+	  auto target_bond_index = std::distance(bond_type.begin(),
+						 it_type_one);
+	  target_edge_adrs = bond_in[target_bond_index];
+	}
       }
       auto site_a = edges[target_edge_adrs].first;
       auto site_b = edges[target_edge_adrs].second;
