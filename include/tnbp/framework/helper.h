@@ -180,17 +180,7 @@ namespace tnbp {
 		k++;
 	      }
 	    }
-	    std::cout << " transpose label for site " << site_a << " in gtc: ";
-	    for(const auto & lb : new_label_c) {
-	      std::cout << " " << lb;
-	    }
-	    std::cout << std::endl;
 	    tci::transpose(ctx,W[adrs_c],new_label_c);
-	    std::cout << " reshape shape for site " << site_a << " in gtc: ";
-	    for(const auto & lb : new_shape_c) {
-	      std::cout << " " << lb;
-	    }
-	    std::cout << std::endl;
 	    tci::reshape(ctx,W[adrs_c],new_shape_c);
 	    // remove bp_edge_label from bond_c
 	    bond_c.erase(it_bp_bond_idx);
@@ -224,17 +214,7 @@ namespace tnbp {
 		k++;
 	      }
 	    }
-	    std::cout << " transpose label for site " << site_p << " in gtc: ";
-	    for(const auto & lb : new_label_p) {
-	      std::cout << " " << lb;
-	    }
-	    std::cout << std::endl;
 	    tci::transpose(ctx,W[adrs_p],new_label_p);
-	    std::cout << " reshape shape for site " << site_p << " in gtc: ";
-	    for(const auto & lb : new_shape_p) {
-	      std::cout << " " << lb;
-	    }
-	    std::cout << std::endl;
 	    tci::reshape(ctx,W[adrs_p],new_shape_p);
 	  }
 	  // erase corresponding bp_bond_label

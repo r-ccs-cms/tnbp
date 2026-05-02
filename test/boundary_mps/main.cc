@@ -84,10 +84,11 @@ int main(int argc, char * argv[]) {
 	site_idx_bmps.push_back(site_i);
       }
     }
-    std::cout << " I plan to use increment of bmps at line " << line_idx << std::endl;
     if( line_idx > min_line_idx ) {
       std::vector<Tensor> E_bmps;
       std::vector<int> edge_idx_bmps;
+      std::vector<BondDim> res_bond_dim;
+      std::vector<Real> res_trunc_err;
       tnbp::bmps_increment_line(ctx,lines[line_idx-1],lines[line_idx],
 				edges_bmps,T_bmps,site_idx_bmps,
 				site_to_mpi_rank_bmps,
@@ -101,6 +102,8 @@ int main(int argc, char * argv[]) {
 			       options.bmps_bond_dim,
 			       options.bmps_sv_min,
 			       options.bmps_tg_err,
+			       res_bond_dim,
+			       res_trunc_err,
 			       comm,true);
       // output edges
       if( mpi_rank == 0 ) {
