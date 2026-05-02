@@ -9,9 +9,6 @@
 #include "mpi.h"
 
 #include "tnbp/tnbp.h"
-#include "tnbp/framework/graph.h"
-#include "tnbp/framework/helper.h"
-#include "tnbp/ptns/function/bmps.h"
 
 #include "typedef.h"
 #include "timestamp.h"

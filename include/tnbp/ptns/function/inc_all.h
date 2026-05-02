@@ -12,6 +12,7 @@
 #include "tnbp/ptns/function/truncation.h"
 #include "tnbp/ptns/function/measure.h"
 #include "tnbp/ptns/function/optsvdtpo.h"
+#include "tnbp/ptns/function/bmps.h"
 
 #include "tnbp/ptns/function/iotps.h"
 
