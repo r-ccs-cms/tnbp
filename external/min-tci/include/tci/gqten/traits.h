@@ -59,7 +59,7 @@ namespace tci {
     using order_t = int32_t;
     using shape_t = std::vector<int32_t>;
     using bond_dim_t = int32_t;
-    using bond_idx_t = size_t;
+    using bond_idx_t = int32_t;
     using bond_label_t = int32_t;
     using ten_size_t = size_t;
     using elem_t = double;

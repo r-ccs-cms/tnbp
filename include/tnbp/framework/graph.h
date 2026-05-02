@@ -6,8 +6,6 @@
 
 #include <vector>
 #include <queue>
-
-#include <vector>
 #include <utility>
 #include <set>
 #include <unordered_set>
@@ -17,6 +15,95 @@
 
 namespace tnbp {
 
+  /**
+     Definition of regulated edges
+  */
+  template <typename IntT>
+  std::pair<IntT, IntT> make_edge(IntT u, IntT v) {
+    if (u > v) std::swap(u, v);
+    return {u, v};
+  }
+  
+  template <typename IntT>
+  constexpr bool same_edge(const std::pair<IntT,IntT>& a, const std::pair<IntT,IntT>& b) {
+    return make_edge(a.first, a.second) == make_edge(b.first, b.second);
+  }
+
+  template <typename IntT>
+  auto find_edge(std::vector<std::pair<IntT,IntT>>& edges, IntT u, IntT v) {
+    std::pair<IntT,IntT> target = make_edge(u, v);
+    return std::find_if(edges.begin(), edges.end(),
+        [&](const auto& e) {
+            return make_edge(e.first, e.second) == target;
+        });
+  }
+
+  template <typename IntT>
+  auto find_edge(const std::vector<std::pair<IntT,IntT>>& edges, IntT u, IntT v) {
+    std::pair<IntT,IntT> target = make_edge(u, v);
+    return std::find_if(edges.begin(), edges.end(),
+			[&](const auto& e) {
+			  return make_edge(e.first, e.second) == target;
+			});
+  }
+
+  template <typename IntT>
+  bool contains_edge(const std::vector<std::pair<IntT,IntT>>& edges, IntT u, IntT v) {
+    return find_edge(edges, u, v) != edges.end();
+  }
+
+  template <typename IntT>
+  bool add_edge(std::vector<std::pair<IntT,IntT>>& edges, IntT u, IntT v) {
+    edges.push_back(make_edge(u, v));
+    return true;
+  }
+
+  template <typename IntT>
+  bool add_edge_if_absent(std::vector<std::pair<IntT,IntT>>& edges, IntT u, IntT v) {
+    std::pair<IntT,IntT> e = make_edge(u, v);
+    if (std::find(edges.begin(), edges.end(), e) != edges.end()) return false;
+    edges.push_back(e);
+    return true;
+  }
+
+  template <typename IntT>
+  bool erase_edge(std::vector<std::pair<IntT,IntT>>& edges, IntT u, IntT v) {
+    auto it = find_edge(edges, u, v);
+    if (it == edges.end()) return false;
+    edges.erase(it);
+    return true;
+  }
+
+  template <typename IntT>
+  std::size_t erase_all_edges(std::vector<std::pair<IntT,IntT>>& edges, IntT u, IntT v) {
+    std::pair<IntT,IntT> e = make_edge(u, v);
+    auto old_size = edges.size();
+    edges.erase(std::remove(edges.begin(), edges.end(), e), edges.end());
+    return old_size - edges.size();
+  }
+
+  template <typename IntT>
+  constexpr void normalize_edge(std::pair<IntT, IntT>& e) {
+    if (e.second < e.first) std::swap(e.first, e.second);
+  }
+
+  template <typename IntT>
+  void normalize_edges(std::vector<std::pair<IntT, IntT>>& edges) {
+    for (auto& e : edges) {
+      normalize_edge(e);
+    }
+  }
+
+  template <typename IntT>
+  void normalize_and_unique_edges(std::vector<std::pair<IntT, IntT>>& edges) {
+    for (auto& e : edges) {
+      normalize_edge(e);
+    }
+    std::sort(edges.begin(), edges.end());
+    edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
+  }
+  
+  
   /**
      Function to extract sites from edges/bonds
    */
@@ -423,6 +510,118 @@ namespace tnbp {
     return inter_edges;
   }
 
+  /**
+   * @brief Extract a subset of edges connected to a given set of sites.
+   *
+   * This function scans the input edge list `edges` and extracts all edges
+   * that are incident to at least one vertex contained in `sites`.
+   *
+   * More precisely, for each edge (i,j) in `edges`, the edge is included
+   * in the output if either i in sites or j in sites.
+   *
+   * The order of edges in the returned vector is preserved from the original
+   * `edges` array. That is, if the extracted edges correspond to indices
+   * m_1, m_2, ..., m_K in `edges`, then m_1 < m_2 < ... < m_K holds.
+   *
+   * @tparam IntT Integer type used for vertex labels.
+   *
+   * @param[in] edges
+   *    List of edges represented as pairs (i,j), where i and j are vertex labels.
+   *
+   * @param[in] sites
+   *    Subset of vertex labels. Edges connected to any of these vertices
+   *    will be extracted.
+   *
+   * @return std::vector<std::pair<IntT,IntT>>
+   *    A vector containing all edges from `edges` that are incident to at least
+   *    one vertex in `sites`, preserving the original order.
+   *
+   * @note
+   *    The membership test for `sites` is internally accelerated using
+   *    std::unordered_set, resulting in average O(1) lookup time.
+   *
+   * @complexity
+   *    Time complexity is O(|edges|+|sites|) on average.
+   *
+   * @warning
+   *    This function selects edges where *at least one* endpoint is in `sites`.
+   *    If you need edges where *both* endpoints are in `sites`, the condition
+   *    should be modified accordingly.
+   * 
+   */
+  template <typename IntT>
+  std::vector<std::pair<IntT,IntT>>
+  extract_incident_edges(const std::vector<std::pair<IntT,IntT>> & edges,
+			 const std::vector<IntT> & sites) {
+    std::unordered_set<IntT> site_set(sites.begin(),sites.end());
+    std::vector<std::pair<IntT,IntT>> subedges;
+    subedges.reserve(edges.size());
+    for(const auto & e : edges) {
+      if (site_set.count(e.first) || site_set.count(e.second)) {
+	subedges.push_back(e);
+      }
+    }
+    return subedges;
+  }
+
+  /**
+   * @brief Extract edges whose both endpoints are contained in a given set of sites.
+   *
+   * This function scans the input edge list `edges` and extracts all edges
+   * whose two endpoints are both contained in `sites`.
+   *
+   * More precisely, for each edge (i, j) in `edges`, the edge is included
+   * in the output if both i ∈ sites and j ∈ sites.
+   *
+   * The order of edges in the returned vector is preserved from the original
+   * `edges` array. That is, if the extracted edges correspond to indices
+   * m₁, m₂, ..., m_K in `edges`, then m₁ < m₂ < ... < m_K holds.
+   *
+   * @tparam IntT Integer type used for vertex labels.
+   *
+   * @param[in] edges
+   *   List of edges represented as pairs (i, j), where i and j are vertex labels.
+   *
+   * @param[in] sites
+   *   Subset of vertex labels. Edges whose both endpoints are contained in
+   *   this subset will be extracted.
+   *
+   * @return std::vector<std::pair<IntT, IntT>>
+   *   A vector containing all edges from `edges` whose both endpoints are in
+   *   `sites`, preserving the original order.
+   *
+   * @note
+   *   This corresponds to extracting the edge set of the subgraph induced by
+   *   `sites`, assuming `edges` represents the edge set of the original graph.
+   *
+   * @note
+   *   The membership test for `sites` is internally accelerated using
+   *   std::unordered_set, resulting in average O(1) lookup time.
+   *
+   * @complexity
+   *   Time complexity is O(|edges| + |sites|) on average.
+   *
+   * @warning
+   *   This function selects edges where *both* endpoints are in `sites`.
+   *   If you need edges where *at least one* endpoint is in `sites`, use
+   *   `extract_incident_edges` instead.
+   */
+  template <typename IntT>
+  std::vector<std::pair<IntT, IntT>>
+  extract_induced_edges(const std::vector<std::pair<IntT, IntT>>& edges,
+			const std::vector<IntT>& sites) {
+    std::unordered_set<IntT> site_set(sites.begin(), sites.end());
+    
+    std::vector<std::pair<IntT, IntT>> subedges;
+    subedges.reserve(edges.size());
+    
+    for (const auto& e : edges) {
+      if (site_set.count(e.first) && site_set.count(e.second)) {
+	subedges.push_back(e);
+      }
+    }
+    return subedges;
+  }
   
   
 }

@@ -1,0 +1,14 @@
+# honeycomb lattice, open boundary
+# La = 2
+# Lb = 2
+# n_sites = 8
+# n_edges = 8
+# format: u v
+0 1
+1 2
+1 4
+2 3
+3 6
+4 5
+5 6
+6 7

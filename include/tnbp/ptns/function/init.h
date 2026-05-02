@@ -111,6 +111,77 @@ namespace tnbp {
 			   W.Site_To_MpiRank_,
 			   E,EdgeIdx,W.comm_);
   }
+
+  /**
+     @brief Initializer for the messenger tensor for edges
+   */
+  template <typename TenT, typename IntT>
+  void init_edge_messenger_tensors(context_handle_t<TenT> & ctx,
+				   const std::vector<std::pair<IntT,IntT>> & edges,
+				   const std::vector<TenT> & V,
+				   const std::vector<IntT> & site_idx,
+				   const std::map<IntT,IntT> & site_to_mpi_rank,
+				   std::vector<TenT> & E,
+				   std::vector<IntT> & edge_idx,
+				   MPI_Comm comm) {
+    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
+    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
+
+    int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
+    int mpi_size; MPI_Comm_size(comm,&mpi_size);
+    
+    edge_idx.resize(0);
+    E.resize(0);
+    for(auto const & site : site_idx) {
+      auto bonds = GetSurroundingBondIndex(site,edges);
+      for(auto const & m : bonds) {
+	edge_idx.push_back(m);
+      }
+    }
+    std::sort(edge_idx.begin(),edge_idx.end());
+    edge_idx.erase(std::unique(edge_idx.begin(),edge_idx.end()),edge_idx.end());
+    auto num_edges = edge_idx.size();
+    E.resize(2*num_edges);
+
+    // define bond dim from the site_a vertex tensor
+    for(std::size_t edge_adrs=0;
+	edge_adrs < num_edges;
+	edge_adrs++) {
+      auto site_a = edges[edge_idx[edge_adrs]].first;
+      auto site_b = edges[edge_idx[edge_adrs]].second;
+      int mpi_type = 0;
+      auto mpi_rank_a = site_to_mpi_rank.at(site_a);
+      auto mpi_rank_b = site_to_mpi_rank.at(site_b);
+      if( mpi_rank_a == mpi_rank ) {
+	mpi_type += 2;
+      }
+      if( mpi_rank_b == mpi_rank ) {
+	mpi_type += 1;
+      }
+      if( mpi_type == 2 || mpi_type == 3 ) {
+	auto it_site_adrs = std::find(site_idx.begin(),site_idx.end(),
+				      site_a);
+	auto site_adrs = std::distance(site_idx.begin(),it_site_adrs);
+	auto shape_v = tci::shape(ctx,V[site_adrs]);
+	auto bond = GetSurroundingBondIndex(site_a,edges);
+	auto it_target_bond = std::find(bond.begin(),bond.end(),edge_idx[edge_adrs]);
+	auto target_bond = std::distance(bond.begin(),it_target_bond);
+	tci::eye(ctx,shape_v[target_bond],E[edge_adrs]);
+	tci::eye(ctx,shape_v[target_bond],E[edge_adrs+num_edges]);
+      } else if ( mpi_type == 1 ) {
+	auto it_site_adrs = std::find(site_idx.begin(),site_idx.end(),
+				      site_b);
+	auto site_adrs = std::distance(site_idx.begin(),it_site_adrs);
+	auto shape_v = tci::shape(ctx,V[site_adrs]);
+	auto bond = GetSurroundingBondIndex(site_b,edges);
+	auto it_target_bond = std::find(bond.begin(),bond.end(),edge_idx[edge_adrs]);
+	auto target_bond = std::distance(bond.begin(),it_target_bond);
+	tci::eye(ctx,shape_v[target_bond],E[edge_adrs]);
+	tci::eye(ctx,shape_v[target_bond],E[edge_adrs+num_edges]);
+      }
+    }
+  }
+  
 }
 
 #endif
