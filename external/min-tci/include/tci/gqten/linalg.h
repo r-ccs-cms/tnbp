@@ -671,12 +671,19 @@ namespace tci {
     const char uplo = 'U';
     size_t n = 0;
     gqten::EigHerm(&a,ldims,pw,pv,&n,jobz,uplo);
-    w_diag = gqten::tensor<RealT>({n},pw);
+    // The eigenvector count comes back as size_t; the shape element type is
+    // narrower, so the conversion must be explicit to compile under strict
+    // narrowing rules. The assert documents the representable-dimension
+    // limit and catches an oversized n in debug builds (release builds
+    // compile it out).
+    assert(n <= static_cast<size_t>(std::numeric_limits<bond_dim_t<TenT>>::max()));
+    auto n_bd = static_cast<bond_dim_t<TenT>>(n);
+    w_diag = gqten::tensor<RealT>({n_bd},pw);
     ShapeT shape_v(static_cast<size_t>(num_of_bonds_as_rows)+1);
     for(size_t k=0; k < ldims; k++) {
       shape_v[k] = shape_a[k];
     }
-    shape_v[ldims] = n;
+    shape_v[ldims] = n_bd;
     v = TenT(shape_v,pv);
   }
 
