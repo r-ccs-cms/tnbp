@@ -11,9 +11,11 @@
 // the code under test. Both the complex and the real tensor instantiations
 // are exercised (the latter with a real orthogonal W).
 
-#include <complex>
+#include <algorithm>
 #include <cmath>
+#include <complex>
 #include <iostream>
+#include <type_traits>
 #include <string>
 #include <vector>
 
