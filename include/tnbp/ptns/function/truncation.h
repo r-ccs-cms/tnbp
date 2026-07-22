@@ -165,8 +165,9 @@ namespace tnbp {
 	  E[edge_address] = tci::copy(ctx,Z);
 	  E[edge_address+num_e] = tci::copy(ctx,Z);
 
-	  // Preserve the site_norms push order the cross-rank dedup expects:
-	  // norm_t (dropped for mpi_type==1) then norm_b.
+	  // Record norm_t (the authoritative rank's value) then norm_b, keeping
+	  // the two-entries-per-seam order the consumer's cross-rank norm dedup
+	  // relies on; that dedup discards this mpi_type==1 norm_t downstream.
 	  if (site_norms) site_norms->push_back(recv_norm_t);
 	  apply_factor_to_site(site_b,bond_address_b,Mb,/*factor_first=*/true);
 	  continue; // seam handled from the authoritative rank's result
@@ -207,9 +208,11 @@ namespace tnbp {
 	res_bond_dim[edge_address] = shape_s[0];
 	res_trunc_err[edge_address] = trunc_err;
 	// Snapshot the pristine spectrum before the in-place sqrt below overwrites
-	// S; the authoritative rank ships it so the receiver can rebuild
-	// diag(spectrum) for its E slots (used only on the cross-rank send path).
-	RealTenT spec = tci::copy(ctx_r,S);
+	// S, but only on the cross-rank sender: it ships the spectrum so the
+	// receiver can rebuild diag(spectrum) for its E slots. Intra-rank and
+	// single-rank edges never send, so they skip this copy in the hot loop.
+	RealTenT spec;
+	if( cross_rank && mpi_type == 2 ) spec = tci::copy(ctx_r,S);
 	TenT Z;
 	TenT P;
 	if constexpr (std::is_same_v<TenT,RealTenT>) {
