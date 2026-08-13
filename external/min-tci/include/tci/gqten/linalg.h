@@ -589,8 +589,8 @@ namespace tci {
     size_t chi;
     gqten::TruncSVD(&a,static_cast<size_t>(num_of_bonds_as_rows),
                     static_cast<RealT>(target_trunc_err),
-                    static_cast<size_t>(chi_max),
                     static_cast<size_t>(chi_min),
+                    static_cast<size_t>(chi_max),
                     &u,&v_dag,ps_raw,&chi,&trunc_err,s_min);
     s_diag = gqten::tensor<RealT>({static_cast<int32_t>(chi)},ps_raw);
   }
