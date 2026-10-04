@@ -21,35 +21,34 @@ namespace tnbp {
 		  int lb,
 		  TenT & S) {
 
-    using BondLabelT  = typename tci::tensor_traits<TenT>::bond_label_t;
-    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
-    using RealT = typename tci::tensor_traits<TenT>::real_t;
-    using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
-    using OrderT = typename tci::tensor_traits<TenT>::order_t;
-    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
-    using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
-    using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
+    using BondLabelT  = typename tcapi::tensor_traits<TenT>::bond_label_t;
+    using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
+    using RealT = typename tcapi::tensor_traits<TenT>::real_t;
+    using RealTenT = typename tcapi::tensor_traits<TenT>::real_ten_t;
+    using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
+    using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
+    using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
+    using CtxR = typename tcapi::tensor_traits<RealTenT>::context_handle_t;
     CtxR ctx_r;
-    tci::create_context(ctx_r);
+    tcapi::create_context(ctx_r);
 
     TenT U;
     TenT V;
     RealTenT E;
     OrderT lb_rt = static_cast<OrderT>(lb);
 
-    tci::svd(ctx,T,lb_rt,U,E,V);
-    tci::for_each(ctx_r,E,[](auto & elem){ elem = std::sqrt(elem); });
+    tcapi::svd(ctx,T,lb_rt,U,E,V);
+    tcapi::for_each(ctx_r,E,[](auto & elem){ elem = std::sqrt(elem); });
     TenT D;
     if constexpr (std::is_same_v<TenT,RealTenT>) {
-      tci::move(ctx_r,E,D);
+      D = tcapi::move(ctx_r,E);
     } else {
-      D = tci::to_cplx(ctx_r,E);
+      D = tcapi::to_cplx(ctx_r,E);
     }
-    tci::diag(ctx,D);
 
-    auto order_U = tci::order(ctx,U);
-    auto order_V = tci::order(ctx,V);
-    auto order_D = tci::order(ctx,D);
+    auto order_U = tcapi::order(ctx,U);
+    auto order_V = tcapi::order(ctx,V);
+    auto order_D = tcapi::order(ctx,D);
     auto Idx_U = List<BondLabelT>(order_U);
     auto Idx_V = List<BondLabelT>(order_V);
     auto Idx_D = List<BondLabelT>(order_D);
@@ -57,12 +56,16 @@ namespace tnbp {
     Idx_U[order_U-1] = -1;
     Idx_D[0] = -1;
     Idx_D[1] = order_U-1;
-    tci::contract(ctx,U,Idx_U,D,Idx_D,U);
+    auto Idx_O = List<BondLabelT>(order_U);
+    std::iota(Idx_O.begin(),Idx_O.end(),0);
+    tcapi::contract(ctx,U,Idx_U,D,Idx_D,U,Idx_O);
     std::iota(Idx_U.begin(),Idx_U.end(),0);
-    std::iota(Idx_V.begin(),Idx_V.end(),order_U-1);
+    std::iota(Idx_V.begin(),Idx_V.end(),order_U-2);
     Idx_U[order_U-1] = -1;
     Idx_V[0] = -1;
-    tci::contract(ctx,U,Idx_U,V,Idx_D,S);
+    Idx_O.resize(order_U+order_V-2);
+    std::iota(Idx_O.begin(),Idx_O.end(),0);
+    tcapi::contract(ctx,U,Idx_U,V,Idx_V,S,Idx_O);
 
   }
 
@@ -90,38 +93,36 @@ namespace tnbp {
 		      TenT & S,
 		      real_t<TenT> sv_min) {
 
-    using BondLabelT  = typename tci::tensor_traits<TenT>::bond_label_t;
-    using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
-    using OrderT = typename tci::tensor_traits<TenT>::order_t;
-    using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
+    using BondLabelT  = typename tcapi::tensor_traits<TenT>::bond_label_t;
+    using RealTenT = typename tcapi::tensor_traits<TenT>::real_ten_t;
+    using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
+    using CtxR = typename tcapi::tensor_traits<RealTenT>::context_handle_t;
     CtxR ctx_r;
-    tci::create_context(ctx_r);
+    tcapi::create_context(ctx_r);
 
     TenT U;
     TenT V;
     RealTenT E;
     OrderT lb_rt = static_cast<OrderT>(1);
-    tci::svd(ctx,M,lb_rt,U,E,V);
+    tcapi::svd(ctx,M,lb_rt,U,E,V);
     TenT D;
     TenT F;
-    tci::for_each(ctx_r,E,[&sv_min](auto & elem){
+    tcapi::for_each(ctx_r,E,[&sv_min](auto & elem){
       if( std::abs(elem) > sv_min ) { elem = std::sqrt(elem); }
       else { elem = 0.0; } });
     if constexpr (std::is_same_v<TenT,RealTenT>) {
-      D = tci::copy(ctx_r,E);
+      D = tcapi::copy(ctx_r,E);
     } else {
-      D = tci::to_cplx(ctx_r,E);
+      D = tcapi::to_cplx(ctx_r,E);
     }
-    tci::for_each(ctx_r,E,[&sv_min](auto & elem) {
+    tcapi::for_each(ctx_r,E,[&sv_min](auto & elem) {
       if( std::abs(elem) > std::sqrt(sv_min)) { elem = elem/(elem*elem); }
       else { elem = 0.0; } });
     if constexpr (std::is_same_v<TenT,RealTenT>) {
-      F = tci::copy(ctx_r,E);
+      F = tcapi::copy(ctx_r,E);
     } else {
-      F = tci::to_cplx(ctx_r,E);
+      F = tcapi::to_cplx(ctx_r,E);
     }
-    tci::diag(ctx,D);
-    tci::diag(ctx,F);
 
     auto Idx_U = List<BondLabelT>(2);
     auto Idx_V = List<BondLabelT>(2);
@@ -134,56 +135,55 @@ namespace tnbp {
     Idx_R[0] = 0;
     Idx_R[1] = 1;
     TenT W;
-    tci::contract(ctx,U,Idx_U,D,Idx_D,W,Idx_R);
+    tcapi::contract(ctx,U,Idx_U,D,Idx_D,W,Idx_R);
     Idx_U[0] = 0;
     Idx_U[1] = -1;
     Idx_V[0] = -1;
     Idx_V[1] = 1;
     Idx_R[0] = 0;
     Idx_R[1] = 1;
-    tci::contract(ctx,W,Idx_U,V,Idx_D,R,Idx_R);
+    tcapi::contract(ctx,W,Idx_U,V,Idx_D,R,Idx_R);
 
-    tci::cplx_conj(ctx,U);
-    tci::cplx_conj(ctx,V);
+    tcapi::cplx_conj(ctx,U);
+    tcapi::cplx_conj(ctx,V);
     Idx_V[0] = -1;
     Idx_V[1] = 0;
     Idx_D[0] = 1;
     Idx_D[1] = -1;
     Idx_R[0] = 0;
     Idx_R[1] = 1;
-    tci::contract(ctx,F,Idx_D,V,Idx_V,W,Idx_R);
+    tcapi::contract(ctx,F,Idx_D,V,Idx_V,W,Idx_R);
     Idx_V[0] = 0;
     Idx_V[1] = -1;
     Idx_U[0] = 1;
     Idx_U[1] = -1;
     Idx_R[0] = 0;
     Idx_R[1] = 1;
-    tci::contract(ctx,W,Idx_V,U,Idx_U,S,Idx_R);
+    tcapi::contract(ctx,W,Idx_V,U,Idx_U,S,Idx_R);
   }
 
   /**
      Build a diagonal 2-index tensor by mapping func over a copy of the real
-     spectrum tensor E, shared by the root / inverse-root constructions so the
-     threshold-and-diagonalize sequence exists once.
+     diagonal spectrum tensor E, shared by the root / inverse-root constructions so the
+     threshold mapping exists once.
    */
   template <typename TenT, typename Func>
   TenT DiagFromSpectrum(context_handle_t<TenT> & ctx,
 			context_handle_t<real_ten_t<TenT>> & ctx_r,
 			const real_ten_t<TenT> & E,
 			Func && func) {
-    using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
-    RealTenT Emapped = tci::copy(ctx_r,E);
-    tci::for_each(ctx_r,Emapped,func);
+    using RealTenT = typename tcapi::tensor_traits<TenT>::real_ten_t;
+    RealTenT Emapped = tcapi::copy(ctx_r,E);
+    tcapi::for_each_with_coors(ctx_r,Emapped,[&](auto& elem, const auto& coors) {
+      if (coors[0] == coors[1]) func(elem);
+    });
     TenT D;
     if constexpr (std::is_same_v<TenT,RealTenT>) {
-      // Emapped is a private local of the same type, so a plain C++ move
-      // suffices; tci::move's out-param overload is deprecated in the Cytnx
-      // TCI backend and a tci-level transfer is not needed here.
+      // Emapped is a private local, so ownership can be transferred directly.
       D = std::move(Emapped);
     } else {
-      D = tci::to_cplx(ctx_r,Emapped);
+      D = tcapi::to_cplx(ctx_r,Emapped);
     }
-    tci::diag(ctx,D);
     return D;
   }
 
@@ -200,7 +200,7 @@ namespace tnbp {
      implementation: rounding-level non-Hermitian components are absorbed by
      the symmetrization below, and negative eigenvalues by the clamping.
 
-     The decomposition uses the Hermitian eigensolver (tci::eigh) instead of
+     The decomposition uses the Hermitian eigensolver (tcapi::eigh) instead of
      general SVD: dense LAPACK SVD is unreliable on Hermitian PSD matrices
      whose spectrum spans many decades with a degenerate tail, while the
      symmetric eigensolver family handles them robustly. Rounding-level
@@ -222,28 +222,28 @@ namespace tnbp {
 		      TenT & S,
 		      real_t<TenT> sv_min) {
 
-    using BondLabelT  = typename tci::tensor_traits<TenT>::bond_label_t;
-    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
-    using RealT = typename tci::tensor_traits<TenT>::real_t;
-    using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
-    using OrderT = typename tci::tensor_traits<TenT>::order_t;
-    using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
+    using BondLabelT  = typename tcapi::tensor_traits<TenT>::bond_label_t;
+    using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
+    using RealT = typename tcapi::tensor_traits<TenT>::real_t;
+    using RealTenT = typename tcapi::tensor_traits<TenT>::real_ten_t;
+    using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
+    using CtxR = typename tcapi::tensor_traits<RealTenT>::context_handle_t;
     CtxR ctx_r;
-    tci::create_context(ctx_r);
+    tcapi::create_context(ctx_r);
 
-    TenT Mt = tci::copy(ctx,M);
-    tci::transpose(ctx,Mt,{1,0});
-    tci::cplx_conj(ctx,Mt);
+    TenT Mt = tcapi::copy(ctx,M);
+    tcapi::transpose(ctx,Mt,{1,0});
+    tcapi::cplx_conj(ctx,Mt);
 
     // Symmetrize to remove rounding-level non-Hermitian components before
     // handing the matrix to the Hermitian eigensolver.
-    TenT Msym = tci::linear_combine<TenT>(ctx,{M,Mt},
+    TenT Msym = tcapi::linear_combine<TenT>(ctx,{std::cref(M),std::cref(Mt)},
 					  {ElemT(0.5),ElemT(0.5)});
 
     RealTenT E;
     TenT V;
     OrderT lb_rt = static_cast<OrderT>(1);
-    tci::eigh(ctx,Msym,lb_rt,E,V);
+    tcapi::eigh(ctx,Msym,lb_rt,E,V);
 
     // Signed threshold: eigenvalues at or below the clamped floor are
     // dropped, which also projects numerically negative eigenvalues to zero.
@@ -257,8 +257,8 @@ namespace tnbp {
     TenT D = thresholded_diag([](auto x){ return std::sqrt(x); });
     TenT F = thresholded_diag([](auto x){ return 1.0/std::sqrt(x); });
 
-    TenT Vc = tci::copy(ctx,V);
-    tci::cplx_conj(ctx,Vc);
+    TenT Vc = tcapi::copy(ctx,V);
+    tcapi::cplx_conj(ctx,Vc);
 
     // R = V diag(sqrt(lambda)) V^dagger, S = V diag(1/sqrt(lambda)) V^dagger.
     // The last bond of V enumerates eigenvectors, so the adjoint orientation
@@ -269,8 +269,8 @@ namespace tnbp {
       List<BondLabelT> Idx_Vc = {1, -1};
       List<BondLabelT> Idx_O = {0, 1};
       TenT W;
-      tci::contract(ctx,V,Idx_L,Dg,Idx_Dg,W,Idx_O);
-      tci::contract(ctx,W,Idx_L,Vc,Idx_Vc,Out,Idx_O);
+      tcapi::contract(ctx,V,Idx_L,Dg,Idx_Dg,W,Idx_O);
+      tcapi::contract(ctx,W,Idx_L,Vc,Idx_Vc,Out,Idx_O);
     };
     sandwich_with_v(D,R);
     sandwich_with_v(F,S);

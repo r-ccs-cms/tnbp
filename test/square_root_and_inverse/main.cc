@@ -24,7 +24,7 @@
 
 #include "typedef.h"
 
-using RealTensor = typename tci::tensor_traits<Tensor>::real_ten_t;
+using RealTensor = typename tcapi::tensor_traits<Tensor>::real_ten_t;
 
 using C = std::complex<double>;
 using Mat = std::vector<std::vector<C>>;
@@ -110,8 +110,8 @@ Mat spectral_build(const Mat & w, const std::vector<double> & lam,
 }
 
 template <typename TenT>
-typename tci::tensor_traits<TenT>::elem_t to_elem(const C & x) {
-  using ElemT = typename tci::tensor_traits<TenT>::elem_t;
+typename tcapi::tensor_traits<TenT>::elem_t to_elem(const C & x) {
+  using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
   if constexpr (std::is_floating_point_v<ElemT>) {
     return ElemT(x.real());
   } else {
@@ -120,36 +120,36 @@ typename tci::tensor_traits<TenT>::elem_t to_elem(const C & x) {
 }
 
 template <typename TenT>
-TenT to_tensor(typename tci::tensor_traits<TenT>::context_handle_t & ctx,
+TenT to_tensor(typename tcapi::tensor_traits<TenT>::context_handle_t & ctx,
 	       const Mat & a) {
-  using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
-  using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
+  using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
+  using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
   ShapeT shape(2);
   shape[0] = N;
   shape[1] = N;
-  TenT t = tci::zeros<TenT>(ctx, shape);
+  TenT t = tcapi::zeros<TenT>(ctx, shape);
   CoorsT coors(2);
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < N; j++) {
       coors[0] = i;
       coors[1] = j;
-      tci::set_elem(ctx, t, coors, to_elem<TenT>(a[i][j]));
+      tcapi::set_elem(ctx, t, coors, to_elem<TenT>(a[i][j]));
     }
   }
   return t;
 }
 
 template <typename TenT>
-Mat from_tensor(typename tci::tensor_traits<TenT>::context_handle_t & ctx,
+Mat from_tensor(typename tcapi::tensor_traits<TenT>::context_handle_t & ctx,
 		const TenT & t) {
-  using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
+  using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
   Mat a = zeros_mat();
   CoorsT coors(2);
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < N; j++) {
       coors[0] = i;
       coors[1] = j;
-      a[i][j] = C(tci::get_elem(ctx, t, coors));
+      a[i][j] = C(tcapi::get_elem(ctx, t, coors));
     }
   }
   return a;
@@ -164,7 +164,7 @@ bool all_finite(const Mat & a) {
 }
 
 template <typename TenT>
-void run_fixture(typename tci::tensor_traits<TenT>::context_handle_t & ctx,
+void run_fixture(typename tcapi::tensor_traits<TenT>::context_handle_t & ctx,
 		 const std::string & name,
 		 const Mat & w, const std::vector<double> & lam,
 		 double sv_min, bool compare_with_svd_path) {
@@ -226,9 +226,9 @@ double check_unitary(const Mat & w) {
 
 int main() {
   ContextHandle ctx;
-  tci::create_context(ctx);
-  typename tci::tensor_traits<RealTensor>::context_handle_t ctx_r;
-  tci::create_context(ctx_r);
+  tcapi::create_context(ctx);
+  typename tcapi::tensor_traits<RealTensor>::context_handle_t ctx_r;
+  tcapi::create_context(ctx_r);
 
   // Self-verify the fixtures: W must be unitary / orthogonal to machine
   // precision, otherwise the spectral oracle is meaningless.

@@ -25,10 +25,10 @@ namespace tnbp {
 		 std::vector<int> & EdgeIdx,
 		 MPI_Comm comm) {
     
-    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
-    using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
-    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
-    using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
+    using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
+    using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
+    using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
+    using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;
 
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
@@ -59,7 +59,7 @@ namespace tnbp {
       std::vector<ElemT> DataV(PhysicalBondDim[site_address],0.0);
       DataV[0] = static_cast<ElemT>(1.0);
       auto itDataV = DataV.begin();
-      *itV = tci::assign_from_range<TenT>(ctx,BondDimV,itDataV,
+      *itV = tcapi::assign_from_range<TenT>(ctx,BondDimV,itDataV,
 		    [&BondDimV](const CoorsT & coors) {
 		      return address_from_coor(BondDimV,coors); });
       itV++;
@@ -71,10 +71,10 @@ namespace tnbp {
     int NumEdges = static_cast<int>(EdgeIdx.size());
     TenT Eorig;
     ShapeT BondDimE(2,1);
-    tci::fill(ctx,BondDimE,static_cast<ElemT>(1.0),Eorig);
+    Eorig = tcapi::fill<TenT>(ctx,BondDimE,static_cast<ElemT>(1.0));
     E.resize(2*NumEdges);
     for(auto & Em : E) {
-      Em = tci::copy(ctx,Eorig);
+      Em = tcapi::copy(ctx,Eorig);
     }
     std::vector<int> Site_To_MpiRank_Vector(NumSites,0);
     std::vector<int> Site_To_MpiRank_Send(NumSites,0);
@@ -124,8 +124,8 @@ namespace tnbp {
 				   std::vector<TenT> & E,
 				   std::vector<IntT> & edge_idx,
 				   MPI_Comm comm) {
-    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
-    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
+    using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
+    using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
 
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
@@ -162,22 +162,22 @@ namespace tnbp {
 	auto it_site_adrs = std::find(site_idx.begin(),site_idx.end(),
 				      site_a);
 	auto site_adrs = std::distance(site_idx.begin(),it_site_adrs);
-	auto shape_v = tci::shape(ctx,V[site_adrs]);
+	auto shape_v = tcapi::shape(ctx,V[site_adrs]);
 	auto bond = GetSurroundingBondIndex(site_a,edges);
 	auto it_target_bond = std::find(bond.begin(),bond.end(),edge_idx[edge_adrs]);
 	auto target_bond = std::distance(bond.begin(),it_target_bond);
-	tci::eye(ctx,shape_v[target_bond],E[edge_adrs]);
-	tci::eye(ctx,shape_v[target_bond],E[edge_adrs+num_edges]);
+	E[edge_adrs] = tcapi::eye<TenT>(ctx,shape_v[target_bond]);
+	E[edge_adrs+num_edges] = tcapi::eye<TenT>(ctx,shape_v[target_bond]);
       } else if ( mpi_type == 1 ) {
 	auto it_site_adrs = std::find(site_idx.begin(),site_idx.end(),
 				      site_b);
 	auto site_adrs = std::distance(site_idx.begin(),it_site_adrs);
-	auto shape_v = tci::shape(ctx,V[site_adrs]);
+	auto shape_v = tcapi::shape(ctx,V[site_adrs]);
 	auto bond = GetSurroundingBondIndex(site_b,edges);
 	auto it_target_bond = std::find(bond.begin(),bond.end(),edge_idx[edge_adrs]);
 	auto target_bond = std::distance(bond.begin(),it_target_bond);
-	tci::eye(ctx,shape_v[target_bond],E[edge_adrs]);
-	tci::eye(ctx,shape_v[target_bond],E[edge_adrs+num_edges]);
+	E[edge_adrs] = tcapi::eye<TenT>(ctx,shape_v[target_bond]);
+	E[edge_adrs+num_edges] = tcapi::eye<TenT>(ctx,shape_v[target_bond]);
       }
     }
   }

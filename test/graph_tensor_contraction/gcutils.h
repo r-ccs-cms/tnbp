@@ -1,8 +1,8 @@
-#include "tci/tci.h"
+#include "tcapi/tcapi.h"
 #include "tnbp/tnbp.h"
 
 template <typename TenT, typename IntT>
-void init_random_tensor(tci::context_handle_t<TenT> & ctx,
+void init_random_tensor(tcapi::context_handle_t<TenT> & ctx,
 			const std::vector<std::pair<IntT,IntT>> & edges,
 			size_t bond_dim,
 			std::vector<TenT> & W,
@@ -11,8 +11,8 @@ void init_random_tensor(tci::context_handle_t<TenT> & ctx,
 			uint32_t seed,
 			MPI_Comm comm) {
 
-  using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
-  using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
+  using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
+  using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;
 
   std::mt19937 rng(seed);
   
@@ -34,7 +34,7 @@ void init_random_tensor(tci::context_handle_t<TenT> & ctx,
     auto bonds = tnbp::GetSurroundingBondIndex(i,edges);
     auto num_bonds = bonds.size();
     ShapeT shape_w(num_bonds,static_cast<BondDimT>(bond_dim));
-    *itW = tci::random<TenT>(ctx,shape_w,rng);
+    *itW = tcapi::random<TenT>(ctx,shape_w,rng);
     itW++;
   }
   std::vector<int> site_to_mpi_rank_vec(num_sites,0);

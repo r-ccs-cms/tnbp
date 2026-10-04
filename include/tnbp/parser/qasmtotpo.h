@@ -177,13 +177,13 @@ namespace tnbp {
   template <typename TenT>
   TenT InstructionTensor(context_handle_t<TenT> & ctx,
 			 const qasm::Instruction & ins) {
-    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
-    using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
-    using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
+    using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
+    using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;
+    using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
     std::vector<BondDimT> shape(2*OpQubitCount(ins),2);
     std::vector<ElemT> data = InstructionMatrix<ElemT>(ins);
     auto it_data = data.begin();
-    TenT res = tci::assign_from_range<TenT>(
+    TenT res = tcapi::assign_from_range<TenT>(
 	 ctx,shape,it_data,
 	 [&shape](const CoorsT & coor) {
 	   return address_from_coor(shape,coor);
@@ -205,9 +205,9 @@ namespace tnbp {
 	  const std::vector<std::pair<int,int>> & edges,
 	  std::vector<TenT> & T) {
     
-    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
-    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
-    using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
+    using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
+    using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
+    using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
     
     T.resize(sites.size());
     for(auto const & i : sites) {
@@ -224,7 +224,7 @@ namespace tnbp {
       data[2] = ElemT(0.0);
       data[3] = ElemT(1.0);
       auto it_data = data.begin();
-      T[site_address] = tci::assign_from_range<TenT>(ctx,shape,it_data,
+      T[site_address] = tcapi::assign_from_range<TenT>(ctx,shape,it_data,
 		  [&shape](const CoorsT & coor) {
 		    return address_from_coor(shape,coor);
 		  });
@@ -247,21 +247,21 @@ namespace tnbp {
 	  const std::vector<std::pair<int,int>> & edges,
 	  std::vector<TenT> & T) {
     
-    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
-    using RealT = typename tci::tensor_traits<TenT>::real_t;
-    using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
-    using OrderT = typename tci::tensor_traits<TenT>::order_t;
-    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
-    using BondIdxT = typename tci::tensor_traits<TenT>::bond_idx_t;
-    using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
-    using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
-    using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
-    using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
+    using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
+    using RealT = typename tcapi::tensor_traits<TenT>::real_t;
+    using RealTenT = typename tcapi::tensor_traits<TenT>::real_ten_t;
+    using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
+    using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
+    using BondIdxT = typename tcapi::tensor_traits<TenT>::bond_idx_t;
+    using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;
+    using BondLabelT = typename tcapi::tensor_traits<TenT>::bond_label_t;
+    using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
+    using CtxR = typename tcapi::tensor_traits<RealTenT>::context_handle_t;
     CtxR ctx_r;
-    tci::create_context(ctx_r);
+    tcapi::create_context(ctx_r);
     
     TenT gate = InstructionTensor<TenT>(ctx,ins);
-    auto order_tensor = tci::order(ctx,gate);
+    auto order_tensor = tcapi::order(ctx,gate);
     int num_qubits = order_tensor/2;
 
     if( num_qubits == 1 ) {
@@ -282,7 +282,7 @@ namespace tnbp {
       IdxT[num_virtualbond+1] = static_cast<BondLabelT>(-1);
       IdxG[0] = static_cast<BondLabelT>(-1);
       IdxG[1] = static_cast<BondLabelT>(num_virtualbond+1);
-      tci::contract(ctx,T[site_address],IdxT,gate,IdxG,T[site_address],IdxR);
+      tcapi::contract(ctx,T[site_address],IdxT,gate,IdxG,T[site_address],IdxR);
       
     } else if ( num_qubits == 2 ) {
       
@@ -295,7 +295,7 @@ namespace tnbp {
       new_order[1] = static_cast<BondLabelT>(2); // a out
       new_order[2] = static_cast<BondLabelT>(1); // b in
       new_order[3] = static_cast<BondLabelT>(3); // b out
-      tci::transpose(ctx,gate,new_order);
+      tcapi::transpose(ctx,gate,new_order);
       TenT A;
       TenT B;
       RealTenT S;
@@ -303,18 +303,17 @@ namespace tnbp {
       BondDimT chi_max = 4;
       RealT trunc_err;
       RealT sv_min = 1.0e-12;
-      tci::trunc_svd(ctx,gate,num_row_bonds,A,S,B,
+      tcapi::trunc_svd(ctx,gate,num_row_bonds,A,S,B,
 		     trunc_err,chi_max,sv_min);
-      tci::for_each(ctx_r,S,[&sv_min](auto & elem) {
+      tcapi::for_each(ctx_r,S,[&sv_min](auto & elem) {
 	if( std::abs(elem) > sv_min ) { elem = std::sqrt(std::abs(elem)); }
 	else { elem = 0.0; }});
       TenT D;
       if constexpr (std::is_same_v<TenT,RealTenT>) {
-	tci::move(ctx_r,S,D);
+	D = tcapi::move(ctx_r,S);
       } else {
-	D = tci::to_cplx(ctx_r,S);
+	D = tcapi::to_cplx(ctx_r,S);
       }
-      tci::diag(ctx,D);
       List<BondLabelT> IdxG(3);
       List<BondLabelT> IdxD(2);
       List<BondLabelT> IdxGnew(3);
@@ -324,14 +323,14 @@ namespace tnbp {
       IdxD[0] = static_cast<BondLabelT>(-1);
       IdxD[1] = static_cast<BondLabelT>(0); // virtual bond
       std::iota(IdxGnew.begin(),IdxGnew.end(),0);
-      tci::contract(ctx,A,IdxG,D,IdxD,A,IdxGnew);
+      tcapi::contract(ctx,A,IdxG,D,IdxD,A,IdxGnew);
       IdxD[0] = static_cast<BondLabelT>(0); // virtual bond
       IdxD[1] = static_cast<BondLabelT>(-1);
       IdxG[0] = static_cast<BondLabelT>(-1);
       IdxG[1] = static_cast<BondLabelT>(1);
       IdxG[2] = static_cast<BondLabelT>(2);
-      tci::contract(ctx,D,IdxD,B,IdxG,B,IdxGnew);
-      ShapeT shape_D = tci::shape(ctx,D);
+      tcapi::contract(ctx,D,IdxD,B,IdxG,B,IdxGnew);
+      ShapeT shape_D = tcapi::shape(ctx,D);
       auto vdim = shape_D[0];
       
       // Assign  A and B on the tensor-product-operators
@@ -348,32 +347,32 @@ namespace tnbp {
 	  ShapeT dimX(1,vdim*2);
 	  std::vector<ElemT> dataX(2*vdim,ElemT(1.0));
 	  auto it_dataX = dataX.begin();
-	  X = tci::assign_from_range<TenT>(ctx,dimX,it_dataX,
+	  X = tcapi::assign_from_range<TenT>(ctx,dimX,it_dataX,
 				     [](const CoorsT & c) {
 				       return c[0]; });
-	  tci::diag(ctx,X);
+	  tcapi::diag(ctx,X);
 	  ShapeT shapeX(4);
 	  shapeX[0] = static_cast<BondDimT>(vdim);
 	  shapeX[1] = static_cast<BondDimT>(2);
 	  shapeX[2] = static_cast<BondDimT>(vdim);
 	  shapeX[3] = static_cast<BondDimT>(2);
-	  tci::reshape(ctx,X,shapeX);
+	  tcapi::reshape(ctx,X,shapeX);
 	  List<BondIdxT> new_order_X(4);
 	  new_order_X[0] = static_cast<BondIdxT>(0);
 	  new_order_X[1] = static_cast<BondIdxT>(2);
 	  new_order_X[2] = static_cast<BondIdxT>(1);
 	  new_order_X[3] = static_cast<BondIdxT>(3);
-	  tci::transpose(ctx,X,new_order_X);
+	  tcapi::transpose(ctx,X,new_order_X);
 	} else if ( i == 0 ) {
-	  X = tci::copy(ctx,A);
+	  X = tcapi::copy(ctx,A);
 	} else if ( i == path.size()-1 ) {
-	  X = tci::copy(ctx,B);
+	  X = tcapi::copy(ctx,B);
 	}
 	auto vb_a = GetSurroundingBondIndex(path[i],edges);
 	auto it_site_address_a = std::find(sites.begin(),sites.end(),path[i]);
 	auto site_address_a = std::distance(sites.begin(),it_site_address_a);
-	auto order_A = tci::order(ctx,T[site_address_a]);
-	auto order_X = tci::order(ctx,X);
+	auto order_A = tcapi::order(ctx,T[site_address_a]);
+	auto order_X = tcapi::order(ctx,X);
 	List<BondLabelT> IdxA(order_A);
 	List<BondLabelT> IdxX(order_X);
 	int target_bond_m = static_cast<int>(vb_a.size())+2;
@@ -408,7 +407,7 @@ namespace tnbp {
 	}
 	int ka = 0;
 	int kx = 0;
-	ShapeT shapeA = tci::shape(ctx,T[site_address_a]);
+	ShapeT shapeA = tcapi::shape(ctx,T[site_address_a]);
 	ShapeT new_shapeA(order_A);
 	for(int b=0; b < vb_a.size(); b++) {
 	  if( b == target_bond_m ) {
@@ -432,8 +431,8 @@ namespace tnbp {
 	new_shapeA[vb_a.size()+1] = shapeA[vb_a.size()+1];
 	List<BondLabelT> IdxP(order_X+order_A-2);
 	std::iota(IdxP.begin(),IdxP.end(),0);
-	tci::contract(ctx,X,IdxX,T[site_address_a],IdxA,T[site_address_a],IdxP);
-	tci::reshape(ctx,T[site_address_a],new_shapeA);
+	tcapi::contract(ctx,X,IdxX,T[site_address_a],IdxA,T[site_address_a],IdxP);
+	tcapi::reshape(ctx,T[site_address_a],new_shapeA);
       }
 
     } else if ( num_qubits == 3 ) {
@@ -512,7 +511,7 @@ namespace tnbp {
 	site_b = static_cast<int>(ins.qubits[0].index);
 	site_c = static_cast<int>(ins.qubits[1].index);
       }
-      tci::transpose(ctx,gate,new_order);
+      tcapi::transpose(ctx,gate,new_order);
       
       // decompose a 3-qubit unitary into network of three 1-qubit tensors
       TenT Ga;
@@ -521,18 +520,17 @@ namespace tnbp {
       RealTenT S;
       TenT Gv; // temporary
       OrderT num_row_bonds = 2;
-      tci::svd(ctx,gate,num_row_bonds,Ga,S,Gv);
-      tci::for_each(ctx_r,S,[](auto & elem) {
+      tcapi::svd(ctx,gate,num_row_bonds,Ga,S,Gv);
+      tcapi::for_each(ctx_r,S,[](auto & elem) {
 	if( std::abs(elem) > 0.0 ) { elem = std::sqrt(elem); }
 	else             { elem = 0.0; }
       });
       TenT D;
       if constexpr (std::is_same_v<TenT,RealTenT>) {
-	tci::move(ctx_r,S,D);
+	D = tcapi::move(ctx_r,S);
       } else {
-	D = tci::to_cplx(ctx_r,S);
+	D = tcapi::to_cplx(ctx_r,S);
       }
-      tci::diag(ctx,D);
       List<BondLabelT> IdxGa(3);
       List<BondLabelT> IdxD(2);
       List<BondLabelT> IdxGa_new(3);
@@ -542,7 +540,7 @@ namespace tnbp {
       IdxD[0] = static_cast<BondLabelT>(-1);
       IdxD[1] = static_cast<BondLabelT>(0);
       std::iota(IdxGa_new.begin(),IdxGa_new.end(),0);
-      tci::contract(ctx,Ga,IdxGa,D,IdxD,Ga,IdxGa_new);
+      tcapi::contract(ctx,Ga,IdxGa,D,IdxD,Ga,IdxGa_new);
       List<BondLabelT> IdxGv(5);
       List<BondLabelT> IdxGv_new(5);
       IdxD[0] = static_cast<BondLabelT>(0);
@@ -553,20 +551,19 @@ namespace tnbp {
       IdxGv[3] = static_cast<BondLabelT>(3);
       IdxGv[4] = static_cast<BondLabelT>(4);
       std::iota(IdxGv_new.begin(),IdxGv_new.end(),0);
-      tci::contract(ctx,D,IdxD,Gv,IdxGv,Gv,IdxGv_new);
-      ShapeT shape_Dab = tci::shape(ctx,D);
+      tcapi::contract(ctx,D,IdxD,Gv,IdxGv,Gv,IdxGv_new);
+      ShapeT shape_Dab = tcapi::shape(ctx,D);
       num_row_bonds = 3;
-      tci::svd(ctx,Gv,num_row_bonds,Gb,S,Gc);
-      tci::for_each(ctx,S,[](auto & elem) {
+      tcapi::svd(ctx,Gv,num_row_bonds,Gb,S,Gc);
+      tcapi::for_each(ctx_r,S,[](auto & elem) {
 	if( std::abs(elem) > 0.0 ) { elem = std::sqrt(elem); }
 	else             { elem = 0.0; }
       });
       if constexpr (std::is_same_v<TenT,RealTenT>) {
-	tci::move(ctx_r,S,D);
+	D = tcapi::move(ctx_r,S);
       } else {
-	D = tci::to_cplx(ctx_r,S);
+	D = tcapi::to_cplx(ctx_r,S);
       }
-      tci::diag(ctx,D);
       List<BondLabelT> IdxGb(4);
       List<BondLabelT> IdxGb_new(4);
       IdxGb[0] = static_cast<BondLabelT>(0);
@@ -576,7 +573,7 @@ namespace tnbp {
       IdxD[0] = static_cast<BondLabelT>(-1);
       IdxD[1] = static_cast<BondLabelT>(1);
       std::iota(IdxGb_new.begin(),IdxGb_new.end(),0);
-      tci::contract(ctx,Gb,IdxGb,D,IdxD,Gb,IdxGb_new);
+      tcapi::contract(ctx,Gb,IdxGb,D,IdxD,Gb,IdxGb_new);
       List<BondLabelT> IdxGc(3);
       List<BondLabelT> IdxGc_new(3);
       IdxD[0] = static_cast<BondLabelT>(0);
@@ -585,8 +582,8 @@ namespace tnbp {
       IdxGc[1] = static_cast<BondLabelT>(1);
       IdxGc[2] = static_cast<BondLabelT>(2);
       std::iota(IdxGc_new.begin(),IdxGc_new.end(),0);
-      tci::contract(ctx,D,IdxD,Gc,IdxGc,Gc,IdxGc_new);
-      ShapeT shape_Dbc = tci::shape(ctx,D);
+      tcapi::contract(ctx,D,IdxD,Gc,IdxGc,Gc,IdxGc_new);
+      ShapeT shape_Dbc = tcapi::shape(ctx,D);
       
       auto vdim_ab = shape_Dab[0];
       auto vdim_bc = shape_Dbc[0];
@@ -598,12 +595,12 @@ namespace tnbp {
 	
 	TenT X;
 	if( path[i] == site_a ) {
-	  X = tci::copy(ctx,Ga);
+	  X = tcapi::copy(ctx,Ga);
 	} else if ( path[i] == site_b ) {
-	  X = tci::copy(ctx,Gb);
+	  X = tcapi::copy(ctx,Gb);
 	  ib = i;
 	} else if ( path[i] == site_c ) {
-	  X = tci::copy(ctx,Gc);
+	  X = tcapi::copy(ctx,Gc);
 	} else {
 	  if( i > ib ) {
 	    vdim = vdim_bc;
@@ -611,29 +608,29 @@ namespace tnbp {
 	  ShapeT dimX(1,vdim*2);
 	  std::vector<ElemT> dataX(2*vdim,ElemT(1.0));
 	  auto it_dataX = dataX.begin();
-	  X = tci::assign_from_range<TenT>(ctx,dimX,it_dataX,
+	  X = tcapi::assign_from_range<TenT>(ctx,dimX,it_dataX,
 				     [](const CoorsT & c) {
 				       return c[0];
 				     });
-	  tci::diag(ctx,X);
+	  tcapi::diag(ctx,X);
 	  ShapeT shapeX(4);
 	  shapeX[0] = static_cast<BondDimT>(vdim);
 	  shapeX[1] = static_cast<BondDimT>(2);
 	  shapeX[2] = static_cast<BondDimT>(vdim);
 	  shapeX[3] = static_cast<BondDimT>(2);
-	  tci::reshape(ctx,X,shapeX);
+	  tcapi::reshape(ctx,X,shapeX);
 	  List<BondIdxT> new_order_X(4);
 	  new_order_X[0] = static_cast<BondIdxT>(0);
 	  new_order_X[1] = static_cast<BondIdxT>(2);
 	  new_order_X[2] = static_cast<BondIdxT>(1);
 	  new_order_X[3] = static_cast<BondIdxT>(3);
-	  tci::transpose(ctx,X,new_order_X);
+	  tcapi::transpose(ctx,X,new_order_X);
 	}
 	auto vb_A = GetSurroundingBondIndex(path[i],edges);
 	auto it_site_address_a = std::find(sites.begin(),sites.end(),path[i]);
 	auto site_address_a = std::distance(sites.begin(),it_site_address_a);
-	auto order_A = tci::order(ctx,T[site_address_a]);
-	auto order_X = tci::order(ctx,X);
+	auto order_A = tcapi::order(ctx,T[site_address_a]);
+	auto order_X = tcapi::order(ctx,X);
 	List<BondLabelT> IdxA(order_A);
 	List<BondLabelT> IdxX(order_X);
 	List<BondLabelT> IdxN(order_A+order_X-2);
@@ -669,7 +666,7 @@ namespace tnbp {
 	}
 	int ka=0;
 	int kx = 0;
-	ShapeT shapeA = tci::shape(ctx,T[site_address_a]);
+	ShapeT shapeA = tcapi::shape(ctx,T[site_address_a]);
 	ShapeT new_shapeA(order_A);
 	for(int b=0; b < vb_A.size(); b++) {
 	  if( b == target_bond_m ) {
@@ -692,8 +689,8 @@ namespace tnbp {
 	new_shapeA[vb_A.size()+0] = shapeA[vb_A.size()+0];
 	new_shapeA[vb_A.size()+1] = shapeA[vb_A.size()+1];
 	std::iota(IdxN.begin(),IdxN.end(),0);
-	tci::contract(ctx,X,IdxX,T[site_address_a],IdxA,T[site_address_a],IdxN);
-	tci::reshape(ctx,T[site_address_a],new_shapeA);
+	tcapi::contract(ctx,X,IdxX,T[site_address_a],IdxA,T[site_address_a],IdxN);
+	tcapi::reshape(ctx,T[site_address_a],new_shapeA);
       }
     } // else if ( num_qubits == 3 )
     

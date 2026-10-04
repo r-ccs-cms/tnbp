@@ -135,7 +135,7 @@ namespace tnbp {
 					  site_in);
 	auto site_idx_adrs = std::distance(site_idx.begin(),
 					   it_site_idx_adrs);
-	auto shape_in = tci::shape(ctx,T[site_idx_adrs]);
+	auto shape_in = tcapi::shape(ctx,T[site_idx_adrs]);
 	std::cout << " tensor at site " << site_in << ":";
 	for(auto const & dim : shape_in) {
 	  std::cout << " " << dim;
@@ -148,7 +148,7 @@ namespace tnbp {
 					  site_next);
 	auto site_idx_adrs = std::distance(site_idx.begin(),
 					   it_site_idx_adrs);
-	auto shape_next = tci::shape(ctx,T[site_idx_adrs]);
+	auto shape_next = tcapi::shape(ctx,T[site_idx_adrs]);
 	std::cout << " tensor at site " << site_next << ":";
 	for(auto const & dim : shape_next) {
 	  std::cout << " " << dim;
@@ -286,9 +286,9 @@ namespace tnbp {
 			  MPI_Comm comm,
 			  bool do_init = true) {
     
-    using RealT = typename tci::tensor_traits<TenT>::real_t;
-    using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
-    using BondIdxT = typename tci::tensor_traits<TenT>::bond_idx_t;
+    using RealT = typename tcapi::tensor_traits<TenT>::real_t;
+    using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;
+    using BondIdxT = typename tcapi::tensor_traits<TenT>::bond_idx_t;
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     auto edges_for_bp = extract_induced_edges(edges,lines);
     // It is necessary to transpose tensors
@@ -321,7 +321,7 @@ namespace tnbp {
 				      site_i);
 	auto site_adrs = std::distance(site_idx.begin(),
 				       it_site_adrs);
-	tci::transpose(ctx,T[site_adrs],trs_order[adrs]);
+	tcapi::transpose(ctx,T[site_adrs],trs_order[adrs]);
       }
     }
     
@@ -340,7 +340,7 @@ namespace tnbp {
 			  E,edge_idx,comm,E_new);
       }
       for(std::size_t me_adrs=0; me_adrs < E.size(); me_adrs++) {
-	E[me_adrs] = tci::copy(ctx,E_new[me_adrs]);
+	E[me_adrs] = tcapi::copy(ctx,E_new[me_adrs]);
       }
       RealT res_bp_err;
       BeliefPropagationCondition(ctx,edges_for_bp,
@@ -372,7 +372,7 @@ namespace tnbp {
 				      site_i);
 	auto site_adrs = std::distance(site_idx.begin(),
 				       it_site_adrs);
-	tci::transpose(ctx,T[site_adrs],rev_order);
+	tcapi::transpose(ctx,T[site_adrs],rev_order);
       }
     }
   }

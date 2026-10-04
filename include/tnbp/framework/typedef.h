@@ -6,7 +6,7 @@
 #ifndef TNBP_FRAMEWORK_TYPEDEF_H
 #define TNBP_FRAMEWORK_TYPEDEF_H
 
-#include "tci/tci.h"
+#include "tcapi/tcapi.h"
 
 #include <vector>
 #include <utility>
@@ -44,75 +44,75 @@ namespace tnbp {
 #endif
 
   /**
-     Definitions for tci::tensor_traits
+     Definitions for tcapi::tensor_traits
    */
   
   template <typename TenT>
   using order_t =
-    typename tci::tensor_traits<TenT>::order_t;
+    typename tcapi::tensor_traits<TenT>::order_t;
 
   template <typename TenT>
   using shape_t =
-    typename tci::tensor_traits<TenT>::shape_t;
+    typename tcapi::tensor_traits<TenT>::shape_t;
 
   template <typename TenT>
   using bond_dim_t =
-    typename tci::tensor_traits<TenT>::bond_dim_t;
+    typename tcapi::tensor_traits<TenT>::bond_dim_t;
 
   template <typename TenT>
   using bond_idx_t =
-    typename tci::tensor_traits<TenT>::bond_idx_t;
+    typename tcapi::tensor_traits<TenT>::bond_idx_t;
 
   template <typename TenT>
   using bond_label_t =
-    typename tci::tensor_traits<TenT>::bond_label_t;
+    typename tcapi::tensor_traits<TenT>::bond_label_t;
 
   template <typename TenT>
   using ten_size_t =
-    typename tci::tensor_traits<TenT>::ten_size_t;
+    typename tcapi::tensor_traits<TenT>::ten_size_t;
 
   template <typename TenT>
   using elem_t =
-    typename tci::tensor_traits<TenT>::elem_t;
+    typename tcapi::tensor_traits<TenT>::elem_t;
 
   template <typename TenT>
   using elem_coor_t =
-    typename tci::tensor_traits<TenT>::elem_coor_t;
+    typename tcapi::tensor_traits<TenT>::elem_coor_t;
 
   template <typename TenT>
   using elem_coors_t =
-    typename tci::tensor_traits<TenT>::elem_coors_t;
+    typename tcapi::tensor_traits<TenT>::elem_coors_t;
 
   template <typename TenT>
   using real_t =
-    typename tci::tensor_traits<TenT>::real_t;
+    typename tcapi::tensor_traits<TenT>::real_t;
 
   template <typename TenT>
   using real_ten_t =
-    typename tci::tensor_traits<TenT>::real_ten_t;
+    typename tcapi::tensor_traits<TenT>::real_ten_t;
 
   template <typename TenT>
   using cplx_t =
-    typename tci::tensor_traits<TenT>::cplx_t;
+    typename tcapi::tensor_traits<TenT>::cplx_t;
 
   template <typename TenT>
   using cplx_ten_t =
-    typename tci::tensor_traits<TenT>::cplx_ten_t;
+    typename tcapi::tensor_traits<TenT>::cplx_ten_t;
 
   template <typename TenT>
   using context_handle_t =
-    typename tci::tensor_traits<TenT>::context_handle_t;
+    typename tcapi::tensor_traits<TenT>::context_handle_t;
 
 
   /*
   template <typename ElemT>
-  using List = tci::List<ElemT>;
+  using List = tcapi::List<ElemT>;
 
   template <typename First, typename Second>
-  using Pair = tci::Pair<First,Second>;
+  using Pair = tcapi::Pair<First,Second>;
 
   template <typename Key, typename Value>
-  using Map = tci::Map<Key,Value>;
+  using Map = tcapi::Map<Key,Value>;
   */
   template <typename ElemT>
   using List = std::vector<ElemT>;

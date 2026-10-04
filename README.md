@@ -1,12 +1,12 @@
 # Parallelized tensor network simulator with belief propagation
 
-This repository provides a parallelized simulator for estimating expectation values of quantum circuits using belief propagation on tensor networks, built on top of the Tensor Computing Interface (TCI).
+This repository provides a parallelized simulator for estimating expectation values of quantum circuits using belief propagation on tensor networks, built on top of the Tensor Computing API (TCAPI).
 
 The library targets tensor-product-state representations—primarily MPS and PEPS—and provides utilities to construct circuit-induced factor graphs, run BP (loopy BP where appropriate), and aggregate observables efficiently across distributed computing resources.
 
 **Key points**
 - Focus: expectation-value evaluation of quantum circuits via tensor network simulation with belief propagation
-- Built as an application-layer library on top of the Tensor Computing Interface (TCI)
+- Built as an application-layer library on top of the Tensor Computing API (TCAPI)
 - Tensor network formats: tensor product states such as MPS and PEPS
 - Parallelism: thread-level and MPI-style process-level parallel execution
 - Use cases: benchmark typical circuits/problems for paper-ready test calculations
@@ -23,28 +23,29 @@ Sun, R.-Y., Shirakawa, T., Kohshiro, H., Sheng, D. N., Yunoki, S.
 *Tensor Computing Interface: An Application-Oriented, Lightweight Interface for Portable High-Performance Tensor Network Applications*  
 https://arxiv.org/abs/2512.23917
 
-This repository provides a lightweight TCI implementation and supports multiple TCI backends.
+The original TCI layer is being migrated to the public TCAPI specification.
 
-### Minimal testing implementation
+### Current TCAPI integration
 
-A simplified implementation of the TCI interface is provided for testing and development:
-```
-external/min-tci
-```
+TNBP headers and sample programs use `tcapi/tcapi.h` and namespace `tcapi`.
+The bundled CPU adapter is in `external/min-tci/include/tcapi`; its directory
+name is retained. See [adapter documentation](external/min-tci/README.md) for
+supported operations, binary I/O, diagnostics and limitations. The legacy
+`external/min-tci/include/tci` is retained only for adapter compatibility checks;
+TNBP does not maintain a second legacy implementation.
 
-### TCI backends
+SVD/eigh outputs are now diagonal matrices. Tensor copies use `tcapi::copy`,
+and linear combinations take `std::cref` inputs. `TensorProductState` construction
+from tensors now takes `ctx` as the first argument; deep copying is explicit
+with `state.copy(ctx)`, while ordinary copying is disabled and moves are allowed.
 
-The simulator can also be used with external TCI implementations:
-
-- **gqten backend implementation**  
-  https://github.com/gracequantum/tensor-ng-dev
-
-- **Cytnx backend implementation**  
-  https://github.com/r-ccs-cms/tensor-computing-interface-backend-cytnx
+The validated backend is gqten on CPU. The historical Cytnx build branches and
+external backend configurations are not validated for this TCAPI migration;
+CUDA integration is a separate step. Existing CPU TPS stream format is retained.
 
 ## Requirements
 
-To use this TCI, you need to install **GraceQ/tensor-ng-dev**.  
+To use the bundled TCAPI adapter, you need to install **GraceQ/tensor-ng-dev**.
 For details on installation, please refer to the `README.md` of [tensor-ng-dev](https://github.com/gracequantum/tensor-ng-dev).
 
 The repository is registered as a Git submodule and can be initialized as follows:

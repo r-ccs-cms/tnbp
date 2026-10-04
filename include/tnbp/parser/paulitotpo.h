@@ -42,13 +42,13 @@ namespace tnbp {
        const std::vector<pauli::Term<elem_t<TenT>>> & sparse_pauli,
        std::vector<TenT> & res_tensor,
        std::vector<std::vector<int>> & res_qubits) {
-    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
-    using RealT = typename tci::tensor_traits<TenT>::real_t;
-    using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
-    using BondIdxT = typename tci::tensor_traits<TenT>::bond_idx_t;
-    using OrderT = typename tci::tensor_traits<TenT>::order_t;
-    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
-    using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
+    using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
+    using RealT = typename tcapi::tensor_traits<TenT>::real_t;
+    using BondLabelT = typename tcapi::tensor_traits<TenT>::bond_label_t;
+    using BondIdxT = typename tcapi::tensor_traits<TenT>::bond_idx_t;
+    using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
+    using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
+    using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
 
     res_tensor.resize(sparse_pauli.size());
     res_qubits.resize(sparse_pauli.size());
@@ -65,15 +65,15 @@ namespace tnbp {
 	ShapeT shapeL(2,2);
 	auto mat = PauliOpMatrix<ElemT>(localop[k]);
 	auto itmat = mat.begin();
-	auto local = tci::assign_from_range<TenT>(
+	auto local = tcapi::assign_from_range<TenT>(
 	                ctx,shapeL,itmat,
 			[&shapeL](const CoorsT & coors) {
 			  return coors[0]+shapeL[0]*coors[1];
 			});
 	if( k == 0 ) {
-	  opten = tci::copy(ctx,local);
+	  opten = tcapi::copy(ctx,local);
 	} else {
-	  OrderT order = tci::order(ctx,opten);
+	  OrderT order = tcapi::order(ctx,opten);
 	  List<BondLabelT> labelO(2*k);
 	  List<BondLabelT> labelL(2);
 	  List<BondLabelT> labelT(2*(k+1));
@@ -87,12 +87,12 @@ namespace tnbp {
 	  }
 	  labelL[1] = label++;
 	  std::iota(labelT.begin(),labelT.end(),0);
-	  tci::contract(ctx,opten,labelO,local,labelL,tempo,labelT);
-	  opten = tci::copy(ctx,tempo);
+	  tcapi::contract(ctx,opten,labelO,local,labelL,tempo,labelT);
+	  opten = tcapi::copy(ctx,tempo);
 	}
       }
       *it_qubits++ = qubits;
-      *it_tensor++ = tci::copy(ctx,opten);
+      *it_tensor++ = tcapi::copy(ctx,opten);
     }
   }
 	     
@@ -140,7 +140,7 @@ namespace tnbp {
     auto it_one_site = onesite.begin();
     auto it_one_tensor = onesite_tensor.begin();
     for(size_t i=0; i < onesite_address.size(); i++) {
-      *it_one_tensor++ = tci::copy(ctx,tensor[onesite_address[i]]);
+      *it_one_tensor++ = tcapi::copy(ctx,tensor[onesite_address[i]]);
       *it_one_site++ = qubits[onesite_address[i]][0];
     }
     auto it_two_site = twosite.begin();
@@ -148,7 +148,7 @@ namespace tnbp {
     for(size_t i=0; i < twosite_address.size(); i++) {
       *it_two_site++ = std::make_pair(qubits[twosite_address[i]][0],
 				      qubits[twosite_address[i]][1]);
-      *it_two_tensor++ = tci::copy(ctx,tensor[twosite_address[i]]);
+      *it_two_tensor++ = tcapi::copy(ctx,tensor[twosite_address[i]]);
     }
   }
 		    

@@ -28,7 +28,7 @@ int main(int argc, char * argv[]) {
   
   Option options = generate_options(argc,argv);
   ContextHandle ctx;
-  tci::create_context(ctx);
+  tcapi::create_context(ctx);
   std::vector<std::pair<int,int>> edges;
 
   if( mpi_rank == 0 ) {
@@ -115,8 +115,8 @@ int main(int argc, char * argv[]) {
 	  if( i != 0 || rank != 0 ) {
 	    std::cout << ", ";
 	  }
-	  auto shape_i = tci::shape(ctx,W[i]);
-	  auto order_i = tci::order(ctx,W[i]);
+	  auto shape_i = tcapi::shape(ctx,W[i]);
+	  auto order_i = tcapi::order(ctx,W[i]);
 	  for(size_t m=0; m < order_i; m++) {
 	    std::cout << ((m==0)? "[" : ",") << shape_i[m];
 	  }

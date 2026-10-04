@@ -33,11 +33,11 @@ namespace tnbp {
    * - Internally, copies of the inputs are sorted before computing the result.
    */
   template <typename BondLabelT>
-  void tensor_contraction_label_helper(const tci::List<BondLabelT> & label_a,
-				       const tci::List<BondLabelT> & label_b,
-				       tci::List<BondLabelT> & label_c) {
-    tci::List<BondLabelT> a = label_a;
-    tci::List<BondLabelT> b = label_b;
+  void tensor_contraction_label_helper(const tcapi::List<BondLabelT> & label_a,
+				       const tcapi::List<BondLabelT> & label_b,
+				       tcapi::List<BondLabelT> & label_c) {
+    tcapi::List<BondLabelT> a = label_a;
+    tcapi::List<BondLabelT> b = label_b;
     std::sort(a.begin(),a.end());
     std::sort(b.begin(),b.end());
 
@@ -75,24 +75,24 @@ namespace tnbp {
 				IntT site_a, IntT site_b, IntT site_c,
 				MPI_Comm comm) {
 
-    using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
-    using BondIdxT = typename tci::tensor_traits<TenT>::bond_idx_t;
-    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
+    using BondLabelT = typename tcapi::tensor_traits<TenT>::bond_label_t;
+    using BondIdxT = typename tcapi::tensor_traits<TenT>::bond_idx_t;
+    using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
 
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
     
     auto bond_a = GetSurroundingBondIndex(site_a,edges);
     auto bond_b = GetSurroundingBondIndex(site_b,edges);
-    tci::List<BondLabelT> label_a(bond_a.size());
-    tci::List<BondLabelT> label_b(bond_b.size());
+    tcapi::List<BondLabelT> label_a(bond_a.size());
+    tcapi::List<BondLabelT> label_b(bond_b.size());
     for(size_t m=0; m < label_a.size(); m++) {
       label_a[m] = static_cast<BondLabelT>(bond_a[m]);
     }
     for(size_t m=0; m < label_b.size(); m++) {
       label_b[m] = static_cast<BondLabelT>(bond_b[m]);
     }
-    tci::List<BondLabelT> label_c;
+    tcapi::List<BondLabelT> label_c;
     tensor_contraction_label_helper(label_a,label_b,label_c);
 
     int mpi_rank_a = static_cast<int>(site_to_mpi_rank[site_a]);
@@ -110,7 +110,7 @@ namespace tnbp {
       if( mpi_type == 1 || mpi_type == 3 ) {
 	auto it_adrs_b = std::find(site_idx.begin(),site_idx.end(),site_b);
 	auto adrs_b = std::distance(site_idx.begin(),it_adrs_b);
-	B = tci::copy(ctx,W[adrs_b]);
+	B = tcapi::copy(ctx,W[adrs_b]);
       }
       if( mpi_type == 1 ) {
 	MpiSend(ctx,B,mpi_rank_a,comm);
@@ -121,7 +121,7 @@ namespace tnbp {
       if( mpi_type == 2 || mpi_type == 3 ) {
 	auto it_adrs_a = std::find(site_idx.begin(),site_idx.end(),site_a);
 	auto adrs_a = std::distance(site_idx.begin(),it_adrs_a);
-	tci::contract(ctx,W[adrs_a],label_a,B,label_b,W[adrs_a],label_c);
+	tcapi::contract(ctx,W[adrs_a],label_a,B,label_b,W[adrs_a],label_c);
       }
     }
 
@@ -155,13 +155,13 @@ namespace tnbp {
 	  if( mpi_merge == 2 || mpi_merge == 3 ) {
 	    auto it_adrs_c = std::find(site_idx.begin(),site_idx.end(),site_a);
 	    auto adrs_c = std::distance(site_idx.begin(),it_adrs_c);
-	    auto order_c = tci::order(ctx,W[adrs_c]);
-	    auto shape_c = tci::shape(ctx,W[adrs_c]);
+	    auto order_c = tcapi::order(ctx,W[adrs_c]);
+	    auto shape_c = tcapi::shape(ctx,W[adrs_c]);
 	    auto it_ap_bond_idx = std::find(bond_c.begin(),bond_c.end(),ap_edge_label);
 	    auto it_bp_bond_idx = std::find(bond_c.begin(),bond_c.end(),bp_edge_label);
 	    auto ap_bond_idx = std::distance(bond_c.begin(),it_ap_bond_idx);
 	    auto bp_bond_idx = std::distance(bond_c.begin(),it_bp_bond_idx);
-	    tci::List<BondIdxT> new_label_c(order_c);
+	    tcapi::List<BondIdxT> new_label_c(order_c);
 	    ShapeT new_shape_c(order_c-1);
 	    std::iota(new_label_c.begin(),new_label_c.end(),0);
 	    new_label_c.insert(new_label_c.begin()+ap_bond_idx+1,bp_bond_idx);
@@ -180,22 +180,22 @@ namespace tnbp {
 		k++;
 	      }
 	    }
-	    tci::transpose(ctx,W[adrs_c],new_label_c);
-	    tci::reshape(ctx,W[adrs_c],new_shape_c);
+	    tcapi::transpose(ctx,W[adrs_c],new_label_c);
+	    tcapi::reshape(ctx,W[adrs_c],new_shape_c);
 	    // remove bp_edge_label from bond_c
 	    bond_c.erase(it_bp_bond_idx);
 	  }
 	  if( mpi_merge == 1 || mpi_merge == 3 ) {
 	    auto it_adrs_p = std::find(site_idx.begin(),site_idx.end(),site_p);
 	    auto adrs_p = std::distance(site_idx.begin(),it_adrs_p);
-	    auto order_p = tci::order(ctx,W[adrs_p]);
-	    auto shape_p = tci::shape(ctx,W[adrs_p]);
+	    auto order_p = tcapi::order(ctx,W[adrs_p]);
+	    auto shape_p = tcapi::shape(ctx,W[adrs_p]);
 	    auto bond_p = GetSurroundingBondIndex(site_p,edges_temp);
 	    auto it_ap_bond_idx = std::find(bond_p.begin(),bond_p.end(),ap_edge_label);
 	    auto it_bp_bond_idx = std::find(bond_p.begin(),bond_p.end(),bp_edge_label);
 	    auto ap_bond_idx = std::distance(bond_p.begin(),it_ap_bond_idx);
 	    auto bp_bond_idx = std::distance(bond_p.begin(),it_bp_bond_idx);
-	    tci::List<BondIdxT> new_label_p(order_p);
+	    tcapi::List<BondIdxT> new_label_p(order_p);
 	    ShapeT new_shape_p(order_p-1);
 	    std::iota(new_label_p.begin(),new_label_p.end(),0);
 	    new_label_p.insert(new_label_p.begin()+ap_bond_idx+1,bp_bond_idx);
@@ -214,8 +214,8 @@ namespace tnbp {
 		k++;
 	      }
 	    }
-	    tci::transpose(ctx,W[adrs_p],new_label_p);
-	    tci::reshape(ctx,W[adrs_p],new_shape_p);
+	    tcapi::transpose(ctx,W[adrs_p],new_label_p);
+	    tcapi::reshape(ctx,W[adrs_p],new_shape_p);
 	  }
 	  // erase corresponding bp_bond_label
 	  auto it_remove_edge = find_edge(edges,site_b,site_p);
@@ -278,9 +278,9 @@ namespace tnbp {
     
     auto bond_a = GetSurroundingBondIndex(site_a,edges);
     auto bond_b = GetSurroundingBondIndex(site_b,edges);
-    tci::List<IntT> label_a(bond_a.size());
-    tci::List<IntT> label_b(bond_b.size());
-    tci::List<IntT> label_c;
+    tcapi::List<IntT> label_a(bond_a.size());
+    tcapi::List<IntT> label_b(bond_b.size());
+    tcapi::List<IntT> label_c;
     for(size_t m=0; m < label_a.size(); m++) {
       label_a[m] = static_cast<IntT>(bond_a[m]);
     }

@@ -87,18 +87,18 @@ int oracle_chi(int chi_min, int chi_max, double err) {
 
 // E = diag(lambda), the messenger tensor both ends of the edge carry.
 Tensor make_messenger(ContextHandle & ctx) {
-  using ShapeT = typename tci::tensor_traits<Tensor>::shape_t;
-  using CoorsT = typename tci::tensor_traits<Tensor>::elem_coors_t;
+  using ShapeT = typename tcapi::tensor_traits<Tensor>::shape_t;
+  using CoorsT = typename tcapi::tensor_traits<Tensor>::elem_coors_t;
   const int n = static_cast<int>(kLambda.size());
   ShapeT shape(2);
   shape[0] = n;
   shape[1] = n;
-  Tensor e = tci::zeros<Tensor>(ctx, shape);
+  Tensor e = tcapi::zeros<Tensor>(ctx, shape);
   CoorsT coors(2);
   for(int i = 0; i < n; i++) {
     coors[0] = i;
     coors[1] = i;
-    tci::set_elem(ctx, e, coors, Elem(kLambda[i]));
+    tcapi::set_elem(ctx, e, coors, Elem(kLambda[i]));
   }
   return e;
 }
@@ -108,16 +108,16 @@ Tensor make_messenger(ContextHandle & ctx) {
 // one. The entries only have to be nonzero, since Truncation renormalizes the
 // site after applying its factor.
 Tensor make_site(ContextHandle & ctx) {
-  using ShapeT = typename tci::tensor_traits<Tensor>::shape_t;
-  using CoorsT = typename tci::tensor_traits<Tensor>::elem_coors_t;
+  using ShapeT = typename tcapi::tensor_traits<Tensor>::shape_t;
+  using CoorsT = typename tcapi::tensor_traits<Tensor>::elem_coors_t;
   const int n = static_cast<int>(kLambda.size());
   ShapeT shape(1);
   shape[0] = n;
-  Tensor v = tci::zeros<Tensor>(ctx, shape);
+  Tensor v = tcapi::zeros<Tensor>(ctx, shape);
   CoorsT coors(1);
   for(int i = 0; i < n; i++) {
     coors[0] = i;
-    tci::set_elem(ctx, v, coors, Elem(double(i + 1)));
+    tcapi::set_elem(ctx, v, coors, Elem(double(i + 1)));
   }
   return v;
 }
@@ -178,10 +178,10 @@ void run_case(ContextHandle & ctx, MPI_Comm comm,
 
   // The retained chi is what consumers actually feel: both incident sites and
   // both messenger slots must carry the truncated bond, not just the report.
-  auto shape_v0 = tci::shape(ctx, V[0]);
-  auto shape_v1 = tci::shape(ctx, V[1]);
-  auto shape_e0 = tci::shape(ctx, E[0]);
-  auto shape_e1 = tci::shape(ctx, E[1]);
+  auto shape_v0 = tcapi::shape(ctx, V[0]);
+  auto shape_v1 = tcapi::shape(ctx, V[1]);
+  auto shape_e0 = tcapi::shape(ctx, E[0]);
+  auto shape_e1 = tcapi::shape(ctx, E[1]);
   check(static_cast<int>(shape_v0[0]) == chi, name + ": V[0] bond", double(shape_v0[0]));
   check(static_cast<int>(shape_v1[0]) == chi, name + ": V[1] bond", double(shape_v1[0]));
   check(static_cast<int>(shape_e0[0]) == chi && static_cast<int>(shape_e0[1]) == chi,
@@ -200,7 +200,7 @@ int main(int argc, char * argv[]) {
   }
 
   ContextHandle ctx;
-  tci::create_context(ctx);
+  tcapi::create_context(ctx);
 
   // Self-verify the fixture: the oracle below assumes lambda is strictly
   // positive and strictly decreasing, which is what makes epsilon monotone and

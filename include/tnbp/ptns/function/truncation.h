@@ -31,18 +31,18 @@ namespace tnbp {
 		  std::vector<real_t<TenT>> & res_trunc_err,
 		  std::vector<real_t<TenT>> * site_norms = nullptr) {
     
-    using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
-    using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
-    using BondIdxT = typename tci::tensor_traits<TenT>::bond_idx_t;
-    using RealT = typename tci::tensor_traits<TenT>::real_t;
-    using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
-    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
-    using OrderT = typename tci::tensor_traits<TenT>::order_t;
-    using SizeT = typename tci::tensor_traits<TenT>::ten_size_t;
-    using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
-    using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
+    using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;
+    using BondLabelT = typename tcapi::tensor_traits<TenT>::bond_label_t;
+    using BondIdxT = typename tcapi::tensor_traits<TenT>::bond_idx_t;
+    using RealT = typename tcapi::tensor_traits<TenT>::real_t;
+    using RealTenT = typename tcapi::tensor_traits<TenT>::real_ten_t;
+    using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
+    using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
+    using SizeT = typename tcapi::tensor_traits<TenT>::ten_size_t;
+    using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
+    using CtxR = typename tcapi::tensor_traits<RealTenT>::context_handle_t;
     CtxR ctx_r;
-    tci::create_context(ctx_r);
+    tcapi::create_context(ctx_r);
 
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
@@ -65,7 +65,7 @@ namespace tnbp {
 				    bool factor_first) {
       auto it = std::find(SiteIdx.begin(),SiteIdx.end(),site);
       int site_address = std::distance(SiteIdx.begin(),it);
-      OrderT ord = tci::order(ctx,V[site_address]);
+      OrderT ord = tcapi::order(ctx,V[site_address]);
       List<BondLabelT> IdxV(ord);
       List<BondLabelT> IdxC(ord);
       std::iota(IdxV.begin(),IdxV.end(),0);
@@ -75,13 +75,13 @@ namespace tnbp {
       if( factor_first ) {
 	IdxF[0] = static_cast<BondLabelT>(bond_address);
 	IdxF[1] = static_cast<BondLabelT>(-1);
-	tci::contract(ctx,factor,IdxF,V[site_address],IdxV,V[site_address],IdxC);
+	tcapi::contract(ctx,factor,IdxF,V[site_address],IdxV,V[site_address],IdxC);
       } else {
 	IdxF[0] = static_cast<BondLabelT>(-1);
 	IdxF[1] = static_cast<BondLabelT>(bond_address);
-	tci::contract(ctx,V[site_address],IdxV,factor,IdxF,V[site_address],IdxC);
+	tcapi::contract(ctx,V[site_address],IdxV,factor,IdxF,V[site_address],IdxC);
       }
-      auto nrm = tci::normalize(ctx,V[site_address]);
+      auto nrm = tcapi::normalize(ctx,V[site_address]);
       if (site_norms) site_norms->push_back(nrm);
     };
 
@@ -150,20 +150,20 @@ namespace tnbp {
 	  RealT recv_norm_t = scalars[1];
 
 	  // res_bond_dim is the retained singular-value count == spectrum length.
-	  auto shape_spec = tci::shape(ctx_r,spec);
+	  auto shape_spec = tcapi::shape(ctx_r,spec);
 	  res_bond_dim[edge_address] = shape_spec[0];
 
 	  // Rebuild E = diag(spectrum) with the same real/complex handling the
 	  // authoritative rank uses for Z below.
 	  TenT Z;
 	  if constexpr (std::is_same_v<TenT,RealTenT>) {
-	    Z = tci::copy(ctx_r,spec);
+	    Z = tcapi::copy(ctx_r,spec);
 	  } else {
-	    Z = tci::to_cplx(ctx_r,spec);
+	    Z = tcapi::to_cplx(ctx_r,spec);
 	  }
-	  tci::diag(ctx,Z);
-	  E[edge_address] = tci::copy(ctx,Z);
-	  E[edge_address+num_e] = tci::copy(ctx,Z);
+	  tcapi::diag(ctx,Z);
+	  E[edge_address] = tcapi::copy(ctx,Z);
+	  E[edge_address+num_e] = tcapi::copy(ctx,Z);
 
 	  // Record norm_t (the authoritative rank's value) then norm_b, keeping
 	  // the two-entries-per-seam order the consumer's cross-rank norm dedup
@@ -191,8 +191,8 @@ namespace tnbp {
 	IdxRb[1] = static_cast<BondLabelT>(1);
 	IdxRR[0] = static_cast<BondLabelT>(0);
 	IdxRR[1] = static_cast<BondLabelT>(1);
-	tci::contract(ctx,Ra,IdxRa,Rb,IdxRb,T,IdxRR);
-	auto norm_t = tci::normalize(ctx,T);
+	tcapi::contract(ctx,Ra,IdxRa,Rb,IdxRb,T,IdxRR);
+	auto norm_t = tcapi::normalize(ctx,T);
 	if (site_norms) site_norms->push_back(norm_t);
 
 	TenT X;
@@ -202,10 +202,10 @@ namespace tnbp {
 	RealT trunc_err;
 	BondDimT chi_min = 1;
 	BondDimT chi_max = max_dim;
-	tci::trunc_svd(ctx,T,num_rows,X,S,Y,
+	tcapi::trunc_svd(ctx,T,num_rows,X,S,Y,
 		       trunc_err,chi_min,chi_max,err,eps);
 	
-	auto shape_s = tci::shape(ctx_r,S);
+	auto shape_s = tcapi::shape(ctx_r,S);
 	res_bond_dim[edge_address] = shape_s[0];
 	res_trunc_err[edge_address] = trunc_err;
 	// Snapshot the pristine spectrum before the in-place sqrt below overwrites
@@ -213,22 +213,20 @@ namespace tnbp {
 	// receiver can rebuild diag(spectrum) for its E slots. Intra-rank and
 	// single-rank edges never send, so they skip this copy in the hot loop.
 	RealTenT spec;
-	if( cross_rank && mpi_type == 2 ) spec = tci::copy(ctx_r,S);
+	if( cross_rank && mpi_type == 2 ) tcapi::diag(ctx_r,S,spec);
 	TenT Z;
 	TenT P;
 	if constexpr (std::is_same_v<TenT,RealTenT>) {
-	  Z = tci::copy(ctx_r,S);
-	  tci::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
-	  tci::move(ctx_r,S,P);
+	  Z = tcapi::copy(ctx_r,S);
+	  tcapi::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
+	  P = tcapi::move(ctx_r,S);
 	} else {
-	  Z = tci::to_cplx(ctx_r,S);
-	  tci::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
-	  P = tci::to_cplx(ctx_r,S);
+	  Z = tcapi::to_cplx(ctx_r,S);
+	  tcapi::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
+	  P = tcapi::to_cplx(ctx_r,S);
 	}
-	tci::diag(ctx,Z);
-	tci::diag(ctx,P);
-	E[edge_address] = tci::copy(ctx,Z);
-	E[edge_address+num_e] = tci::copy(ctx,Z);
+	E[edge_address] = tcapi::copy(ctx,Z);
+	E[edge_address+num_e] = tcapi::copy(ctx,Z);
 
 	List<BondLabelT> IdxU(2);
 	List<BondLabelT> IdxS(2);
@@ -242,14 +240,14 @@ namespace tnbp {
 	  IdxU[1] = static_cast<BondLabelT>(1);
 	  IdxT[0] = static_cast<BondLabelT>(0);
 	  IdxT[1] = static_cast<BondLabelT>(1);
-	  tci::contract(ctx,Sa,IdxS,X,IdxU,T,IdxT);
+	  tcapi::contract(ctx,Sa,IdxS,X,IdxU,T,IdxT);
 	  IdxT[0] = static_cast<BondLabelT>(0);
 	  IdxT[1] = static_cast<BondLabelT>(-1);
 	  IdxP[0] = static_cast<BondLabelT>(-1);
 	  IdxP[1] = static_cast<BondLabelT>(1);
 	  IdxU[0] = static_cast<BondLabelT>(0);
 	  IdxU[1] = static_cast<BondLabelT>(1);
-	  tci::contract(ctx,T,IdxT,P,IdxP,T,IdxU);
+	  tcapi::contract(ctx,T,IdxT,P,IdxP,T,IdxU);
 	  apply_factor_to_site(site_a,bond_address_a,T,/*factor_first=*/false);
 	}
 
@@ -260,14 +258,14 @@ namespace tnbp {
 	  IdxS[1] = static_cast<BondLabelT>(1);
 	  IdxT[0] = static_cast<BondLabelT>(0);
 	  IdxT[1] = static_cast<BondLabelT>(1);
-	  tci::contract(ctx,Y,IdxU,Sb,IdxS,T,IdxT);
+	  tcapi::contract(ctx,Y,IdxU,Sb,IdxS,T,IdxT);
 	  IdxP[0] = static_cast<BondLabelT>(0);
 	  IdxP[1] = static_cast<BondLabelT>(-1);
 	  IdxT[0] = static_cast<BondLabelT>(-1);
 	  IdxT[1] = static_cast<BondLabelT>(1);
 	  IdxU[0] = static_cast<BondLabelT>(0);
 	  IdxU[1] = static_cast<BondLabelT>(1);
-	  tci::contract(ctx,P,IdxP,T,IdxT,T,IdxU);
+	  tcapi::contract(ctx,P,IdxP,T,IdxT,T,IdxU);
 	  apply_factor_to_site(site_b,bond_address_b,T,/*factor_first=*/true);
 	}
 
@@ -284,7 +282,7 @@ namespace tnbp {
 	  IdxS[1] = static_cast<BondLabelT>(1);
 	  IdxT[0] = static_cast<BondLabelT>(0);
 	  IdxT[1] = static_cast<BondLabelT>(1);
-	  tci::contract(ctx,Y,IdxU,Sb,IdxS,Tb,IdxT);
+	  tcapi::contract(ctx,Y,IdxU,Sb,IdxS,Tb,IdxT);
 	  TenT Mb;
 	  IdxP[0] = static_cast<BondLabelT>(0);
 	  IdxP[1] = static_cast<BondLabelT>(-1);
@@ -292,7 +290,7 @@ namespace tnbp {
 	  IdxT[1] = static_cast<BondLabelT>(1);
 	  IdxU[0] = static_cast<BondLabelT>(0);
 	  IdxU[1] = static_cast<BondLabelT>(1);
-	  tci::contract(ctx,P,IdxP,Tb,IdxT,Mb,IdxU);
+	  tcapi::contract(ctx,P,IdxP,Tb,IdxT,Mb,IdxU);
 	  MpiSend(ctx,Mb,mpi_rank_b,comm);
 	  MpiSend(ctx_r,spec,mpi_rank_b,comm);
 	  RealT scalars[2] = { res_trunc_err[edge_address], norm_t };

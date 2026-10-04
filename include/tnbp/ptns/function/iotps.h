@@ -35,7 +35,7 @@ namespace tnbp {
 			       
   
   template <typename TenT>
-  void SaveTPS(tci::context_handle_t<TenT> & ctx,
+  void SaveTPS(tcapi::context_handle_t<TenT> & ctx,
 	       std::ostream & out,
 	       const std::vector<TenT> & V,
 	       const std::vector<int> & SiteIdx,
@@ -49,7 +49,7 @@ namespace tnbp {
     out.write(reinterpret_cast<char *>(&size_M),sizeof(size_t));
     out.write(reinterpret_cast<char *>(&size_E),sizeof(size_t));
     for(const auto & Vi : V) {
-      tci::save(ctx,Vi,out);
+      tcapi::save(ctx,Vi,out);
     }
     for(const auto & Idx : SiteIdx) {
       out.write(reinterpret_cast<const char *>(&Idx),sizeof(int));
@@ -59,7 +59,7 @@ namespace tnbp {
       out.write(reinterpret_cast<const char*>(&value), sizeof(int));
     }
     for(const auto & Em : E) {
-      tci::save(ctx,Em,out);
+      tcapi::save(ctx,Em,out);
     }
     for(const auto & Idx : EdgeIdx) {
       out.write(reinterpret_cast<const char *>(&Idx),sizeof(int));
@@ -67,7 +67,7 @@ namespace tnbp {
   }
   
   template <typename TenT>
-  void LoadTPS(tci::context_handle_t<TenT> & ctx,
+  void LoadTPS(tcapi::context_handle_t<TenT> & ctx,
 	       std::istream & in,
 	       std::vector<TenT> & V,
 	       std::vector<int> & SiteIdx,
@@ -85,7 +85,7 @@ namespace tnbp {
     E.resize(2*size_E);
     EdgeIdx.resize(size_E);
     for(size_t i=0; i < size_V; i++) {
-      V[i] = tci::load<TenT>(ctx,in);
+      V[i] = tcapi::load<TenT>(ctx,in);
     }
     for(size_t i=0; i < size_V; i++) {
       in.read(reinterpret_cast<char *>(&SiteIdx[i]),sizeof(int));
@@ -97,7 +97,7 @@ namespace tnbp {
       Site_To_MpiRank[key] = value;
     }
     for(size_t m=0; m < 2*size_E; m++) {
-      E[m] = tci::load<TenT>(ctx,in);
+      E[m] = tcapi::load<TenT>(ctx,in);
     }
     for(size_t m=0; m < size_E; m++) {
       in.read(reinterpret_cast<char *>(&EdgeIdx[m]),sizeof(int));

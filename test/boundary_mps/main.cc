@@ -26,7 +26,7 @@ int main(int argc, char * argv[]) {
 
   Option options = generate_options(argc,argv);
   ContextHandle ctx;
-  tci::create_context(ctx);
+  tcapi::create_context(ctx);
   std::vector<std::pair<int,int>> edges;
 
   if( mpi_rank == 0 ) {
@@ -77,7 +77,7 @@ int main(int argc, char * argv[]) {
 				   site_i);
 	auto adrs_i = std::distance(site_idx.begin(),
 				    it_adrs_i);
-	T_bmps.push_back(tci::copy(ctx,V[adrs_i]));
+	T_bmps.push_back(tcapi::copy(ctx,V[adrs_i]));
 	site_idx_bmps.push_back(site_i);
       }
     }
