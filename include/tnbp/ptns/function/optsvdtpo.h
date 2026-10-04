@@ -72,14 +72,14 @@ namespace tnbp {
    *    may lead to invalid contractions, mismatched ranks, or segmentation faults.
    *
    * @throws std::invalid_argument  If tensor shapes or edge indices are inconsistent.
-   * @throws tci::runtime_error     If backend SVD fails or workspace allocation fails.
+   * @throws tcapi::runtime_error     If backend SVD fails or workspace allocation fails.
    *
    * @complexity
    *  For each bond pair, the computational cost is approximately @f$ O(\min(mn^2, m^2 n)) @f$,
    *  where @f$m, n@f$ are the reshaped matrix dimensions. Total cost scales with the number of edge pairs.
    *
    * @see
-   *  - tci::svd, tci::contract, tci::reshape
+   *  - tcapi::svd, tcapi::contract, tcapi::reshape
    *  - tnbp::GetSiteIndexFromBond
    *  - MPS/MPO normalization and gate compression routines
    */
@@ -88,18 +88,18 @@ namespace tnbp {
 		   const std::vector<std::pair<int,int>> & edges,
 		   std::vector<TenT> & O,
 		   real_t<TenT> eps) {
-    using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
-    using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
-    using BondIdxT = typename tci::tensor_traits<TenT>::bond_idx_t;
-    using RealT = typename tci::tensor_traits<TenT>::real_t;
-    using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
-    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
-    using OrderT = typename tci::tensor_traits<TenT>::order_t;
-    using SizeT = typename tci::tensor_traits<TenT>::ten_size_t;
-    using CoorsT = typename tci::tensor_traits<TenT>::elem_coors_t;
-    using CtxR = typename tci::tensor_traits<RealTenT>::context_handle_t;
+    using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;
+    using BondLabelT = typename tcapi::tensor_traits<TenT>::bond_label_t;
+    using BondIdxT = typename tcapi::tensor_traits<TenT>::bond_idx_t;
+    using RealT = typename tcapi::tensor_traits<TenT>::real_t;
+    using RealTenT = typename tcapi::tensor_traits<TenT>::real_ten_t;
+    using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
+    using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
+    using SizeT = typename tcapi::tensor_traits<TenT>::ten_size_t;
+    using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
+    using CtxR = typename tcapi::tensor_traits<RealTenT>::context_handle_t;
     CtxR ctx_r;
-    tci::create_context(ctx_r);
+    tcapi::create_context(ctx_r);
 
     auto global_sites = GetSiteIndexFromBond(edges);
 
@@ -127,11 +127,11 @@ namespace tnbp {
 					 edge_address);
       bond_address_b = std::distance(bond_b.begin(),it_bond_address_b);
 
-      OrderT order_a = tci::order(ctx,O[global_site_address_a]);
-      OrderT order_b = tci::order(ctx,O[global_site_address_b]);
+      OrderT order_a = tcapi::order(ctx,O[global_site_address_a]);
+      OrderT order_b = tcapi::order(ctx,O[global_site_address_b]);
       OrderT order_c = order_a+order_b-2;
-      ShapeT shape_a = tci::shape(ctx,O[global_site_address_a]);
-      ShapeT shape_b = tci::shape(ctx,O[global_site_address_b]);
+      ShapeT shape_a = tcapi::shape(ctx,O[global_site_address_a]);
+      ShapeT shape_b = tcapi::shape(ctx,O[global_site_address_b]);
       List<BondLabelT> label_a(order_a);
       List<BondLabelT> label_b(order_b);
       List<BondLabelT> label_c(order_c);
@@ -159,7 +159,7 @@ namespace tnbp {
       }
 
       TenT C;
-      tci::contract(ctx,O[global_site_address_a],label_a,
+      tcapi::contract(ctx,O[global_site_address_a],label_a,
 		    O[global_site_address_b],label_b,
 		    C,label_c);
       
@@ -170,15 +170,14 @@ namespace tnbp {
       OrderT num_rows = order_a-1;
       RealT trunc_err;
       BondDimT chi_max = shape_a[bond_address_a];
-      tci::trunc_svd(ctx,C,num_rows,U,S,V,
+      tcapi::trunc_svd(ctx,C,num_rows,U,S,V,
 		     trunc_err,chi_max,eps);
-      tci::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
+      tcapi::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
       if constexpr (std::is_same_v<TenT,RealTenT>) {
-	tci::move(ctx_r,S,D);
+	D = tcapi::move(ctx_r,S);
       } else {
-	D = tci::to_cplx(ctx_r,S);
+	D = tcapi::to_cplx(ctx_r,S);
       }
-      tci::diag(ctx,D);
       List<BondLabelT> label_u(order_a);
       List<BondLabelT> label_d(2);
       for(int k=0; k < order_a; k++) {
@@ -193,7 +192,7 @@ namespace tnbp {
       label_d[0] = -1;
       label_d[1] = bond_address_a;
       std::iota(label_a.begin(),label_a.end(),0);
-      tci::contract(ctx,U,label_u,D,label_d,
+      tcapi::contract(ctx,U,label_u,D,label_d,
 		    O[global_site_address_a],label_a);
       List<BondLabelT> label_v(order_b);
       for(int k=0; k < order_b; k++) {
@@ -208,7 +207,7 @@ namespace tnbp {
       label_d[0] = bond_address_b;
       label_d[1] = -1;
       std::iota(label_b.begin(),label_b.end(),0);
-      tci::contract(ctx,D,label_d,V,label_v,
+      tcapi::contract(ctx,D,label_d,V,label_v,
 		O[global_site_address_b],label_b);
     }
   }

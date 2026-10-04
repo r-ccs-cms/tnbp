@@ -31,7 +31,7 @@ int main(int argc, char * argv[]) {
   qasm::Program qasm_program = qasm::parse_any(qasm_source);
 
   ContextHandle ctx;
-  tci::create_context(ctx);
+  tcapi::create_context(ctx);
   std::vector<std::pair<int,int>> edges;
   std::vector<std::vector<std::pair<int,int>>> layer_edges;
   
@@ -80,7 +80,7 @@ int main(int argc, char * argv[]) {
     for(size_t l=0; l < TPO.size(); l++) {
       for(size_t i=0; i < TPO[l].size(); i++) {
 	std::cout << " Layer " << l << " site " << i << " tensor operator:";
-	auto shape = tci::shape(ctx,TPO[l][i]);
+	auto shape = tcapi::shape(ctx,TPO[l][i]);
 	for(size_t k=0; k < shape.size(); k++) {
 	  std::cout << ((k==0) ? "{" : ",") << shape[k];
 	}

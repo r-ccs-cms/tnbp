@@ -24,39 +24,37 @@ namespace tnbp {
     /**
        Constructor with specifying all data
      */
-    TensorProductState(const std::vector<TenT> & V,
+    TensorProductState(context_handle_t<TenT> & ctx,
+                       const std::vector<TenT> & V,
 		       const std::vector<std::pair<int,int>> & I,
 		       const std::vector<int> SiteIdx,
 		       const std::map<int,int> Site_To_MpiRank,
 		       MPI_Comm comm) :
-      V_(V), I_(I), SiteIdx_(SiteIdx),
+      I_(I), SiteIdx_(SiteIdx),
       Site_To_MpiRank_(Site_To_MpiRank), comm_(comm) {
+      V_.reserve(V.size());
+      for (const auto& tensor : V) V_.push_back(tcapi::copy(ctx,tensor));
       MPI_Comm_size(comm_,&mpi_size_);
       MPI_Comm_rank(comm_,&mpi_rank_);
     }
 
-    /**
-       Constructor from other TensorProductState
-     */
-    TensorProductState(const TensorProductState & other) :
-      V_(other.V_), I_(other.I_), SiteIdx_(other.SiteIdx_),
-      Site_To_MpiRank_(other.Site_To_MpiRank_),
-      comm_(other.comm_), mpi_size_(other.mpi_size_),
-      mpi_rank_(other.mpi_rank_) {}
+    TensorProductState(const TensorProductState&) = delete;
+    TensorProductState& operator=(const TensorProductState&) = delete;
+    TensorProductState(TensorProductState&&) = default;
+    TensorProductState& operator=(TensorProductState&&) = default;
 
-    /**
-       Deconstructor
-     */
-    ~TensorProductState() {}
-
-    /**
-       Copy operator
-     */
-    TensorProductState & operator = (const TensorProductState & other) {
-      if( this != &other ) {
-	copy(other);
-      }
-      return *this;
+    TensorProductState copy(context_handle_t<TenT>& ctx) const {
+      TensorProductState result;
+      result.V_.reserve(V_.size());
+      for (const auto& tensor : V_) result.V_.push_back(tcapi::copy(ctx,tensor));
+      result.I_ = I_;
+      result.SiteIdx_ = SiteIdx_;
+      result.Site_To_MpiRank_ = Site_To_MpiRank_;
+      result.comm_ = comm_;
+      result.mpi_master_ = mpi_master_;
+      result.mpi_size_ = mpi_size_;
+      result.mpi_rank_ = mpi_rank_;
+      return result;
     }
 
     /**
@@ -109,20 +107,12 @@ namespace tnbp {
     std::vector<int> SiteIdx_;
     std::map<int,int> Site_To_MpiRank_;
 
-    MPI_Comm comm_;
-    int mpi_master_;
-    int mpi_size_;
-    int mpi_rank_;
+    MPI_Comm comm_ = MPI_COMM_NULL;
+    int mpi_master_ = 0;
+    int mpi_size_ = 0;
+    int mpi_rank_ = 0;
 
-    void copy(const TensorProductState & other) {
-      this->V_ = other.V_;
-      this->I_ = other.I_;
-      this->SiteIdx_ = other.SiteIdx_;
-      this->Site_To_MpiRank_ = other.Site_To_MpiRank_;
-      this->comm_ = other.comm_;
-      this->mpi_size_ = other.mpi_size_;
-      this->mpi_rank_ = other.mpi_rank_;
-    }
+
   };
   
 }

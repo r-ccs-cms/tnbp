@@ -31,13 +31,13 @@ pip install qiskit qiskit_ibm_runtime
 
 ### 2. Estimator (c++ implementation)
 
-The simulator is implemented on top of the Tensor Computing Interface (TCI),
+The simulator is implemented on top of the Tensor Computing API (TCAPI),
 which provides a unified API for tensor operations across different backends.
 
 In order to run, both of the following components are required:
 
-**(a) TCI interface** (`external/minitci`)
-This repository includes `/external/minitci`, a header-only implementation of TCI that provides the interface layer required by the simulator.
+**(a) TCI interface** (`external/min-tci`)
+This repository includes `/external/min-tci`, a header-only implementation of TCI that provides the interface layer required by the simulator.
 It is included directly in this repository, so no additional setup is required.
 
 **(b) Tensor backend** (`GraceQ/tensor-ng-dev`)
@@ -74,7 +74,7 @@ By default, the Configuration file is set up for macOS environments where **LLVM
 - `-stdlib=libc++` (C++ standard library on macOS with LLVM)
 - `-O3` (optimization)
 The paths to the required libraries are already specified in `Configuration`:
-- **TCI interface**: `external/minitci`
+- **TCAPI interface**: `external/min-tci`
 - **Tensor backend**: `external/tensor-ng-dev`
 - **HPTT library**: bundled within `tensor-ng-dev/external/hptt`
 - **TNBP headers**: relative path to this repository.
@@ -84,7 +84,7 @@ make
 ```
 This will:
 1. Use `mpicxx` as the c++ compiler
-2. Include the header-only TCI implementation from `external/minitci`.
+2. Include the header-only TCI implementation from `external/min-tci`.
 3. Link against the installed tensor backend (`tensor-ng-dev`), `LAPACK/BLAS`, and other system libraries specified in the configuration.
 If you are on macOS with Homebrew-installed LLVM, no further changes are required.
 For other environments (Linux clusters, alternative compilers, etc.), you may need to update the Configuration file to point to the correct OpenMP, LAPACK/BLAS, and MPI installations.

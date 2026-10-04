@@ -527,7 +527,7 @@ namespace tci {
     using RealT = typename tensor_traits<TenT>::real_t;
     using ShapeT = typename tensor_traits<TenT>::shape_t;
     RealT * ps_raw = nullptr;
-    size_t chi;
+    size_t chi = 0;
     const auto shape_a = a.Shape();
     const size_t order_a = a.Rank();
     size_t ldims = static_cast<size_t>(num_of_bonds_as_rows);
@@ -539,9 +539,13 @@ namespace tci {
 
     size_t chi_max = std::min(m,n);
 
-    gqten::TruncSVD(&a,ldims,chi_max,
-                    &u,&v_dag,ps_raw,
-                    &chi,&trunc_err,s_min);
+    // TruncSVD returns early when the matrix SVD fails, leaving ps_raw, chi
+    // and trunc_err unwritten.
+    if( gqten::TruncSVD(&a,ldims,chi_max,
+                        &u,&v_dag,ps_raw,
+                        &chi,&trunc_err,s_min) != 0 ) {
+      throw std::runtime_error("gqten::TruncSVD: matrix SVD failed");
+    }
     s_diag = gqten::tensor<RealT>({static_cast<int32_t>(chi)},ps_raw);
   }
 
@@ -560,11 +564,15 @@ namespace tci {
        const bond_dim_t<TenT> chi_max,
        const real_t<TenT> s_min) {
     using RealT = typename tensor_traits<TenT>::real_t;
-    RealT * ps_raw;
-    size_t chi;
-    gqten::TruncSVD(&a,static_cast<size_t>(num_of_bonds_as_rows),
-                    static_cast<size_t>(chi_max),
-                    &u,&v_dag,ps_raw,&chi,&trunc_err,s_min);
+    RealT * ps_raw = nullptr;
+    size_t chi = 0;
+    // TruncSVD returns early when the matrix SVD fails, leaving ps_raw, chi
+    // and trunc_err unwritten.
+    if( gqten::TruncSVD(&a,static_cast<size_t>(num_of_bonds_as_rows),
+                        static_cast<size_t>(chi_max),
+                        &u,&v_dag,ps_raw,&chi,&trunc_err,s_min) != 0 ) {
+      throw std::runtime_error("gqten::TruncSVD: matrix SVD failed");
+    }
     s_diag = gqten::tensor<RealT>({static_cast<int32_t>(chi)},ps_raw);
   }
 
@@ -585,13 +593,17 @@ namespace tci {
        const real_t<TenT> target_trunc_err,
        const real_t<TenT> s_min) {
     using RealT = typename tensor_traits<TenT>::real_t;
-    RealT * ps_raw;
-    size_t chi;
-    gqten::TruncSVD(&a,static_cast<size_t>(num_of_bonds_as_rows),
-                    static_cast<RealT>(target_trunc_err),
-                    static_cast<size_t>(chi_max),
-                    static_cast<size_t>(chi_min),
-                    &u,&v_dag,ps_raw,&chi,&trunc_err,s_min);
+    RealT * ps_raw = nullptr;
+    size_t chi = 0;
+    // TruncSVD returns early when the matrix SVD fails, leaving ps_raw, chi
+    // and trunc_err unwritten.
+    if( gqten::TruncSVD(&a,static_cast<size_t>(num_of_bonds_as_rows),
+                        static_cast<RealT>(target_trunc_err),
+                        static_cast<size_t>(chi_min),
+                        static_cast<size_t>(chi_max),
+                        &u,&v_dag,ps_raw,&chi,&trunc_err,s_min) != 0 ) {
+      throw std::runtime_error("gqten::TruncSVD: matrix SVD failed");
+    }
     s_diag = gqten::tensor<RealT>({static_cast<int32_t>(chi)},ps_raw);
   }
 
@@ -671,12 +683,19 @@ namespace tci {
     const char uplo = 'U';
     size_t n = 0;
     gqten::EigHerm(&a,ldims,pw,pv,&n,jobz,uplo);
-    w_diag = gqten::tensor<RealT>({n},pw);
+    // The eigenvector count comes back as size_t; the shape element type is
+    // narrower, so the conversion must be explicit to compile under strict
+    // narrowing rules. The assert documents the representable-dimension
+    // limit and catches an oversized n in debug builds (release builds
+    // compile it out).
+    assert(n <= static_cast<size_t>(std::numeric_limits<bond_dim_t<TenT>>::max()));
+    auto n_bd = static_cast<bond_dim_t<TenT>>(n);
+    w_diag = gqten::tensor<RealT>({n_bd},pw);
     ShapeT shape_v(static_cast<size_t>(num_of_bonds_as_rows)+1);
     for(size_t k=0; k < ldims; k++) {
       shape_v[k] = shape_a[k];
     }
-    shape_v[ldims] = n;
+    shape_v[ldims] = n_bd;
     v = TenT(shape_v,pv);
   }
 

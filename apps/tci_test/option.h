@@ -4,7 +4,7 @@
 #include <vector>
 
 #ifdef USE_CYTNX
-using Tensor = tci::CytnxTensor<cytnx::cytnx_complex128>;
+using Tensor = tcapi::CytnxTensor<cytnx::cytnx_complex128>;
 #else
 #ifdef USE_COMPLEX
 #ifdef USE_SINGLE
@@ -21,15 +21,15 @@ using Tensor = typename gqten::tensor<double>;
 #endif
 #endif
 
-using ContextHandle = typename tci::tensor_traits<Tensor>::context_handle_t;
-using Elem = typename tci::tensor_traits<Tensor>::elem_t;
-using Real = typename tci::tensor_traits<Tensor>::real_t;
-using Rank = typename tci::tensor_traits<Tensor>::rank_t;
-using Shape = typename tci::tensor_traits<Tensor>::shape_t;
-using BondDim = typename tci::tensor_traits<Tensor>::bond_dim_t;
-using BondLabel = typename tci::tensor_traits<Tensor>::bond_label_t;
-using RealTensor = typename tci::tensor_traits<Tensor>::real_ten_t;
-using ContextHandleReal = typename tci::tensor_traits<RealTensor>::context_handle_t;
+using ContextHandle = typename tcapi::tensor_traits<Tensor>::context_handle_t;
+using Elem = typename tcapi::tensor_traits<Tensor>::elem_t;
+using Real = typename tcapi::tensor_traits<Tensor>::real_t;
+using Rank = typename tcapi::tensor_traits<Tensor>::order_t;
+using Shape = typename tcapi::tensor_traits<Tensor>::shape_t;
+using BondDim = typename tcapi::tensor_traits<Tensor>::bond_dim_t;
+using BondLabel = typename tcapi::tensor_traits<Tensor>::bond_label_t;
+using RealTensor = typename tcapi::tensor_traits<Tensor>::real_ten_t;
+using ContextHandleReal = typename tcapi::tensor_traits<RealTensor>::context_handle_t;
 
 struct Option {
   Rank num_rows = 1;

@@ -22,11 +22,11 @@ namespace tnbp {
 		 const std::vector<int> & EdgeIdx,
 		 MPI_Comm comm) {
 
-    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
-    using BondLabelT = typename tci::tensor_traits<TenT>::bond_label_t;
-    using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
-    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
-    using OrderT = typename tci::tensor_traits<TenT>::order_t;
+    using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
+    using BondLabelT = typename tcapi::tensor_traits<TenT>::bond_label_t;
+    using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;
+    using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
+    using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
 
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
@@ -40,15 +40,15 @@ namespace tnbp {
 					      site);
       auto global_site_address = std::distance(global_sites.begin(),
 					       it_global_site_address);
-      OrderT order_v = tci::order(ctx,V[address]);
-      OrderT order_o = tci::order(ctx,O[global_site_address]);
+      OrderT order_v = tcapi::order(ctx,V[address]);
+      OrderT order_o = tcapi::order(ctx,O[global_site_address]);
       OrderT num_vb = order_v-1;
       List<BondLabelT> label_v(order_v);
       List<BondLabelT> label_o(order_o);
       List<BondLabelT> label_r(order_v+order_o-2);
       ShapeT new_shape_v(order_v);
-      ShapeT shape_v = tci::shape(ctx,V[address]);
-      ShapeT shape_o = tci::shape(ctx,O[global_site_address]);
+      ShapeT shape_v = tcapi::shape(ctx,V[address]);
+      ShapeT shape_o = tcapi::shape(ctx,O[global_site_address]);
       for(OrderT k=0; k < num_vb; k++) {
 	label_v[k] = static_cast<BondLabelT>(2*k+0);
 	label_o[k] = static_cast<BondLabelT>(2*k+1);
@@ -61,9 +61,9 @@ namespace tnbp {
       label_o[num_vb+1] = static_cast<BondLabelT>(2*num_vb+1);
       label_r[2*num_vb] = static_cast<BondLabelT>(2*num_vb+1);
       new_shape_v[num_vb] = shape_o[num_vb];
-      tci::contract(ctx,O[global_site_address],label_o,V[address],label_v,
+      tcapi::contract(ctx,O[global_site_address],label_o,V[address],label_v,
 		    V[address],label_r);
-      tci::reshape(ctx,V[address],new_shape_v);
+      tcapi::reshape(ctx,V[address],new_shape_v);
     }
 
     size_t num_e = EdgeIdx.size();
@@ -107,8 +107,8 @@ namespace tnbp {
 	  }
 	}
 
-	auto shape_O = tci::shape(ctx,O[global_site_address_a]);
-	auto shape_E = tci::shape(ctx,E[address]);
+	auto shape_O = tcapi::shape(ctx,O[global_site_address_a]);
+	auto shape_E = tcapi::shape(ctx,E[address]);
 	ShapeT shape_I(2,shape_O[target_bond]);
 	ShapeT shape_N(2,shape_I[0]*shape_E[0]);
 	std::vector<ElemT> data_I(shape_O[target_bond]*shape_O[target_bond],
@@ -117,15 +117,15 @@ namespace tnbp {
 	  data_I[k+shape_O[target_bond]*k] = static_cast<ElemT>(1.0);
 	}
 	auto it_data_I = data_I.begin();
-	TenT I = tci::assign_from_range<TenT>(ctx,shape_I,it_data_I,
+	TenT I = tcapi::assign_from_range<TenT>(ctx,shape_I,it_data_I,
 	     [&shape_I](const auto & coor){
 	       return coor[0] + shape_I[0] * coor[1];
 	     });
 	TenT T;
-	tci::contract(ctx,E[address],Idx_E,I,Idx_I,T,Idx_T);
-	tci::reshape(ctx,T,shape_N,E[address]);
-	tci::contract(ctx,E[address+num_e],Idx_E,I,Idx_I,T,Idx_T);
-	tci::reshape(ctx,T,shape_N,E[address+num_e]);
+	tcapi::contract(ctx,E[address],Idx_E,I,Idx_I,T,Idx_T);
+	tcapi::reshape(ctx,T,shape_N,E[address]);
+	tcapi::contract(ctx,E[address+num_e],Idx_E,I,Idx_I,T,Idx_T);
+	tcapi::reshape(ctx,T,shape_N,E[address+num_e]);
 	
       } else if ( mpi_rank_b == mpi_rank ) {
 
@@ -153,8 +153,8 @@ namespace tnbp {
 	  }
 	}
 	
-	auto shape_O = tci::shape(ctx,O[global_site_address_b]);
-	auto shape_E = tci::shape(ctx,E[address]);
+	auto shape_O = tcapi::shape(ctx,O[global_site_address_b]);
+	auto shape_E = tcapi::shape(ctx,E[address]);
 	ShapeT shape_I(2,shape_O[target_bond]);
 	ShapeT shape_N(2,shape_I[0]*shape_E[0]);
 	std::vector<ElemT> data_I(shape_O[target_bond]*shape_O[target_bond],
@@ -163,18 +163,190 @@ namespace tnbp {
 	  data_I[k+shape_O[target_bond]*k] = static_cast<ElemT>(1.0);
 	}
 	auto it_data_I = data_I.begin();
-	TenT I = tci::assign_from_range<TenT>(ctx,shape_I,it_data_I,
+	TenT I = tcapi::assign_from_range<TenT>(ctx,shape_I,it_data_I,
 	     [&shape_I](const auto & coor){
 	       return coor[0] + shape_I[0] * coor[1];
 	     });
 	TenT T;
-	tci::contract(ctx,E[address],Idx_E,I,Idx_I,T,Idx_T);
-	tci::reshape(ctx,T,shape_N,E[address]);
-	tci::contract(ctx,E[address+num_e],Idx_E,I,Idx_I,T,Idx_T);
-	tci::reshape(ctx,T,shape_N,E[address+num_e]);
+	tcapi::contract(ctx,E[address],Idx_E,I,Idx_I,T,Idx_T);
+	tcapi::reshape(ctx,T,shape_N,E[address]);
+	tcapi::contract(ctx,E[address+num_e],Idx_E,I,Idx_I,T,Idx_T);
+	tcapi::reshape(ctx,T,shape_N,E[address+num_e]);
       }
     }
   }
+
+  /**
+     @brief Attach tensor product operator to tensor product state.
+     In this function, it is assumed that the TPO tensor is defined at the same address as the TPS site tensor.
+     AbsorbTPO, which has the same functionality, assumes that all nodes have TPO tensors for all sites, but this assumption will be removed in AbsorbTPO in the future.
+   */
+  template <typename TenT>
+  void AttachTPO(context_handle_t<TenT> & ctx,
+		 const std::vector<std::pair<int,int>> & edges,
+		 const std::vector<TenT> & O,
+		 std::vector<TenT> & V,
+		 const std::vector<int> & site_idx,
+		 const std::map<int,int> & site_to_mpi_rank,
+		 std::vector<TenT> & E,
+		 const std::vector<int> & edge_idx,
+		 MPI_Comm comm) {
+
+    using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
+    using BondLabelT = typename tcapi::tensor_traits<TenT>::bond_label_t;
+    using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;
+    using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
+    using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
+
+    int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
+    int mpi_size; MPI_Comm_size(comm,&mpi_size);
+
+    auto global_sites = GetSiteIndexFromBond(edges);
+
+    for(int site_adrs=0; site_adrs < site_idx.size(); site_adrs++) {
+      int site = site_idx[site_adrs];
+      auto it_global_site_address = std::find(global_sites.begin(),
+					      global_sites.end(),
+					      site);
+      auto global_site_address = std::distance(global_sites.begin(),
+					       it_global_site_address);
+      OrderT order_v = tcapi::order(ctx,V[site_adrs]);
+      OrderT order_o = tcapi::order(ctx,O[site_adrs]);
+      OrderT num_vb = order_v-1;
+      List<BondLabelT> label_v(order_v);
+      List<BondLabelT> label_o(order_o);
+      List<BondLabelT> label_r(order_v+order_o-2);
+      ShapeT new_shape_v(order_v);
+      ShapeT shape_v = tcapi::shape(ctx,V[site_adrs]);
+      ShapeT shape_o = tcapi::shape(ctx,O[site_adrs]);
+      for(OrderT k=0; k < num_vb; k++) {
+	label_v[k] = static_cast<BondLabelT>(2*k+0);
+	label_o[k] = static_cast<BondLabelT>(2*k+1);
+	label_r[2*k+0] = static_cast<BondLabelT>(2*k+0);
+	label_r[2*k+1] = static_cast<BondLabelT>(2*k+1);
+	new_shape_v[k] = static_cast<BondDimT>(shape_v[k]*shape_o[k]);
+      }
+      label_v[num_vb] = static_cast<BondLabelT>(-1);
+      label_o[num_vb] = static_cast<BondLabelT>(-1);
+      label_o[num_vb+1] = static_cast<BondLabelT>(2*num_vb+1);
+      label_r[2*num_vb] = static_cast<BondLabelT>(2*num_vb+1);
+      new_shape_v[num_vb] = shape_o[num_vb];
+      tcapi::contract(ctx,O[site_adrs],label_o,V[site_adrs],label_v,
+		    V[site_adrs],label_r);
+      tcapi::reshape(ctx,V[site_adrs],new_shape_v);
+    }
+
+    size_t num_e = edge_idx.size();
+    List<BondLabelT> Idx_I(2);
+    List<BondLabelT> Idx_E(2);
+    List<BondLabelT> Idx_T(4);
+    Idx_E[0] = static_cast<BondLabelT>(0);
+    Idx_E[1] = static_cast<BondLabelT>(2);
+    Idx_I[0] = static_cast<BondLabelT>(1);
+    Idx_I[1] = static_cast<BondLabelT>(3);
+    std::iota(Idx_T.begin(),Idx_T.end(),0);
+
+    for(size_t edge_adrs=0; edge_adrs < num_e; edge_adrs++) {
+      int site_a = edges[edge_idx[edge_adrs]].first;
+      int site_b = edges[edge_idx[edge_adrs]].second;
+      int mpi_rank_a = site_to_mpi_rank.at(site_a);
+      int mpi_rank_b = site_to_mpi_rank.at(site_b);
+      
+      if( mpi_rank_a == mpi_rank ) {
+
+	auto it_site_a_adrs = std::find(site_idx.begin(),
+					site_idx.end(),
+					site_a);
+	auto site_a_adrs = std::distance(site_idx.begin(),
+					 it_site_a_adrs);
+	std::vector<int> bond = GetSurroundingBondIndex(site_a,edges);
+	
+	int target_edge = 0;
+	int target_bond = 0;
+	for(size_t k=0; k < bond.size(); k++) {
+	  if( ( edges[bond[k]].first == site_a ) &&
+	      ( edges[bond[k]].second == site_b ) ) {
+	    target_edge = bond[k];
+	    target_bond = k;
+	    break;
+	  } else if ( (edges[bond[k]].first == site_b ) &&
+		      (edges[bond[k]].second == site_a ) ) {
+	    target_edge = bond[k];
+	    target_bond = k;
+	    break;
+	  }
+	}
+
+	auto shape_O = tcapi::shape(ctx,O[site_a_adrs]);
+	auto shape_E = tcapi::shape(ctx,E[edge_adrs]);
+	ShapeT shape_I(2,shape_O[target_bond]);
+	ShapeT shape_N(2,shape_I[0]*shape_E[0]);
+	std::vector<ElemT> data_I(shape_O[target_bond]*shape_O[target_bond],
+				  static_cast<ElemT>(0.0));
+	for(size_t k=0; k < shape_O[target_bond]; k++) {
+	  data_I[k+shape_O[target_bond]*k] = static_cast<ElemT>(1.0);
+	}
+	auto it_data_I = data_I.begin();
+	TenT I = tcapi::assign_from_range<TenT>(ctx,shape_I,it_data_I,
+	     [&shape_I](const auto & coor){
+	       return coor[0] + shape_I[0] * coor[1];
+	     });
+	TenT T;
+	tcapi::contract(ctx,E[edge_adrs],Idx_E,I,Idx_I,T,Idx_T);
+	tcapi::reshape(ctx,T,shape_N,E[edge_adrs]);
+	tcapi::contract(ctx,E[edge_adrs+num_e],Idx_E,I,Idx_I,T,Idx_T);
+	tcapi::reshape(ctx,T,shape_N,E[edge_adrs+num_e]);
+	
+      } else if ( mpi_rank_b == mpi_rank ) {
+
+	auto it_site_b_adrs = std::find(site_idx.begin(),
+					site_idx.end(),
+					site_b);
+	auto site_b_adrs = std::distance(site_idx.begin(),
+					 it_site_b_adrs);
+	
+	std::vector<int> bond = GetSurroundingBondIndex(site_b,edges);
+
+	int target_edge = 0;
+	int target_bond = 0;
+	for(size_t k=0; k < bond.size(); k++) {
+	  if( ( edges[bond[k]].first == site_b ) &&
+	      ( edges[bond[k]].second == site_a ) ) {
+	    target_edge = bond[k];
+	    target_bond = k;
+	    break;
+	  } else if ( (edges[bond[k]].first == site_a ) &&
+		      (edges[bond[k]].second == site_b ) ) {
+	    target_edge = bond[k];
+	    target_bond = k;
+	    break;
+	  }
+	}
+	
+	auto shape_O = tcapi::shape(ctx,O[site_b_adrs]);
+	auto shape_E = tcapi::shape(ctx,E[edge_adrs]);
+	ShapeT shape_I(2,shape_O[target_bond]);
+	ShapeT shape_N(2,shape_I[0]*shape_E[0]);
+	std::vector<ElemT> data_I(shape_O[target_bond]*shape_O[target_bond],
+				  static_cast<ElemT>(0.0));
+	for(size_t k=0; k < shape_O[target_bond]; k++) {
+	  data_I[k+shape_O[target_bond]*k] = static_cast<ElemT>(1.0);
+	}
+	auto it_data_I = data_I.begin();
+	TenT I = tcapi::assign_from_range<TenT>(ctx,shape_I,it_data_I,
+	     [&shape_I](const auto & coor){
+	       return coor[0] + shape_I[0] * coor[1];
+	     });
+	TenT T;
+	tcapi::contract(ctx,E[edge_adrs],Idx_E,I,Idx_I,T,Idx_T);
+	tcapi::reshape(ctx,T,shape_N,E[edge_adrs]);
+	tcapi::contract(ctx,E[edge_adrs+num_e],Idx_E,I,Idx_I,T,Idx_T);
+	tcapi::reshape(ctx,T,shape_N,E[edge_adrs+num_e]);
+      }
+    }
+  }
+  
+
   
   
 }

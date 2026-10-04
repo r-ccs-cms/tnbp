@@ -35,7 +35,7 @@ int main(int argc, char * argv[]) {
   qasm::Program qasm_program = qasm::parse_any(qasm_source);
 
   ContextHandle ctx;
-  tci::create_context(ctx);
+  tcapi::create_context(ctx);
   std::vector<std::pair<int,int>> edges;
   std::vector<std::vector<std::pair<int,int>>> layer_edges;
   
@@ -139,7 +139,7 @@ int main(int argc, char * argv[]) {
       }
       auto itE = E.begin();
       for(const auto & et : F) {
-	tci::copy(ctx,et,*itE++);
+	*itE++ = tcapi::copy(ctx,et);
       }
       tnbp::BeliefPropagationCondition(
 	    ctx,edges,V,SiteIdx,

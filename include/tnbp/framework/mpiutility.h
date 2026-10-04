@@ -79,11 +79,11 @@ namespace tnbp {
   template <typename TenT>
   void MpiBcast(context_handle_t<TenT> &ctx,
 		TenT &A, int root, MPI_Comm comm) {
-    using ShapeT   = typename tci::tensor_traits<TenT>::shape_t;
-    using SizeT    = typename tci::tensor_traits<TenT>::ten_size_t;
-    using ElemT    = typename tci::tensor_traits<TenT>::elem_t;
-    using OrderT   = typename tci::tensor_traits<TenT>::order_t;
-    using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
+    using ShapeT   = typename tcapi::tensor_traits<TenT>::shape_t;
+    using SizeT    = typename tcapi::tensor_traits<TenT>::ten_size_t;
+    using ElemT    = typename tcapi::tensor_traits<TenT>::elem_t;
+    using OrderT   = typename tcapi::tensor_traits<TenT>::order_t;
+    using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;
     
     int mpi_rank = -1;
     MPI_Comm_rank(comm, &mpi_rank);
@@ -93,9 +93,9 @@ namespace tnbp {
     std::vector<ElemT>    data;
     
     if (mpi_rank == root) {
-      const SizeT  size_A  = tci::size(ctx, A);
-      const OrderT order_A  = tci::order(ctx, A);
-      const ShapeT shape_A = tci::shape(ctx, A);
+      const SizeT  size_A  = tcapi::size(ctx, A);
+      const OrderT order_A  = tcapi::order(ctx, A);
+      const ShapeT shape_A = tcapi::shape(ctx, A);
       
       size = static_cast<uint32_t>(size_A);
       order = static_cast<uint32_t>(order_A);
@@ -108,7 +108,7 @@ namespace tnbp {
       
       data.resize(static_cast<size_t>(size_A));
       auto it_data = data.begin();
-      tci::to_range(ctx, A, it_data,
+      tcapi::to_range(ctx, A, it_data,
 	   [shape_A](const auto& coor) -> std::ptrdiff_t {
 	     return address_from_coor(shape_A, coor);
 	   });
@@ -134,7 +134,7 @@ namespace tnbp {
 	for (auto d : shape) *it++ = static_cast<BondDimT>(d);
       }
       auto it_data = data.begin();
-      A = tci::assign_from_range<TenT>(
+      A = tcapi::assign_from_range<TenT>(
 	   ctx, shape_A, it_data,
 	   [shape_A](const auto& coor) -> std::ptrdiff_t {
 	     return address_from_coor(shape_A, coor);
@@ -146,15 +146,15 @@ namespace tnbp {
   template <typename TenT>
   void MpiSend(context_handle_t<TenT> &ctx,
 	       const TenT &A, int dst, MPI_Comm comm) {
-    using ShapeT = typename tci::tensor_traits<TenT>::shape_t;
-    using SizeT  = typename tci::tensor_traits<TenT>::ten_size_t;
-    using ElemT  = typename tci::tensor_traits<TenT>::elem_t;
-    using OrderT = typename tci::tensor_traits<TenT>::order_t;
+    using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
+    using SizeT  = typename tcapi::tensor_traits<TenT>::ten_size_t;
+    using ElemT  = typename tcapi::tensor_traits<TenT>::elem_t;
+    using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
     
     // shape / order / size
-    const SizeT  size_A  = tci::size(ctx, A);
-    const OrderT order_A = tci::order(ctx, A);
-    const ShapeT shape_A = tci::shape(ctx, A);
+    const SizeT  size_A  = tcapi::size(ctx, A);
+    const OrderT order_A = tcapi::order(ctx, A);
+    const ShapeT shape_A = tcapi::shape(ctx, A);
     
     std::vector<uint32_t> shape;
     shape.resize(static_cast<size_t>(order_A));
@@ -167,7 +167,7 @@ namespace tnbp {
     data.resize(static_cast<size_t>(size_A));
     {
       auto it_data = data.begin();
-      tci::to_range(
+      tcapi::to_range(
 	   ctx, A, it_data,
 	   [shape_A](const auto& coor) -> std::ptrdiff_t {
 	     return address_from_coor(shape_A, coor);
@@ -189,9 +189,9 @@ namespace tnbp {
   template <typename TenT>
   void MpiRecv(context_handle_t<TenT> &ctx,
 	       TenT &A, int src, MPI_Comm comm) {
-    using ShapeT   = typename tci::tensor_traits<TenT>::shape_t;
-    using ElemT    = typename tci::tensor_traits<TenT>::elem_t;
-    using BondDimT = typename tci::tensor_traits<TenT>::bond_dim_t;
+    using ShapeT   = typename tcapi::tensor_traits<TenT>::shape_t;
+    using ElemT    = typename tcapi::tensor_traits<TenT>::elem_t;
+    using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;
     
     uint32_t size = 0;
     uint32_t order = 0;
@@ -218,7 +218,7 @@ namespace tnbp {
     }
 
     auto it_data = data.begin();
-    A = tci::assign_from_range<TenT>(
+    A = tcapi::assign_from_range<TenT>(
        ctx, shape_A, it_data,
        [shape_A](const auto& coor) -> std::ptrdiff_t {
 	 return address_from_coor(shape_A, coor);

@@ -74,9 +74,9 @@ namespace tnbp {
 			 MPI_Comm comm,
 			 std::vector<TenT> & F) {
     
-    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
-    using RealT = typename tci::tensor_traits<TenT>::real_t;
-    using BondLabelT  = typename tci::tensor_traits<TenT>::bond_label_t;
+    using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
+    using RealT = typename tcapi::tensor_traits<TenT>::real_t;
+    using BondLabelT  = typename tcapi::tensor_traits<TenT>::bond_label_t;
 
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
@@ -128,8 +128,8 @@ namespace tnbp {
 	if( type == 3 || type == 2 ) {
 	  auto itAddressA = std::find(SiteIdx.begin(),SiteIdx.end(),SiteA);
 	  AddressA = std::distance(SiteIdx.begin(),itAddressA);
-	  TenT T = tci::copy(ctx,V[AddressA]);
-	  auto OrderA = tci::order(ctx,T);
+	  TenT T = tcapi::copy(ctx,V[AddressA]);
+	  auto OrderA = tcapi::order(ctx,T);
 	  List<BondLabelT> IdxA(OrderA);
 	  List<BondLabelT> IdxE(2);
 	  List<BondLabelT> IdxA_res(OrderA);
@@ -145,15 +145,15 @@ namespace tnbp {
 	      IdxE[0] = static_cast<BondLabelT>(-1);
 	      IdxE[1] = static_cast<BondLabelT>(k);
 	      if( I[EdgeIdxA[k]].first == SiteA ) {
-		tci::contract(ctx,T,IdxA,E[MpA+size_e],IdxE,T,IdxA_res);
+		tcapi::contract(ctx,T,IdxA,E[MpA+size_e],IdxE,T,IdxA_res);
 	      } else {
-		tci::contract(ctx,T,IdxA,E[MpA],IdxE,T,IdxA_res);
+		tcapi::contract(ctx,T,IdxA,E[MpA],IdxE,T,IdxA_res);
 	      }
 	    }
-	    auto norm_a = tci::normalize(ctx,T);
+	    auto norm_a = tcapi::normalize(ctx,T);
 	  }
-	  AdagA = tci::copy(ctx,V[AddressA]);
-	  tci::cplx_conj(ctx,AdagA);
+	  AdagA = tcapi::copy(ctx,V[AddressA]);
+	  tcapi::cplx_conj(ctx,AdagA);
 	  
 	  List<BondLabelT> IdxT(OrderA);
 	  List<BondLabelT> IdxN(2);
@@ -162,15 +162,15 @@ namespace tnbp {
 	  std::iota(IdxN.begin(),IdxN.end(),0);
 	  IdxT[BondIdxA] = static_cast<BondLabelT>(0);
 	  IdxA[BondIdxA] = static_cast<BondLabelT>(1);
-	  tci::contract(ctx,T,IdxT,AdagA,IdxA,AdagA,IdxN);
-	  auto norm_aa = tci::normalize(ctx,AdagA);
+	  tcapi::contract(ctx,T,IdxT,AdagA,IdxA,AdagA,IdxN);
+	  auto norm_aa = tcapi::normalize(ctx,AdagA);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
 	  if( I[TargetEdgeIdx].first == SiteA ) {
-	    F[MpT] = tci::copy(ctx,AdagA);
+	    F[MpT] = tcapi::copy(ctx,AdagA);
 	  } else {
-	    F[MpT+size_e] = tci::copy(ctx,AdagA);
+	    F[MpT+size_e] = tcapi::copy(ctx,AdagA);
 	  }
 	  
 	}
@@ -179,8 +179,8 @@ namespace tnbp {
 
 	  auto itAddressB = std::find(SiteIdx.begin(),SiteIdx.end(),SiteB);
 	  AddressB = std::distance(SiteIdx.begin(),itAddressB);
-	  TenT T = tci::copy(ctx,V[AddressB]);
-	  auto OrderB = tci::order(ctx,T);
+	  TenT T = tcapi::copy(ctx,V[AddressB]);
+	  auto OrderB = tcapi::order(ctx,T);
 	  List<BondLabelT> IdxB(OrderB);
 	  List<BondLabelT> IdxE(2);
 	  List<BondLabelT> IdxB_res(OrderB);
@@ -196,15 +196,15 @@ namespace tnbp {
 	      IdxE[0] = static_cast<BondLabelT>(-1);
 	      IdxE[1] = static_cast<BondLabelT>(k);
 	      if( I[EdgeIdxB[k]].first == SiteB ) {
-		tci::contract(ctx,T,IdxB,E[MpB+size_e],IdxE,T,IdxB_res);
+		tcapi::contract(ctx,T,IdxB,E[MpB+size_e],IdxE,T,IdxB_res);
 	      } else {
-		tci::contract(ctx,T,IdxB,E[MpB],IdxE,T,IdxB_res);
+		tcapi::contract(ctx,T,IdxB,E[MpB],IdxE,T,IdxB_res);
 	      }
 	    }
-	    auto norm_b = tci::normalize(ctx,T);
+	    auto norm_b = tcapi::normalize(ctx,T);
 	  }
-	  BdagB = tci::copy(ctx,V[AddressB]);
-	  tci::cplx_conj(ctx,BdagB);
+	  BdagB = tcapi::copy(ctx,V[AddressB]);
+	  tcapi::cplx_conj(ctx,BdagB);
 	  
 	  List<BondLabelT> IdxT(OrderB);
 	  List<BondLabelT> IdxN(2);
@@ -213,15 +213,15 @@ namespace tnbp {
 	  std::iota(IdxN.begin(),IdxN.end(),0);
 	  IdxT[BondIdxB] = static_cast<BondLabelT>(0);
 	  IdxB[BondIdxB] = static_cast<BondLabelT>(1);
-	  tci::contract(ctx,T,IdxT,BdagB,IdxB,BdagB,IdxN);
-	  auto norm_bb = tci::normalize(ctx,BdagB);
+	  tcapi::contract(ctx,T,IdxT,BdagB,IdxB,BdagB,IdxN);
+	  auto norm_bb = tcapi::normalize(ctx,BdagB);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
 	  if( I[TargetEdgeIdx].first == SiteB ) {
-	    F[MpT] = tci::copy(ctx,BdagB);
+	    F[MpT] = tcapi::copy(ctx,BdagB);
 	  } else {
-	    F[MpT+size_e] = tci::copy(ctx,BdagB);
+	    F[MpT+size_e] = tcapi::copy(ctx,BdagB);
 	  }
 	  
 	}
@@ -235,9 +235,9 @@ namespace tnbp {
 				 TargetEdgeIdx);
 	  auto MpT = std::distance(EdgeIdx.begin(),itMpT);
 	  if( I[TargetEdgeIdx].first == SiteB ) {
-	    F[MpT] = tci::copy(ctx,BdagB);
+	    F[MpT] = tcapi::copy(ctx,BdagB);
 	  } else {
-	    F[MpT+size_e] = tci::copy(ctx,BdagB);
+	    F[MpT+size_e] = tcapi::copy(ctx,BdagB);
 	  }
 	}
 
@@ -250,9 +250,9 @@ namespace tnbp {
 				 TargetEdgeIdx);
 	  auto MpT = std::distance(EdgeIdx.begin(),itMpT);
 	  if( I[TargetEdgeIdx].first == SiteA ) {
-	    F[MpT] = tci::copy(ctx,AdagA);
+	    F[MpT] = tcapi::copy(ctx,AdagA);
 	  } else {
-	    F[MpT+size_e] = tci::copy(ctx,AdagA);
+	    F[MpT+size_e] = tcapi::copy(ctx,AdagA);
 	  }
 	}
 	
@@ -274,11 +274,11 @@ namespace tnbp {
 				  MPI_Comm comm,
 				  real_t<TenT> & result) {
     
-    using ElemT = typename tci::tensor_traits<TenT>::elem_t;
-    using RealT = typename tci::tensor_traits<TenT>::real_t;
-    using RealTenT = typename tci::tensor_traits<TenT>::real_ten_t;
-    using OrderT = typename tci::tensor_traits<TenT>::order_t;
-    using BondLabelT  = typename tci::tensor_traits<TenT>::bond_label_t;
+    using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
+    using RealT = typename tcapi::tensor_traits<TenT>::real_t;
+    using RealTenT = typename tcapi::tensor_traits<TenT>::real_ten_t;
+    using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
+    using BondLabelT  = typename tcapi::tensor_traits<TenT>::bond_label_t;
 
     size_t num_v = SiteIdx.size();
     size_t num_e = EdgeIdx.size();
@@ -290,8 +290,8 @@ namespace tnbp {
     for(size_t address=0; address < SiteIdx.size(); address++) {
       std::vector<int> BondIdx = GetSurroundingBondIndex(SiteIdx[address],I);
       for(size_t k=0; k < BondIdx.size(); k++) {
-	TenT T = tci::copy(ctx,V[address]);
-	auto OrderV = tci::order(ctx,T);
+	TenT T = tcapi::copy(ctx,V[address]);
+	auto OrderV = tcapi::order(ctx,T);
 	for(size_t l=0; l < BondIdx.size(); l++) {
 	  if( l != k ) {
 	    auto itEdgeAddress = std::find(EdgeIdx.begin(),EdgeIdx.end(),
@@ -300,7 +300,7 @@ namespace tnbp {
 	    if( I[BondIdx[l]].first == SiteIdx[address] ) {
 	      EdgeAddress += num_e;
 	    }
-	    TenT F = tci::copy(ctx,E[EdgeAddress]);
+	    TenT F = tcapi::copy(ctx,E[EdgeAddress]);
 	    List<BondLabelT> IdxE(2);
 	    List<BondLabelT> IdxV(OrderV);
 	    List<BondLabelT> IdxV_res(OrderV);
@@ -309,8 +309,8 @@ namespace tnbp {
 	    IdxV[l] = static_cast<BondLabelT>(-1);
 	    IdxE[0] = static_cast<BondLabelT>(-1);
 	    IdxE[1] = static_cast<BondLabelT>(l);
-	    tci::contract(ctx,T,IdxV,F,IdxE,T,IdxV_res);
-	    auto norm_v = tci::normalize(ctx,T);
+	    tcapi::contract(ctx,T,IdxV,F,IdxE,T,IdxV_res);
+	    auto norm_v = tcapi::normalize(ctx,T);
 	  }
 	} // end for(size_t l=0; l < BondIdx.size(); l++)
 	
@@ -318,8 +318,8 @@ namespace tnbp {
 	std::cout << " belief propagation: Before physical contruction " << std::endl;
 #endif
 	
-	TenT C = tci::copy(ctx,V[address]);
-	tci::cplx_conj(ctx,C);
+	TenT C = tcapi::copy(ctx,V[address]);
+	tcapi::cplx_conj(ctx,C);
 	List<BondLabelT> IdxV(OrderV);
 	List<BondLabelT> IdxC(OrderV);
 	List<BondLabelT> IdxN(2);
@@ -329,8 +329,8 @@ namespace tnbp {
 	IdxC[k] = static_cast<BondLabelT>(1);
 	IdxN[0] = static_cast<BondLabelT>(0);
 	IdxN[1] = static_cast<BondLabelT>(1);
-	tci::contract(ctx,T,IdxV,C,IdxC,T,IdxN);
-	auto norm_v = tci::normalize(ctx,T);
+	tcapi::contract(ctx,T,IdxV,C,IdxC,T,IdxN);
+	auto norm_v = tcapi::normalize(ctx,T);
 
 	auto itEdgeAddress = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				       BondIdx[k]);
@@ -338,15 +338,15 @@ namespace tnbp {
 	if( I[BondIdx[k]].second == SiteIdx[address] ) {
 	  EdgeAddress += num_e;
 	}
-	TenT F = tci::copy(ctx,E[EdgeAddress]);
-	auto norm_f = tci::normalize(ctx,F);
+	TenT F = tcapi::copy(ctx,E[EdgeAddress]);
+	auto norm_f = tcapi::normalize(ctx,F);
 
 #ifdef BP_DEBUG
 	std::cout << " belief propagation: Before linear_combine " << std::endl;
 #endif
 
-	TenT D = tci::linear_combine<TenT>(ctx,{T,F},{ElemT(1.0),ElemT(-1.0)});
-	RealT NormD = tci::norm(ctx,D);
+	TenT D = tcapi::linear_combine<TenT>(ctx,{std::cref(T),std::cref(F)},{ElemT(1.0),ElemT(-1.0)});
+	RealT NormD = tcapi::norm(ctx,D);
 	result_rank += NormD * result_volume;
 	
       } // end for(size_t k=0; k < BondIdx.size(); k++)
