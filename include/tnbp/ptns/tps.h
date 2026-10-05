@@ -6,6 +6,11 @@
 #ifndef TNBP_PTNS_TPS_H
 #define TNBP_PTNS_TPS_H
 
+#include <cstddef>
+#include <map>
+#include <utility>
+#include <vector>
+
 #include "tnbp/framework/typedef.h"
 #include "tnbp/framework/mpiutility.h"
 
@@ -60,12 +65,12 @@ namespace tnbp {
     /**
        Number of vertex tensors
      */
-    size_t NumV() { return V_.size(); }
+    std::size_t NumV() { return V_.size(); }
 
     /**
        Site Index
      */
-    int Q(size_t i) { return SiteIdx_[i]; }
+    int Q(std::size_t i) { return SiteIdx_[i]; }
 
     /**
        Initializer function

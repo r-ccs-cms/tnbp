@@ -7,6 +7,9 @@
 #ifndef TNBP_FRAMEWORK_ROOT_H
 #define TNBP_FRAMEWORK_ROOT_H
 
+#include "tnbp/framework/typedef.h"
+#include <functional>
+
 #include <algorithm>
 #include <cmath>
 #include <numeric>

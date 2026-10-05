@@ -1,4 +1,18 @@
-#ifdef USE_CYTNX
+#pragma once
+#include <complex>
+#include "tcapi/tcapi.h"
+
+#if defined(USE_TCAPI_CUDA) && defined(USE_CYTNX)
+#error "Choose only one tensor backend: USE_TCAPI_CUDA or USE_CYTNX"
+#endif
+
+#ifdef USE_TCAPI_CUDA
+#ifdef USE_SINGLE
+using Tensor = tcapi::cuda::Tensor<std::complex<float>>;
+#else
+using Tensor = tcapi::cuda::Tensor<std::complex<double>>;
+#endif
+#elif defined(USE_CYTNX)
 using Tensor = tcapi::CytnxTensor<cytnx::cytnx_complex128>;
 #else
 #ifdef USE_SINGLE

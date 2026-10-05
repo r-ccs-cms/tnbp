@@ -6,14 +6,18 @@
 #ifndef TNBP_LATTICE_HEAVYHEX_H
 #define TNBP_LATTICE_HEAVYHEX_H
 
+#include <cstddef>
+#include <utility>
+#include <vector>
+
 namespace tnbp {
 
-  std::vector<std::pair<int,int>> Bond_HeavyHexLattice(int Lx, int Ly) {
+  inline std::vector<std::pair<int,int>> Bond_HeavyHexLattice(int Lx, int Ly) {
 
-    size_t NumV = 2 * Lx + 1 + (2*Lx+2)*(Ly-1) + 2 * Lx + 1;
-    size_t NumE = 2 * Lx + (2*Lx+1)*(Ly-1) + 2 * Lx + (Lx+1)*Ly;    
-    size_t L = NumV + NumE;
-    size_t N = 4 * Lx + ( 4 * Lx +2 ) * (Ly-1) + 4 * Lx + 2*(Lx+1) * Ly;
+    std::size_t NumV = 2 * Lx + 1 + (2*Lx+2)*(Ly-1) + 2 * Lx + 1;
+    std::size_t NumE = 2 * Lx + (2*Lx+1)*(Ly-1) + 2 * Lx + (Lx+1)*Ly;
+    std::size_t L = NumV + NumE;
+    std::size_t N = 4 * Lx + ( 4 * Lx +2 ) * (Ly-1) + 4 * Lx + 2*(Lx+1) * Ly;
     std::vector<std::pair<int,int>> I(N);
     
     std::vector<int> x_begin(Ly+1);
@@ -30,7 +34,7 @@ namespace tnbp {
     x_begin[Ly] = x_end[Ly-1] + Lx+1;
     x_end[Ly] = x_begin[Ly] + 4*Lx+1;
 
-    size_t m=0;
+    std::size_t m=0;
     for(int y=0; y < Ly+1; y++) {
       for(int x=x_begin[y]; x < x_end[y]-1; x++) {
 	I[m] = std::make_pair(x,x+1);
@@ -52,7 +56,7 @@ namespace tnbp {
     return I;
   }
 
-  std::vector<std::vector<std::pair<int,int>>> ParallelBond_HeavyHexLattice(int Lx, int Ly) {
+  inline std::vector<std::vector<std::pair<int,int>>> ParallelBond_HeavyHexLattice(int Lx, int Ly) {
     std::vector<int> x_begin(Ly+1);
     std::vector<int> x_end(Ly+1);
     for(int y=0; y < Ly; y++) {

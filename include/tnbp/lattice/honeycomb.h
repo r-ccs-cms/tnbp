@@ -6,16 +6,22 @@
 #ifndef TNBP_LATTICE_HONEYCOMB_H
 #define TNBP_LATTICE_HONEYCOMB_H
 
+#include <cstddef>
+#include <utility>
+#include <vector>
+
+#include <cassert>
+
 namespace tnbp {
 
   /**
      Function to define the bonds for honeycomb lattice
    */
-  std::vector<std::pair<int,int>> bond_honeycomb_lattice(int Lx, int Ly) {
+  inline std::vector<std::pair<int,int>> bond_honeycomb_lattice(int Lx, int Ly) {
     int L = 2 * Lx * Ly;
     int N = Lx*Ly+Lx*(Ly-1)+(Lx-1)*Ly;
     std::vector<std::pair<int,int>> res(N);
-    size_t m=0;
+    std::size_t m=0;
     for(int y=0; y < Ly; y++) {
       for(int x=0; x < Lx; x++) {
         int site_a = 0 + 2*x + 2*Lx*y;
@@ -40,19 +46,19 @@ namespace tnbp {
   /**
      Function to define the parallel bonds for honeycomb lattice
    */
-  std::vector<std::vector<std::pair<int,int>>> parallel_bond_honeycomb_lattice(int Lx, int Ly) {
+  inline std::vector<std::vector<std::pair<int,int>>> parallel_bond_honeycomb_lattice(int Lx, int Ly) {
 
     std::vector<std::vector<std::pair<int,int>>> res(3);
-    size_t size_A = Lx*Ly;
-    size_t size_B = (Lx-1)*Ly;
-    size_t size_C = Lx*(Ly-1);
+    std::size_t size_A = Lx*Ly;
+    std::size_t size_B = (Lx-1)*Ly;
+    std::size_t size_C = Lx*(Ly-1);
     res[0].resize(size_A);
     res[1].resize(size_B);
     res[2].resize(size_C);
 
-    size_t mA = 0;
-    size_t mB = 0;
-    size_t mC = 0;
+    std::size_t mA = 0;
+    std::size_t mB = 0;
+    std::size_t mC = 0;
 
     for(int y=0; y < Ly; y++) {
       for(int x=0; x < Lx; x++) {

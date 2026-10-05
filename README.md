@@ -39,45 +39,47 @@ and linear combinations take `std::cref` inputs. `TensorProductState` constructi
 from tensors now takes `ctx` as the first argument; deep copying is explicit
 with `state.copy(ctx)`, while ordinary copying is disabled and moves are allowed.
 
-The validated backend is gqten on CPU. The historical Cytnx build branches and
-external backend configurations are not validated for this TCAPI migration;
-CUDA integration is a separate step. Existing CPU TPS stream format is retained.
+The validated backends are gqten on CPU and tcapi-cuda for the estimator
+applications and backend integration tests. See [CUDA setup](apps/README.cuda.md).
+The historical Cytnx build branches are not validated for this TCAPI migration.
+Existing CPU TPS stream format is retained.
 
 ## Requirements
 
-To use the bundled TCAPI adapter, you need to install **GraceQ/tensor-ng-dev**.
-For details on installation, please refer to the `README.md` of [tensor-ng-dev](https://github.com/gracequantum/tensor-ng-dev).
+### Backend repository access
 
-The repository is registered as a Git submodule and can be initialized as follows:
+As of October 2026, neither **tensor-ng-dev (gqten)** nor **tcapi-cuda** is
+publicly available. Access permission to the selected backend repository is
+required to clone its submodule and build with it. Listing these submodules in
+TNBP does not grant access to their contents. Without permission, submodule
+initialization will fail; a recursive clone attempts both restricted backends.
 
-```bash
-git submodule init
-git submodule update
+Initialize only the backend you intend to use, after obtaining access:
+
+```sh
+# CPU: gqten, used by the bundled adapter in external/min-tci
+git submodule update --init --recursive external/tensor-ng-dev
+# GPU: tcapi-cuda, pinned to the tested commit by this repository
+git submodule update --init --recursive external/tcapi-cuda
 ```
-This will place the original `tensor-ng-dev` under
-```
-/external/tensor-ng-dev
-```
+
+For CPU installation, see [tensor-ng-dev](https://github.com/gracequantum/tensor-ng-dev).
+For CUDA and cuTENSOR requirements and application build instructions, see
+[CUDA setup](apps/README.cuda.md). A CUDA build does not require the gqten
+submodule; a CPU build does not require the tcapi-cuda submodule.
 
 ## Sample Programs
 
-### 1. Simulation of estimator for kicked ising model on a lattice (apps/kicked_ising_lattice)
+- [Estimator](apps/estimator/README.md): apply a QASM circuit and evaluate local
+  Pauli expectation values, using CPU or CUDA tensors.
+- [Estimator with checkpoints](apps/estimator_restart/README.md): select
+  measurement layers, repeat a circuit and save/load rank-local states.
+- [Kicked Ising lattice example](apps/kicked_ising_lattice/README.md): simulate
+  kicked Ising Floquet dynamics on a lattice.
 
-The sample program under
-```
-/apps/kicked_ising_lattice
-```
-provides a simulator to estimate the expectation value after the kicked Ising Floquet dynamics on the lattice.
-See the `/apps/kicked_ising_lattice/README.md` for more details.
-
-### 2. Simulation of estimator for sparse Pauli operator after gate operations defined by qasm file (apps/estimator)
-
-The apps program under
-```
-/apps/estimator/
-```
-provides a simulator for estimating the expectation value of sparse Pauli operator after gate operations defined by qasm file.
-See the `/sample/estimator/README.md` for more details.
+For GPU setup and launch instructions for the two estimator applications, see
+[the CUDA guide](apps/README.cuda.md). For small CPU/CUDA regression checks,
+see [backend integration tests](test/backend_integration/README.md).
 
 ## Citation
 

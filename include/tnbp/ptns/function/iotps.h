@@ -6,6 +6,12 @@
 #ifndef TNBP_PTNS_FUNCTION_IOTPS_H
 #define TNBP_PTNS_FUNCTION_IOTPS_H
 
+#include <istream>
+
+#include "tnbp/framework/typedef.h"
+#include <cstddef>
+#include <map>
+
 #include <vector>
 #include <utility>
 #include <iostream>
@@ -42,12 +48,12 @@ namespace tnbp {
 	       const std::map<int,int> & Site_To_MpiRank,
 	       const std::vector<TenT> & E,
 	     const std::vector<int> & EdgeIdx) {
-    size_t size_V = V.size();
-    size_t size_M = Site_To_MpiRank.size();
-    size_t size_E = EdgeIdx.size();
-    out.write(reinterpret_cast<char *>(&size_V),sizeof(size_t));
-    out.write(reinterpret_cast<char *>(&size_M),sizeof(size_t));
-    out.write(reinterpret_cast<char *>(&size_E),sizeof(size_t));
+    std::size_t size_V = V.size();
+    std::size_t size_M = Site_To_MpiRank.size();
+    std::size_t size_E = EdgeIdx.size();
+    out.write(reinterpret_cast<char *>(&size_V),sizeof(std::size_t));
+    out.write(reinterpret_cast<char *>(&size_M),sizeof(std::size_t));
+    out.write(reinterpret_cast<char *>(&size_E),sizeof(std::size_t));
     for(const auto & Vi : V) {
       tcapi::save(ctx,Vi,out);
     }
@@ -74,32 +80,32 @@ namespace tnbp {
 	       std::map<int,int> & Site_To_MpiRank,
 	       std::vector<TenT> & E,
 	       std::vector<int> & EdgeIdx) {
-    size_t size_V;
-    size_t size_M;
-    size_t size_E;
-    in.read(reinterpret_cast<char *>(&size_V),sizeof(size_t));
-    in.read(reinterpret_cast<char *>(&size_M),sizeof(size_t));
-    in.read(reinterpret_cast<char *>(&size_E),sizeof(size_t));
+    std::size_t size_V;
+    std::size_t size_M;
+    std::size_t size_E;
+    in.read(reinterpret_cast<char *>(&size_V),sizeof(std::size_t));
+    in.read(reinterpret_cast<char *>(&size_M),sizeof(std::size_t));
+    in.read(reinterpret_cast<char *>(&size_E),sizeof(std::size_t));
     V.resize(size_V);
     SiteIdx.resize(size_V);
     E.resize(2*size_E);
     EdgeIdx.resize(size_E);
-    for(size_t i=0; i < size_V; i++) {
+    for(std::size_t i=0; i < size_V; i++) {
       V[i] = tcapi::load<TenT>(ctx,in);
     }
-    for(size_t i=0; i < size_V; i++) {
+    for(std::size_t i=0; i < size_V; i++) {
       in.read(reinterpret_cast<char *>(&SiteIdx[i]),sizeof(int));
     }
-    for(size_t k=0; k < size_M; k++) {
+    for(std::size_t k=0; k < size_M; k++) {
       int key, value;
       in.read(reinterpret_cast<char *>(&key),sizeof(int));
       in.read(reinterpret_cast<char *>(&value),sizeof(int));
       Site_To_MpiRank[key] = value;
     }
-    for(size_t m=0; m < 2*size_E; m++) {
+    for(std::size_t m=0; m < 2*size_E; m++) {
       E[m] = tcapi::load<TenT>(ctx,in);
     }
-    for(size_t m=0; m < size_E; m++) {
+    for(std::size_t m=0; m < size_E; m++) {
       in.read(reinterpret_cast<char *>(&EdgeIdx[m]),sizeof(int));
     }
   }

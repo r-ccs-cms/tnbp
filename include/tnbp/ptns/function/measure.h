@@ -6,6 +6,17 @@
 #ifndef TNBP_PTNS_FUNCTION_MEASURE_H
 #define TNBP_PTNS_FUNCTION_MEASURE_H
 
+#include "tnbp/framework/graph.h"
+#include "tnbp/framework/mpiutility.h"
+#include "tnbp/framework/typedef.h"
+#include <algorithm>
+#include <cstddef>
+#include <iterator>
+#include <map>
+#include <numeric>
+#include <utility>
+#include <vector>
+
 namespace tnbp {
 
   /**
@@ -31,7 +42,7 @@ namespace tnbp {
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
 
-    size_t size_e = EdgeIdx.size();
+    std::size_t size_e = EdgeIdx.size();
 
     std::vector<elem_t<TenT>> result(Site.size(),elem_t<TenT>(0.0));
 
@@ -51,7 +62,7 @@ namespace tnbp {
 	List<BondLabelT> IdxC(order_w);
 	std::vector<int> BondIdx =
 	  GetSurroundingBondIndex(Site[site_address],I);
-	for(size_t m=0; m < BondIdx.size(); m++) {
+	for(std::size_t m=0; m < BondIdx.size(); m++) {
 	  auto it_edgeidx_address = std::find(EdgeIdx.begin(),
 					      EdgeIdx.end(),
 					      BondIdx[m]);
@@ -118,7 +129,7 @@ namespace tnbp {
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
 
-    size_t size_e = EdgeIdx.size();
+    std::size_t size_e = EdgeIdx.size();
 
     std::vector<ElemT> result(I.size(),ElemT(0.0));
 

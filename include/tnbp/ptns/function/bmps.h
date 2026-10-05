@@ -6,6 +6,18 @@
 #ifndef TNBP_PTNS_FUNCTION_BMPS_H
 #define TNBP_PTNS_FUNCTION_BMPS_H
 
+#include "tnbp/ptns/function/bp.h"
+#include "tnbp/ptns/function/init.h"
+#include "tnbp/ptns/function/truncation.h"
+#include <algorithm>
+#include <cstddef>
+#include <iostream>
+#include <iterator>
+#include <map>
+#include <ostream>
+#include <utility>
+#include <vector>
+
 #include "tnbp/framework/typedef.h"
 #include "tnbp/framework/graph.h"
 #include "tnbp/framework/helper.h"
@@ -107,7 +119,7 @@ namespace tnbp {
 	auto it_type_one  = std::find(bond_type.begin(),
 				      bond_type.end(),
 				      1);
-	size_t target_bond_index;
+	std::size_t target_bond_index;
 	if( it_type_zero != bond_type.end() ) {
 	  auto target_bond_index = std::distance(bond_type.begin(),
 						 it_type_zero);
@@ -176,7 +188,7 @@ namespace tnbp {
 				     const std::vector<IntT> & line_out,
 				     std::vector<std::pair<IntT,IntT>> & edges) {
     auto edges_orig = edges;
-    for(size_t adrs_line_in=0;
+    for(std::size_t adrs_line_in=0;
 	adrs_line_in < line_in.size();
 	++adrs_line_in) {
       auto site_in = line_in[adrs_line_in];
@@ -240,7 +252,7 @@ namespace tnbp {
 	auto it_type_one  = std::find(bond_type.begin(),
 				      bond_type.end(),
 				      1);
-	size_t target_bond_index;
+	std::size_t target_bond_index;
 	if( it_type_zero != bond_type.end() ) {
 	  auto target_bond_index = std::distance(bond_type.begin(),
 						 it_type_zero);

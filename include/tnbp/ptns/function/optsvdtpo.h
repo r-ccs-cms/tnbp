@@ -6,6 +6,15 @@
 #ifndef TNBP_PTNS_FUNCTION_OPTSVDTPO_H
 #define TNBP_PTNS_FUNCTION_OPTSVDTPO_H
 
+#include <algorithm>
+#include <cmath>
+#include <iterator>
+#include <numeric>
+#include <stdexcept>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
 #include "tnbp/framework/typedef.h"
 #include "tnbp/framework/graph.h"
 #include "tnbp/framework/mpiutility.h"

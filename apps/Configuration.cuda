@@ -1,0 +1,18 @@
+# Shared by apps/estimator and apps/estimator_restart.
+# Invoke make from either directory with CONFIGURATION=../Configuration.cuda.
+CCCOM ?= mpicxx
+TCAPI_CUDA_ROOT ?= ../../external/tcapi-cuda
+CUDA_ROOT ?= /usr/local/cuda
+CUDA_LIBDIR ?= $(CUDA_ROOT)/lib64
+CUTENSOR_LIBDIR ?= $(CUTENSOR_ROOT)/lib
+ifeq ($(strip $(TCAPI_CUDA_ROOT)),)
+$(error Set TCAPI_CUDA_ROOT to the tcapi-cuda checkout)
+endif
+ifeq ($(strip $(CUTENSOR_ROOT)),)
+$(error Set CUTENSOR_ROOT to the cuTENSOR installation)
+endif
+CXX_FLAGS = -std=c++17 -O3 -DUSE_TCAPI_CUDA -I$(TCAPI_CUDA_ROOT)/include -I$(CUDA_ROOT)/include -I$(CUTENSOR_ROOT)/include -I../../include
+ifeq ($(USE_SINGLE),1)
+CXX_FLAGS += -DUSE_SINGLE
+endif
+LIB_FLAGS = -L$(CUDA_LIBDIR) -Wl,-rpath,$(CUDA_LIBDIR) -lcudart -lcublas -lcusolver -L$(CUTENSOR_LIBDIR) -Wl,-rpath,$(CUTENSOR_LIBDIR) -lcutensor

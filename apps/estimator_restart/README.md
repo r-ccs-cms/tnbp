@@ -1,126 +1,110 @@
-# Sample code for simulating the estimation of the expectation value of a sparse Pauli operator in the kicked-Ising model
+# Quantum-circuit estimator with checkpoints
 
-## Overview
+`estimator_restart` adds rank-local checkpoint loading/saving and measurements
+at selected TPO layers. Each step applies the entire supplied QASM circuit;
+multiple steps repeat that circuit. The executable in this directory is named
+`estimator`, as in the ordinary estimator directory.
 
-This repository provides a simplified simulator that performs two-dimensional tensor network simulations based on belief propagation along a given device topology. The simulator takes as input
-1. a **QASM file** describing the quantum circuit, and
-2. a **sparse Pauli operator file** for expectation value evaluation.
-By combining these inputs, the simulator computes expectation values of quantum observables for models such as the transeverse and longitudinal field Ising Hamiltonian.
+## Build
 
-## Contents
+For CPU dependencies and configuration, follow the
+[estimator build instructions](../estimator/README.md#build), then build from
+`apps/estimator_restart`:
 
-- `estimator`
-  The simulator reads the above QASM files and sparse Pauli operator data, and then executes belief-propagation-based two-dimensional tensor network simulations. Expectation values are computed as the final output.
-  
-
-## Installation
-
-### 2. Estimator (c++ implementation)
-
-The simulator is implemented on top of the Tensor Computing API (TCAPI),
-which provides a unified API for tensor operations across different backends.
-
-In order to run, both of the following components are required:
-
-**(a) TCI interface** (`external/min-tci`)
-This repository includes `/external/min-tci`, a header-only implementation of TCI that provides the interface layer required by the simulator.
-It is included directly in this repository, so no additional setup is required.
-
-**(b) Tensor backend** (`GraceQ/tensor-ng-dev`)
-The actual tensor computations are carried out by GraceQ/tensor-ng-dev.
-This library is included as a git submodule. To fetch it,
-```
-git submodule init
-git submodule update
-```
-This will place the source under `external/tensor-ng-dev/`
-
-**Installing GraceQ/tensor-ng-dev with the to-tci-release branch**
-Go to to-tci-relase branch home directory, and type the following command
-```
-cmake -S . -B build \
-  -DCMAKE_C_COMPILER="$(brew --prefix llvm)/bin/clang" \
-  -DCMAKE_CXX_COMPILER="$(brew --prefix llvm)/bin/clang++"
-```
-to setup the build, and type
-```
-cmake --build build -j
-```
-to build the hptt.
-
-### 3. Building the Simulator
-
-The simulator is **parallelized in real space** and therefore requires **MPI**.
-Make sure you have an MPI environment available (e.g., OpenMPI, MPICH) and use an MPI C++ compiler such as mpicxx when building.
-
-The build process is managed via the provided `Makefile`, which relies on the `Configuration` file for compiler and library paths.
-
-By default, the Configuration file is set up for macOS environments where **LLVM (installed via Homebrew)** is used, including its OpenMP support. For example, the following flags are configured:
-- `-fopenmp` and `-I/opt/homebrew/opt/llvm/include` (OpenMP include path)
-- `-stdlib=libc++` (C++ standard library on macOS with LLVM)
-- `-O3` (optimization)
-The paths to the required libraries are already specified in `Configuration`:
-- **TCAPI interface**: `external/min-tci`
-- **Tensor backend**: `external/tensor-ng-dev`
-- **HPTT library**: bundled within `tensor-ng-dev/external/hptt`
-- **TNBP headers**: relative path to this repository.
-To build the simulator, simply run:
-```
+```sh
 make
+# Or use a configuration adapted to your installation:
+make CONFIGURATION=/path/to/Configuration.cpu
 ```
-This will:
-1. Use `mpicxx` as the c++ compiler
-2. Include the header-only TCI implementation from `external/min-tci`.
-3. Link against the installed tensor backend (`tensor-ng-dev`), `LAPACK/BLAS`, and other system libraries specified in the configuration.
-If you are on macOS with Homebrew-installed LLVM, no further changes are required.
-For other environments (Linux clusters, alternative compilers, etc.), you may need to update the Configuration file to point to the correct OpenMP, LAPACK/BLAS, and MPI installations.
 
-**Other environments**
-For other systems (e.g., Linux clusters, Fujitsu A64FX, x86 HPC systems), you can adapt the build by editing the **Configuration** file.
-We recommend keeping multiple configurations as commented-out blocks inside the file and switching them according to your environment.
+For GPU builds and one-GPU-per-rank launching, follow the shared
+[CUDA guide](../README.cuda.md). Both gqten and tcapi-cuda currently require
+repository access permission; see [backend access](../../README.md#backend-repository-access).
 
+## Circuit steps, layers and measurements
 
-## Usage
+QASM barriers divide the circuit into TPO layers. `--measurement_barrier`
+selects zero-based layer indices; measurements occur after applying BP and
+truncation for those layers, on every executed step. If it is omitted, no
+expectation values are printed.
 
-### Estimator
-This program performs a real-space parallelized two-dimensional tensor network simulation based on belief propagation.
-It takes as input a QASM circuit file and a sparse Pauli operator file, and computes expectation values of observables on a given device topology.
-The simulation runs in parallel using MPI, so you should launch it with mpirun or mpiexec.
+`--step_start` is inclusive and `--step_end` is exclusive. With both options
+omitted (or zero), the effective range is `[0, 1)`, so the circuit is applied
+once. These are repetition indices, not QASM instruction offsets. Loading a
+checkpoint does not infer the next step number: specify it explicitly.
 
-**Example**:
-```
-mpirun -np 4 ./estimator \
+Unlike the ordinary estimator, this application does not implement
+`--num_gates`, `--do_opt_tpo` or `--eps_opt_tpo`.
+
+## Example: save and continue
+
+From `apps/estimator_restart`, the following uses the bundled kicked Ising
+inputs from the neighboring estimator directory. That input has four TPO
+layers, so index `3` selects the final layer.
+
+```sh
+# Apply the circuit once and save the final state.
+mpirun -np 2 ./estimator \
   --backend ibm_kobe \
-  --circuit circuit.qasm \
-  --sparse_pauli hamiltonian.dat \
-  --max_bp_iterations 50 \
-  --bp_tolerance 1.0e-8 \
-  --max_bond_dim 100 \
-  --sv_min 1.0e-8 \
-  --truncation_error 1.0e-8
-  --savename tnsdata
+  --circuit ../estimator/kicked_ising.qasm \
+  --sparse_pauli ../estimator/H_ising_kobe.txt \
+  --measurement_barrier 3 \
+  --step_end 1 \
+  --savename checkpoint-
+
+# Load that state, apply the same circuit once more and save to a new prefix.
+mpirun -np 2 ./estimator \
+  --backend ibm_kobe \
+  --circuit ../estimator/kicked_ising.qasm \
+  --sparse_pauli ../estimator/H_ising_kobe.txt \
+  --measurement_barrier 3 \
+  --step_start 1 --step_end 2 \
+  --loadname checkpoint- \
+  --savename continued-
 ```
 
-**Options**:
-- `--backend <str>`:
-  Target backend name (default: ibm_kobe).
-- `--circuit <str>`:
-  Input QASM file describing the circuit (default: circuit.qasm).
-- `--sparse_pauli <str>`:
-  Input file containing the sparse Pauli operator (default: sparsepauliop.txt).
-- `--num_gates <list>`:
-  Comma-separated list of the number of gates per layer (e.g., 4,4,4,4). If this list is not specified, the circuit automatically divides the Tensor Product Operator (TPO) into layers according to the barrier lines written in the QASM file.
-- `--max_bp_iterations <int>`:
-  Maximum number of belief propagation iterations (default: 50).
-- `--bp_tolerance <float>`:
-  Convergence tolerance for belief propagation (default: 1.0e-4).
-- `--max_bond_dim <float>`:
-  Maximum bond dimension 
-- `--sv_min <float>`:
-  Minimum cutoff of singular value to define the safe inverse.
-- `--truncation_error <float>`:
-  Target truncation error.
-- `--savename <str>`:
-  Filename to dump the tensor network state data
-- `--loadname <str>`:
-  Filename to load the tensor network state data for restart
+This illustrates the continuation interface; the kicked Ising continuation
+above has not been part of the current validation. For GPU execution, use the
+launcher and binding described in the [CUDA guide](../README.cuda.md#gpu-assignment).
+
+Checkpoints are saved once, after all requested steps. Each rank writes its
+own file: for example, prefix `checkpoint-` produces `checkpoint-000000.dat`,
+`checkpoint-000001.dat`, and so on. Provide an existing output directory and
+use a new prefix to preserve previous files. Restart with the same tensor
+backend, precision, MPI rank layout and graph/circuit setup. Cross-backend
+checkpoint conversion is not supported. Keep the original input files and
+step information alongside the checkpoints.
+
+## Options
+
+Every option takes a value. Supply valid nonnegative step/iteration counts and
+valid layer indices; the CLI does not provide comprehensive validation.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--backend` | `default` | Graph topology: QASM-derived edges (`default`) or built-in `ibm_kobe`. Not the tensor backend. |
+| `--circuit` | `circuit.qasm` | Input QASM path; required even when loading a checkpoint. |
+| `--sparse_pauli` | `sparsepauliop.txt` | Input Pauli path; read even if no measurement layers are selected. |
+| `--measurement_barrier` | Unset | Comma-separated zero-based TPO layer indices, e.g. `0,3`. Unset means no measurements. |
+| `--savename` | Unset | Prefix for checkpoint files saved at the end. |
+| `--loadname` | Unset | Prefix for checkpoint files to load; otherwise initialize a product state. |
+| `--step_start` | `0` | First circuit repetition index, inclusive. |
+| `--step_end` | `0` (effective `1`) | End repetition index, exclusive; `0` selects the default `1`. |
+| `--max_bp_iterations` | `50` | Maximum BP iterations per TPO layer. |
+| `--bp_tolerance` | `1e-8` | BP convergence threshold. |
+| `--max_bond_dim` | `100` | Maximum retained bond dimension (integer). |
+| `--sv_min` | `1e-8` | Singular-value cutoff used during truncation. |
+| `--truncation_error` | `1e-8` | Target truncation error. |
+
+Input formats and observable limitations are the same as the ordinary
+[estimator](../estimator/README.md#inputs-and-output). Output adds the step
+and layer index to each expectation value. Values are individual Pauli
+expectations: input coefficients are not applied, and terms are not summed.
+
+## Validation
+
+A two-qubit Bell case passed on CPU with two MPI ranks and on ROQUO with
+one/two GPUs. Loading and saving without further circuit application preserved
+checkpoint bytes for each rank. Continued nontrivial evolution, arbitrary
+restart options and cross-backend checkpoint loading have not been validated
+in this integration. See the [CUDA validation summary](../README.cuda.md#validation).

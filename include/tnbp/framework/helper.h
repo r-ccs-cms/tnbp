@@ -4,6 +4,15 @@
 #ifndef TNBP_FRAMEWORK_HELPER_H
 #define TNBP_FRAMEWORK_HELPER_H
 
+#include "tnbp/framework/graph.h"
+#include "tnbp/framework/mpiutility.h"
+#include "tnbp/framework/typedef.h"
+#include <cstddef>
+#include <iterator>
+#include <map>
+#include <numeric>
+#include <utility>
+
 #include <vector>
 #include <algorithm>
 
@@ -86,10 +95,10 @@ namespace tnbp {
     auto bond_b = GetSurroundingBondIndex(site_b,edges);
     tcapi::List<BondLabelT> label_a(bond_a.size());
     tcapi::List<BondLabelT> label_b(bond_b.size());
-    for(size_t m=0; m < label_a.size(); m++) {
+    for(std::size_t m=0; m < label_a.size(); m++) {
       label_a[m] = static_cast<BondLabelT>(bond_a[m]);
     }
-    for(size_t m=0; m < label_b.size(); m++) {
+    for(std::size_t m=0; m < label_b.size(); m++) {
       label_b[m] = static_cast<BondLabelT>(bond_b[m]);
     }
     tcapi::List<BondLabelT> label_c;
@@ -129,12 +138,12 @@ namespace tnbp {
     auto edges_temp = edges;
     auto edge_target = make_edge(site_a,site_b);
     std::vector<IntT> bond_c(label_c.size());
-    for(size_t m=0; m < label_c.size(); m++) {
+    for(std::size_t m=0; m < label_c.size(); m++) {
       bond_c[m] = static_cast<IntT>(label_c[m]);
     }
 
     // graph compatible modification
-    for(size_t m=0; m < bond_b.size(); m++) {
+    for(std::size_t m=0; m < bond_b.size(); m++) {
       if( !same_edge(edges_temp[bond_b[m]],edge_target) ) {
 	IntT site_x = edges_temp[bond_b[m]].first;
 	IntT site_y = edges_temp[bond_b[m]].second;
@@ -170,7 +179,7 @@ namespace tnbp {
 	    } else {
 	      new_label_c.erase(new_label_c.begin()+bp_bond_idx);
 	    }
-	    for(size_t k=0; k < order_c; k++) {
+	    for(std::size_t k=0; k < order_c; k++) {
 	      if( new_label_c[k] < ap_bond_idx ) {
 		new_shape_c[k] = shape_c[new_label_c[k]];
 	      } else if ( new_label_c[k] > ap_bond_idx ) {
@@ -204,7 +213,7 @@ namespace tnbp {
 	    } else {
 	      new_label_p.erase(new_label_p.begin()+bp_bond_idx);
 	    }
-	    for(size_t k=0; k < order_p; k++) {
+	    for(std::size_t k=0; k < order_p; k++) {
 	      if( new_label_p[k] < ap_bond_idx ) {
 		new_shape_p[k] = shape_p[new_label_p[k]];
 	      } else if ( new_label_p[k] > ap_bond_idx ) {
@@ -234,7 +243,7 @@ namespace tnbp {
     edges.erase(it_target_edge);
     // at here, site_b becomes absent in edges
     auto bond_update = GetSurroundingBondIndex(site_a,edges);
-    for(size_t m=0; m < bond_update.size(); m++) {
+    for(std::size_t m=0; m < bond_update.size(); m++) {
       auto site_x = edges[bond_update[m]].first;
       auto site_y = edges[bond_update[m]].second;
       auto site_p = (site_x == site_a) ? site_y : site_x;
@@ -281,10 +290,10 @@ namespace tnbp {
     tcapi::List<IntT> label_a(bond_a.size());
     tcapi::List<IntT> label_b(bond_b.size());
     tcapi::List<IntT> label_c;
-    for(size_t m=0; m < label_a.size(); m++) {
+    for(std::size_t m=0; m < label_a.size(); m++) {
       label_a[m] = static_cast<IntT>(bond_a[m]);
     }
-    for(size_t m=0; m < label_b.size(); m++) {
+    for(std::size_t m=0; m < label_b.size(); m++) {
       label_b[m] = static_cast<IntT>(bond_b[m]);
     }
     tensor_contraction_label_helper(label_a,label_b,label_c);
@@ -292,11 +301,11 @@ namespace tnbp {
     auto edges_temp = edges;
     auto edge_target = make_edge(site_a,site_b);
     std::vector<IntT> bond_c(label_c.size());
-    for(size_t m=0; m < label_c.size(); m++) {
+    for(std::size_t m=0; m < label_c.size(); m++) {
       bond_c[m] = static_cast<IntT>(label_c[m]);
     }
     // graph compatible modification
-    for(size_t m=0; m < bond_b.size(); m++) {
+    for(std::size_t m=0; m < bond_b.size(); m++) {
       if( !same_edge(edges_temp[bond_b[m]],edge_target) ) {
 	IntT site_x = edges_temp[bond_b[m]].first;
 	IntT site_y = edges_temp[bond_b[m]].second;
@@ -320,7 +329,7 @@ namespace tnbp {
     auto it_target_edge = find_edge(edges,site_a,site_b);
     edges.erase(it_target_edge);
     auto bond_update = GetSurroundingBondIndex(site_a,edges);
-    for(size_t m=0; m < bond_update.size(); m++) {
+    for(std::size_t m=0; m < bond_update.size(); m++) {
       auto site_x = edges[bond_update[m]].first;
       auto site_y = edges[bond_update[m]].second;
       auto site_p = (site_x == site_a) ? site_y : site_x;

@@ -6,6 +6,17 @@
 #ifndef TNBP_PTNS_FUNCTION_APPLY_H
 #define TNBP_PTNS_FUNCTION_APPLY_H
 
+#include "tnbp/framework/graph.h"
+#include "tnbp/framework/mpiutility.h"
+#include "tnbp/framework/typedef.h"
+#include <algorithm>
+#include <cstddef>
+#include <iterator>
+#include <map>
+#include <numeric>
+#include <utility>
+#include <vector>
+
 namespace tnbp {
 
   /**
@@ -66,7 +77,7 @@ namespace tnbp {
       tcapi::reshape(ctx,V[address],new_shape_v);
     }
 
-    size_t num_e = EdgeIdx.size();
+    std::size_t num_e = EdgeIdx.size();
     List<BondLabelT> Idx_I(2);
     List<BondLabelT> Idx_E(2);
     List<BondLabelT> Idx_T(4);
@@ -76,7 +87,7 @@ namespace tnbp {
     Idx_I[1] = static_cast<BondLabelT>(3);
     std::iota(Idx_T.begin(),Idx_T.end(),0);
 
-    for(size_t address=0; address < num_e; address++) {
+    for(std::size_t address=0; address < num_e; address++) {
       int site_a = Edge[EdgeIdx[address]].first;
       int site_b = Edge[EdgeIdx[address]].second;
       int mpi_rank_a = Site_To_MpiRank.at(site_a);
@@ -93,7 +104,7 @@ namespace tnbp {
 	
 	int target_edge = 0;
 	int target_bond = 0;
-	for(size_t k=0; k < bond.size(); k++) {
+	for(std::size_t k=0; k < bond.size(); k++) {
 	  if( ( Edge[bond[k]].first == site_a ) &&
 	      ( Edge[bond[k]].second == site_b ) ) {
 	    target_edge = bond[k];
@@ -113,7 +124,7 @@ namespace tnbp {
 	ShapeT shape_N(2,shape_I[0]*shape_E[0]);
 	std::vector<ElemT> data_I(shape_O[target_bond]*shape_O[target_bond],
 				  static_cast<ElemT>(0.0));
-	for(size_t k=0; k < shape_O[target_bond]; k++) {
+	for(std::size_t k=0; k < shape_O[target_bond]; k++) {
 	  data_I[k+shape_O[target_bond]*k] = static_cast<ElemT>(1.0);
 	}
 	auto it_data_I = data_I.begin();
@@ -139,7 +150,7 @@ namespace tnbp {
 
 	int target_edge = 0;
 	int target_bond = 0;
-	for(size_t k=0; k < bond.size(); k++) {
+	for(std::size_t k=0; k < bond.size(); k++) {
 	  if( ( Edge[bond[k]].first == site_b ) &&
 	      ( Edge[bond[k]].second == site_a ) ) {
 	    target_edge = bond[k];
@@ -159,7 +170,7 @@ namespace tnbp {
 	ShapeT shape_N(2,shape_I[0]*shape_E[0]);
 	std::vector<ElemT> data_I(shape_O[target_bond]*shape_O[target_bond],
 				  static_cast<ElemT>(0.0));
-	for(size_t k=0; k < shape_O[target_bond]; k++) {
+	for(std::size_t k=0; k < shape_O[target_bond]; k++) {
 	  data_I[k+shape_O[target_bond]*k] = static_cast<ElemT>(1.0);
 	}
 	auto it_data_I = data_I.begin();
@@ -236,7 +247,7 @@ namespace tnbp {
       tcapi::reshape(ctx,V[site_adrs],new_shape_v);
     }
 
-    size_t num_e = edge_idx.size();
+    std::size_t num_e = edge_idx.size();
     List<BondLabelT> Idx_I(2);
     List<BondLabelT> Idx_E(2);
     List<BondLabelT> Idx_T(4);
@@ -246,7 +257,7 @@ namespace tnbp {
     Idx_I[1] = static_cast<BondLabelT>(3);
     std::iota(Idx_T.begin(),Idx_T.end(),0);
 
-    for(size_t edge_adrs=0; edge_adrs < num_e; edge_adrs++) {
+    for(std::size_t edge_adrs=0; edge_adrs < num_e; edge_adrs++) {
       int site_a = edges[edge_idx[edge_adrs]].first;
       int site_b = edges[edge_idx[edge_adrs]].second;
       int mpi_rank_a = site_to_mpi_rank.at(site_a);
@@ -263,7 +274,7 @@ namespace tnbp {
 	
 	int target_edge = 0;
 	int target_bond = 0;
-	for(size_t k=0; k < bond.size(); k++) {
+	for(std::size_t k=0; k < bond.size(); k++) {
 	  if( ( edges[bond[k]].first == site_a ) &&
 	      ( edges[bond[k]].second == site_b ) ) {
 	    target_edge = bond[k];
@@ -283,7 +294,7 @@ namespace tnbp {
 	ShapeT shape_N(2,shape_I[0]*shape_E[0]);
 	std::vector<ElemT> data_I(shape_O[target_bond]*shape_O[target_bond],
 				  static_cast<ElemT>(0.0));
-	for(size_t k=0; k < shape_O[target_bond]; k++) {
+	for(std::size_t k=0; k < shape_O[target_bond]; k++) {
 	  data_I[k+shape_O[target_bond]*k] = static_cast<ElemT>(1.0);
 	}
 	auto it_data_I = data_I.begin();
@@ -309,7 +320,7 @@ namespace tnbp {
 
 	int target_edge = 0;
 	int target_bond = 0;
-	for(size_t k=0; k < bond.size(); k++) {
+	for(std::size_t k=0; k < bond.size(); k++) {
 	  if( ( edges[bond[k]].first == site_b ) &&
 	      ( edges[bond[k]].second == site_a ) ) {
 	    target_edge = bond[k];
@@ -329,7 +340,7 @@ namespace tnbp {
 	ShapeT shape_N(2,shape_I[0]*shape_E[0]);
 	std::vector<ElemT> data_I(shape_O[target_bond]*shape_O[target_bond],
 				  static_cast<ElemT>(0.0));
-	for(size_t k=0; k < shape_O[target_bond]; k++) {
+	for(std::size_t k=0; k < shape_O[target_bond]; k++) {
 	  data_I[k+shape_O[target_bond]*k] = static_cast<ElemT>(1.0);
 	}
 	auto it_data_I = data_I.begin();
