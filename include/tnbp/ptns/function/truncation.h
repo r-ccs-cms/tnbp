@@ -6,6 +6,17 @@
 #ifndef TNBP_PTNS_FUNCTION_TRUNCATION_H
 #define TNBP_PTNS_FUNCTION_TRUNCATION_H
 
+#include "tnbp/framework/graph.h"
+#include "tnbp/framework/typedef.h"
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <iterator>
+#include <map>
+#include <numeric>
+#include <utility>
+#include <vector>
+
 #include <type_traits>
 #include "tnbp/framework/root.h"
 #include "tnbp/framework/mpiutility.h"
@@ -46,7 +57,7 @@ namespace tnbp {
 
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
-    size_t num_e = EdgeIdx.size();
+    std::size_t num_e = EdgeIdx.size();
 
     TenT Ra;
     TenT Sa;

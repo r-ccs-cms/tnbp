@@ -6,6 +6,18 @@
 #ifndef TNBP_PTNS_FUNCTION_BP_H
 #define TNBP_PTNS_FUNCTION_BP_H
 
+#include "tnbp/ptns/tps.h"
+#include <algorithm>
+#include <cstddef>
+#include <functional>
+#include <iostream>
+#include <iterator>
+#include <map>
+#include <numeric>
+#include <ostream>
+#include <utility>
+#include <vector>
+
 #include "tnbp/framework/typedef.h"
 #include "tnbp/framework/graph.h"
 #include "tnbp/framework/mpiutility.h"
@@ -81,7 +93,7 @@ namespace tnbp {
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
 
-    size_t size_e = EdgeIdx.size();
+    std::size_t size_e = EdgeIdx.size();
     F.resize(2*size_e);
 
     for(int m=0; m < J.size(); m++) {
@@ -280,19 +292,19 @@ namespace tnbp {
     using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
     using BondLabelT  = typename tcapi::tensor_traits<TenT>::bond_label_t;
 
-    size_t num_v = SiteIdx.size();
-    size_t num_e = EdgeIdx.size();
-    size_t num_total_edges = I.size();
+    std::size_t num_v = SiteIdx.size();
+    std::size_t num_e = EdgeIdx.size();
+    std::size_t num_total_edges = I.size();
     RealT result_volume = 1.0/(2.0*num_total_edges);
     RealT result_rank = 0.0;
     result = 0.0;
 
-    for(size_t address=0; address < SiteIdx.size(); address++) {
+    for(std::size_t address=0; address < SiteIdx.size(); address++) {
       std::vector<int> BondIdx = GetSurroundingBondIndex(SiteIdx[address],I);
-      for(size_t k=0; k < BondIdx.size(); k++) {
+      for(std::size_t k=0; k < BondIdx.size(); k++) {
 	TenT T = tcapi::copy(ctx,V[address]);
 	auto OrderV = tcapi::order(ctx,T);
-	for(size_t l=0; l < BondIdx.size(); l++) {
+	for(std::size_t l=0; l < BondIdx.size(); l++) {
 	  if( l != k ) {
 	    auto itEdgeAddress = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 					   BondIdx[l]);
@@ -312,7 +324,7 @@ namespace tnbp {
 	    tcapi::contract(ctx,T,IdxV,F,IdxE,T,IdxV_res);
 	    auto norm_v = tcapi::normalize(ctx,T);
 	  }
-	} // end for(size_t l=0; l < BondIdx.size(); l++)
+	} // end for(std::size_t l=0; l < BondIdx.size(); l++)
 	
 #ifdef BP_DEBUG
 	std::cout << " belief propagation: Before physical contruction " << std::endl;
@@ -349,7 +361,7 @@ namespace tnbp {
 	RealT NormD = tcapi::norm(ctx,D);
 	result_rank += NormD * result_volume;
 	
-      } // end for(size_t k=0; k < BondIdx.size(); k++)
+      } // end for(std::size_t k=0; k < BondIdx.size(); k++)
     } // end for(int address=0; address < SiteIdx.size(); address++)
     MPI_Allreduce(&result_rank,&result,1,MPI_DOUBLE,MPI_SUM,comm);
   }

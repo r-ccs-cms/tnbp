@@ -6,15 +6,19 @@
 #ifndef TNBP_LATTICE_SQUARE_H
 #define TNBP_LATTICE_SQUARE_H
 
+#include <cstddef>
+#include <utility>
+#include <vector>
+
 namespace tnbp {
 
   /**
      Function to define the bonds for sqaure lattice
    */
-  std::vector<std::pair<int,int>> bond_square_lattice(int Lx, int Ly) {
-    size_t N = 2*Lx*Ly-Lx-Ly;
+  inline std::vector<std::pair<int,int>> bond_square_lattice(int Lx, int Ly) {
+    std::size_t N = 2*Lx*Ly-Lx-Ly;
     std::vector<std::pair<int,int>> res(N);
-    size_t m=0;
+    std::size_t m=0;
     for(int iy=0; iy < Ly; iy++) {
       for(int ix=0; ix < Lx; ix++) {
 	int site_i = ix + Lx * iy;

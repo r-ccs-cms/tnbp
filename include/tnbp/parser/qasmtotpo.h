@@ -6,6 +6,18 @@
 #ifndef TNBP_PARSER_QASMTOTPO_H
 #define TNBP_PARSER_QASMTOTPO_H
 
+#include "tnbp/framework/graph.h"
+#include "tnbp/framework/mpiutility.h"
+#include "tnbp/framework/typedef.h"
+#include "tnbp/parser/qasmutility.h"
+#include <algorithm>
+#include <cstddef>
+#include <iterator>
+#include <numeric>
+#include <stdexcept>
+#include <utility>
+#include <vector>
+
 #include <type_traits>
 #include <cmath>
 #include "qasm/ir.h"
@@ -143,33 +155,6 @@ namespace tnbp {
     }
   }
 
-  /**
-     Function to get the size of qubits of the gate defined by qasm::Instruction
-     @param[in] ins: qasm::Instruction corresponding to the gate
-   */
-  inline int OpQubitCount(const qasm::Instruction & ins) {
-    switch (ins.op) {
-    case qasm::Op::U3: case qasm::Op::U2: case qasm::Op::U1:
-    case qasm::Op::RX: case qasm::Op::RY: case qasm::Op::RZ:
-    case qasm::Op::H:  case qasm::Op::X:  case qasm::Op::Y:  case qasm::Op::Z:
-    case qasm::Op::S:  case qasm::Op::SDG: case qasm::Op::T: case qasm::Op::TDG:
-    case qasm::Op::ID:
-      return 1;
-    case qasm::Op::CX: case qasm::Op::CZ: case qasm::Op::SWAP: case qasm::Op::RZZ:
-      return 2;
-    case qasm::Op::CCX: case qasm::Op::CSWAP:
-      return 3;
-    case qasm::Op::MEASURE:
-      return 1;
-    case qasm::Op::RESET:
-      return 1;
-    case qasm::Op::BARRIER:
-    case qasm::Op::CUSTOM:
-      return ins.qubits.size(); // 可変長は実データ依存
-    }
-    return ins.qubits.size();
-  }  
-  
   /**
      Function to get the tensor form of the gate defined by qasm::Instruction
      @param[in] ins: qasm::Instruction corresponding to the gate
@@ -338,7 +323,7 @@ namespace tnbp {
       auto site_b = static_cast<int>(ins.qubits[1].index);
       auto path = FindShortestPath(edges,site_a,site_b);
 
-      for(size_t i=0; i < path.size(); i++) {
+      for(std::size_t i=0; i < path.size(); i++) {
 	
 	TenT X;
 	
@@ -446,12 +431,12 @@ namespace tnbp {
       auto path_bc = FindShortestPath(edges,site_b,site_c);
       auto path_ca = FindShortestPath(edges,site_c,site_a);
       
-      std::vector<size_t> path_length(3);
+      std::vector<std::size_t> path_length(3);
       path_length[0] = path_ab.size()+path_bc.size()-1;
       path_length[1] = path_bc.size()+path_ca.size()-1;
       path_length[2] = path_ca.size()+path_ab.size()-1;
       
-      size_t min_length = path_length[0];
+      std::size_t min_length = path_length[0];
       int which_path = 0;
       
       if( path_length[1] < path_length[0] ) {
@@ -589,9 +574,9 @@ namespace tnbp {
       auto vdim_bc = shape_Dbc[0];
       
       auto vdim = vdim_ab;
-      size_t ib=path.size();
+      std::size_t ib=path.size();
       // attach unitary onto the tpo
-      for(size_t i=0; i < path.size(); i++) {
+      for(std::size_t i=0; i < path.size(); i++) {
 	
 	TenT X;
 	if( path[i] == site_a ) {
@@ -711,8 +696,8 @@ namespace tnbp {
 		  const std::vector<int> & num_gates) {
     
     auto sites = GetSiteIndexFromBond(edges);
-    std::vector<std::vector<TenT>> T(num_gates.size(),
-		                     std::vector<TenT>(sites.size()));
+    std::vector<std::vector<TenT>> T(num_gates.size());
+    for (auto & layer : T) layer.resize(sites.size());
     int gate_count = 0;
     int m = 0;
     for(auto const & ins : program.instructions) {
@@ -745,7 +730,7 @@ namespace tnbp {
     
     auto sites = GetSiteIndexFromBond(edges);
     std::vector<std::vector<TenT>> T;
-    size_t m=0;
+    std::size_t m=0;
     T.push_back(std::vector<TenT>(sites.size()));
     InitQasmParseTPO(ctx,sites,edges,T[m]);
     for(std::size_t i=0; i < program.instructions.size(); ++i) {

@@ -10,6 +10,7 @@
 #include "tnbp/tnbp.h"
 
 #include "typedef.h"
+#include "../cuda_device.h"
 #include "timestamp.h"
 #include "option.h"
 
@@ -21,6 +22,8 @@ int main(int argc, char * argv[]) {
   int mpi_size; MPI_Comm_size(comm,&mpi_size);
   int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
   
+  initialize_tensor_device(comm);
+
   Option options =generate_options(argc,argv);
 
   std::string qasm_source;

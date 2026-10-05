@@ -1,6 +1,14 @@
 // qasm/utility.h
 #pragma once
 
+#include "qasm/ir.h"
+#include <cstddef>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+
 namespace qasm {
 
   static void dump(const Program & p){
@@ -15,11 +23,11 @@ namespace qasm {
       else std::cout << (int)ins.op << "(" << op_name(ins.op) << ")";
       if (!ins.params.empty()) {
 	std::cout << " (";
-	for (size_t i=0;i<ins.params.size();++i){ if(i) std::cout<<", "; std::cout<<ins.params[i]; }
+	for (std::size_t i=0;i<ins.params.size();++i){ if(i) std::cout<<", "; std::cout<<ins.params[i]; }
 	std::cout << ")";
       }
       std::cout << "  ";
-      for (size_t i=0;i<ins.qubits.size();++i){
+      for (std::size_t i=0;i<ins.qubits.size();++i){
 	if (i) std::cout<<", ";
 	std::cout << ins.qubits[i].reg << "[" << ins.qubits[i].index << "]";
       }

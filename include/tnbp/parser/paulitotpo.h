@@ -6,6 +6,14 @@
 #ifndef TNBP_PARSER_PAULITOTPO_H
 #define TNBP_PARSER_PAULITOTPO_H
 
+#include "tnbp/framework/graph.h"
+#include "tnbp/framework/typedef.h"
+#include <cstddef>
+#include <numeric>
+#include <stdexcept>
+#include <utility>
+#include <vector>
+
 #include "pauli/sparse_pauli.h"
 #include "pauli/pauli_string.h"
 
@@ -34,7 +42,7 @@ namespace tnbp {
     }
   }
 
-  inline size_t PauliOpSite(const pauli::LocalOp & p) { return p.qubit; }
+  inline std::size_t PauliOpSite(const pauli::LocalOp & p) { return p.qubit; }
 
   template <typename TenT>
   void SparsePauliToTensorOp(
@@ -60,7 +68,7 @@ namespace tnbp {
       std::vector<int> qubits;
       TenT opten;
       TenT tempo;
-      for(size_t k=0; k < localop.size(); k++) {
+      for(std::size_t k=0; k < localop.size(); k++) {
 	qubits.push_back(PauliOpSite(localop[k]));
 	ShapeT shapeL(2,2);
 	auto mat = PauliOpMatrix<ElemT>(localop[k]);
@@ -78,11 +86,11 @@ namespace tnbp {
 	  List<BondLabelT> labelL(2);
 	  List<BondLabelT> labelT(2*(k+1));
 	  BondLabelT label = 0;
-	  for(size_t s=0; s < k; s++) {
+	  for(std::size_t s=0; s < k; s++) {
 	    labelO[s] = label++;
 	  }
 	  labelL[0] = label++;
-	  for(size_t s=k; s < 2*k; s++) {
+	  for(std::size_t s=k; s < 2*k; s++) {
 	    labelO[s] = label++;
 	  }
 	  labelL[1] = label++;
@@ -106,15 +114,15 @@ namespace tnbp {
 		   std::vector<TenT> & twosite_tensor,
 		   std::vector<std::pair<int,int>> & twosite) {
 
-    std::vector<size_t> onesite_address;
-    std::vector<size_t> twosite_address;
-    for(size_t k=0; k < qubits.size(); k++) {
+    std::vector<std::size_t> onesite_address;
+    std::vector<std::size_t> twosite_address;
+    for(std::size_t k=0; k < qubits.size(); k++) {
       if ( qubits[k].size() == 1 ) {
 	onesite_address.push_back(k);
       } else if ( qubits[k].size() == 2 ) {
 	std::vector<int> bond = GetSurroundingBondIndex(qubits[k][0],edges);
 	bool find_edge = false;
-	for(size_t m=0; m < bond.size(); m++) {
+	for(std::size_t m=0; m < bond.size(); m++) {
 	  if( edges[bond[m]].first == qubits[k][0]
 	      && edges[bond[m]].second == qubits[k][1] ) {
 	    find_edge = true;
@@ -131,21 +139,21 @@ namespace tnbp {
 	}
       }
     }
-    size_t num_onesite = onesite_address.size();
-    size_t num_twosite = twosite_address.size();
+    std::size_t num_onesite = onesite_address.size();
+    std::size_t num_twosite = twosite_address.size();
     onesite_tensor.resize(num_onesite);
     onesite.resize(num_onesite);
     twosite_tensor.resize(num_twosite);
     twosite.resize(num_twosite);
     auto it_one_site = onesite.begin();
     auto it_one_tensor = onesite_tensor.begin();
-    for(size_t i=0; i < onesite_address.size(); i++) {
+    for(std::size_t i=0; i < onesite_address.size(); i++) {
       *it_one_tensor++ = tcapi::copy(ctx,tensor[onesite_address[i]]);
       *it_one_site++ = qubits[onesite_address[i]][0];
     }
     auto it_two_site = twosite.begin();
     auto it_two_tensor = twosite_tensor.begin();
-    for(size_t i=0; i < twosite_address.size(); i++) {
+    for(std::size_t i=0; i < twosite_address.size(); i++) {
       *it_two_site++ = std::make_pair(qubits[twosite_address[i]][0],
 				      qubits[twosite_address[i]][1]);
       *it_two_tensor++ = tcapi::copy(ctx,tensor[twosite_address[i]]);

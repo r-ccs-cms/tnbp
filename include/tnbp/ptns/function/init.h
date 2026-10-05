@@ -6,6 +6,16 @@
 #ifndef TNBP_PTNS_FUNCTION_INIT_H
 #define TNBP_PTNS_FUNCTION_INIT_H
 
+#include "tnbp/framework/mpiutility.h"
+#include "tnbp/framework/typedef.h"
+#include "tnbp/ptns/tps.h"
+#include <algorithm>
+#include <cstddef>
+#include <iterator>
+#include <map>
+#include <utility>
+#include <vector>
+
 #include "tnbp/framework/graph.h"
 
 namespace tnbp {  
@@ -89,7 +99,7 @@ namespace tnbp {
 		  MPI_INT,
 		  MPI_SUM,
 		  comm);
-    for(size_t i=0; i < NumSites; i++) {
+    for(std::size_t i=0; i < NumSites; i++) {
       Site_To_MpiRank[Site[i]] = Site_To_MpiRank_Vector[i];
     }
   }

@@ -7,10 +7,17 @@
 #define TNBP_FRAMEWORK_MPIUTILITY_H
 
 #include "mpi.h"
+#include "tnbp/framework/typedef.h"
+
+#include <complex>
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
 
 namespace tnbp {
 
-  void get_range(int size, int rank, int & i_start, int & i_end)
+  inline void get_range(int size, int rank, int & i_start, int & i_end)
   {
     int i_all = i_end - i_start;
 
@@ -34,7 +41,7 @@ namespace tnbp {
     i_end = j_end;
   }
 
-  void MpiBcast(std::string &str, int root, MPI_Comm comm) {
+  inline void MpiBcast(std::string &str, int root, MPI_Comm comm) {
     int rank;
     MPI_Comm_rank(comm, &rank);
     
@@ -69,8 +76,8 @@ namespace tnbp {
   inline std::ptrdiff_t address_from_coor(const ShapeT& shape,
 					  const CoorT& coor) {
     if (shape.empty()) return 0;
-    size_t addr = coor[shape.size()-1];
-    for (size_t k = shape.size()-1; k > 0; --k) {
+    std::size_t addr = coor[shape.size()-1];
+    for (std::size_t k = shape.size()-1; k > 0; --k) {
       addr = addr * shape[k-1] + coor[k-1];
     }
     return static_cast<std::ptrdiff_t>(addr);
@@ -88,8 +95,8 @@ namespace tnbp {
     int mpi_rank = -1;
     MPI_Comm_rank(comm, &mpi_rank);
     
-    uint32_t size = 0, order = 0;
-    std::vector<uint32_t> shape;
+    std::uint32_t size = 0, order = 0;
+    std::vector<std::uint32_t> shape;
     std::vector<ElemT>    data;
     
     if (mpi_rank == root) {
@@ -97,16 +104,16 @@ namespace tnbp {
       const OrderT order_A  = tcapi::order(ctx, A);
       const ShapeT shape_A = tcapi::shape(ctx, A);
       
-      size = static_cast<uint32_t>(size_A);
-      order = static_cast<uint32_t>(order_A);
+      size = static_cast<std::uint32_t>(size_A);
+      order = static_cast<std::uint32_t>(order_A);
       
       shape.resize(order);
       {
 	auto it = shape.begin();
-	for (auto d : shape_A) *it++ = static_cast<uint32_t>(d);
+	for (auto d : shape_A) *it++ = static_cast<std::uint32_t>(d);
       }
       
-      data.resize(static_cast<size_t>(size_A));
+      data.resize(static_cast<std::size_t>(size_A));
       auto it_data = data.begin();
       tcapi::to_range(ctx, A, it_data,
 	   [shape_A](const auto& coor) -> std::ptrdiff_t {
@@ -156,15 +163,15 @@ namespace tnbp {
     const OrderT order_A = tcapi::order(ctx, A);
     const ShapeT shape_A = tcapi::shape(ctx, A);
     
-    std::vector<uint32_t> shape;
-    shape.resize(static_cast<size_t>(order_A));
+    std::vector<std::uint32_t> shape;
+    shape.resize(static_cast<std::size_t>(order_A));
     {
       auto it = shape.begin();
-      for (auto dim : shape_A) *it++ = static_cast<uint32_t>(dim);
+      for (auto dim : shape_A) *it++ = static_cast<std::uint32_t>(dim);
     }
     
     std::vector<ElemT> data;
-    data.resize(static_cast<size_t>(size_A));
+    data.resize(static_cast<std::size_t>(size_A));
     {
       auto it_data = data.begin();
       tcapi::to_range(
@@ -174,8 +181,8 @@ namespace tnbp {
 	   });
     }
 
-    const uint32_t size = static_cast<uint32_t>(size_A);
-    const uint32_t order = static_cast<uint32_t>(order_A);
+    const std::uint32_t size = static_cast<std::uint32_t>(size_A);
+    const std::uint32_t order = static_cast<std::uint32_t>(order_A);
   
     // Send data
     MPI_Send(&size,  1, MPI_UINT32_T, dst, 0, comm);
@@ -193,9 +200,9 @@ namespace tnbp {
     using ElemT    = typename tcapi::tensor_traits<TenT>::elem_t;
     using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;
     
-    uint32_t size = 0;
-    uint32_t order = 0;
-    std::vector<uint32_t> shape;
+    std::uint32_t size = 0;
+    std::uint32_t order = 0;
+    std::vector<std::uint32_t> shape;
     std::vector<ElemT>    data;
     MPI_Status status{};
     

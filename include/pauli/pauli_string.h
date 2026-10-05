@@ -1,4 +1,7 @@
 #pragma once
+#include "pauli/sparse_pauli.h"
+#include <cstddef>
+#include <utility>
 #include <string>
 #include <vector>
 #include <cctype>

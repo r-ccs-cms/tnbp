@@ -4,6 +4,10 @@
 #ifndef TNBP_FRAMEWORK_GRAPH_H
 #define TNBP_FRAMEWORK_GRAPH_H
 
+#include <stdexcept>
+
+#include <cstddef>
+
 #include <vector>
 #include <queue>
 #include <utility>
@@ -229,14 +233,14 @@ namespace tnbp {
     std::vector<std::vector<std::pair<IntT,IntT>>> layers;
     
     // set of temporary edges
-    std::unordered_set<size_t> used_indices;
+    std::unordered_set<std::size_t> used_indices;
     std::vector<bool> used(edges.size(), false);
     
     while (true) {
       std::unordered_set<IntT> used_vertices;
       std::vector<std::pair<IntT,IntT>> layer;
       
-      for (size_t i = 0; i < edges.size(); ++i) {
+      for (std::size_t i = 0; i < edges.size(); ++i) {
 	if (used[i]) continue;
 	
 	auto [u, v] = edges[i];
@@ -404,8 +408,8 @@ namespace tnbp {
     a_local.reserve(line_a.size());
     b_local.reserve(line_b.size());
     
-    for (size_t i = 0; i < line_a.size(); ++i) a_local[line_a[i]] = static_cast<IntT>(i);
-    for (size_t i = 0; i < line_b.size(); ++i) b_local[line_b[i]] = static_cast<IntT>(i);
+    for (std::size_t i = 0; i < line_a.size(); ++i) a_local[line_a[i]] = static_cast<IntT>(i);
+    for (std::size_t i = 0; i < line_b.size(); ++i) b_local[line_b[i]] = static_cast<IntT>(i);
     
     std::vector<std::pair<IntT,IntT>> inter_edges;
     inter_edges.reserve(global_edges.size());
@@ -491,8 +495,8 @@ namespace tnbp {
     std::unordered_map<IntT, IntT> a_local, b_local;
     a_local.reserve(line_a.size());
     b_local.reserve(line_b.size());
-    for (size_t i = 0; i < line_a.size(); ++i) a_local[line_a[i]] = static_cast<IntT>(i);
-    for (size_t i = 0; i < line_b.size(); ++i) b_local[line_b[i]] = static_cast<IntT>(i);
+    for (std::size_t i = 0; i < line_a.size(); ++i) a_local[line_a[i]] = static_cast<IntT>(i);
+    for (std::size_t i = 0; i < line_b.size(); ++i) b_local[line_b[i]] = static_cast<IntT>(i);
     
     std::vector<std::pair<IntT,IntT>> inter_edges;
     inter_edges.reserve(global_edges.size());

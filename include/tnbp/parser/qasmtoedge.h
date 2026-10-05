@@ -6,6 +6,9 @@
 #ifndef TNBP_PARSER_QASMTOEDGE_H
 #define TNBP_PARSER_QASMTOEDGE_H
 
+#include "tnbp/parser/qasmutility.h"
+#include <cstddef>
+
 #include <vector>
 #include <utility>
 #include <algorithm>
@@ -18,7 +21,7 @@ namespace tnbp {
   /**
      Function to extract sites from qasm::Program
    */
-  std::vector<int> SitesFromQasm(
+  inline std::vector<int> SitesFromQasm(
 	   const qasm::Program & program) {
     std::vector<int> site;
     for(const auto & ins : program.instructions) {
@@ -35,7 +38,7 @@ namespace tnbp {
   /**
      Function to extract pairs from qasm::Program
    */
-  std::vector<std::pair<int,int>> EdgesFromQasm(
+  inline std::vector<std::pair<int,int>> EdgesFromQasm(
 		   const qasm::Program & program) {
     std::vector<std::pair<int,int>> edge;
     for(const auto & ins : program.instructions) {
