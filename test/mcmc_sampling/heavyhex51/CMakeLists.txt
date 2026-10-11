@@ -1,0 +1,4 @@
+add_executable(heavyhex51 main.cc)
+target_link_libraries(heavyhex51 PRIVATE tnbp_test_backend)
+add_executable(heavyhex51_product_reference product_reference.cc)
+target_compile_features(heavyhex51_product_reference PRIVATE cxx_std_17)

@@ -34,7 +34,7 @@ Backend repositories require access permission; see [repository access](../../RE
 CPU (initialize dependencies and build HPTT separately):
 
 ```sh
-cmake -S test/backend_integration -B build/backend-cpu \
+cmake -S test -B build/backend-cpu \
   -DTNBP_TEST_BACKEND=cpu -DGQTEN_ROOT=/path/to/Source/gqten \
   -DHPTT_LIBRARY=/path/to/libhptt.a
 cmake --build build/backend-cpu
@@ -46,7 +46,7 @@ Supply platform-specific OpenMP/BLAS/LAPACK settings to CMake if needed.
 CUDA (build on the allocated GPU compute node):
 
 ```sh
-cmake -S test/backend_integration -B build/backend-cuda \
+cmake -S test -B build/backend-cuda \
   -DTNBP_TEST_BACKEND=cuda \
   -DCUTENSOR_INCLUDE_DIR=/path/to/cutensor/include \
   -DCUTENSOR_LIBRARY=/path/to/libcutensor.so
@@ -109,3 +109,12 @@ get_range, string MpiBcast, seven lattice-generation functions, SitesFromQasm an
 EdgesFromQasm. These header-defined functions now have external inline linkage.
 Template functions and in-class definitions already have appropriate header-only
 semantics; explicit MPI datatype specializations were already inline.
+
+## Test organization
+
+This directory contains only the backend integration and header-check sources.
+The shared dependency configuration is `test/cmake/Backend.cmake`; graph,
+boundary-MPS and sampling targets/tests are registered by their own directories.
+See [the test index](../README.md). The old configure entry point
+`-S test/backend_integration` is retained for existing build caches and includes
+the same suites as `-S test`.

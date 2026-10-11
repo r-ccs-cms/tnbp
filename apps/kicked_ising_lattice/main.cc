@@ -16,7 +16,7 @@
 #include "option.h"
 #include "circuit.h"
 #include "measop.h"
-#include "timestamp.h"
+#include "tnbp/framework/timestamp.h"
 
 int main(int argc, char * argv[]) {
 
@@ -50,7 +50,7 @@ int main(int argc, char * argv[]) {
   }
 
   if( mpi_rank == 0 ) {
-    std::cout << " " << make_timestamp()
+    std::cout << " " << tnbp::make_timestamp()
 	      << " edges:";
     for(const auto & [u,v] : edges) {
       std::cout << " (" << u << "," << v << ")";
@@ -58,7 +58,7 @@ int main(int argc, char * argv[]) {
     std::cout << std::endl;
     int m=0;
     for(const auto & layer : layer_edges) {
-      std::cout << " " << make_timestamp()
+      std::cout << " " << tnbp::make_timestamp()
 		<< " layer " << m << " edges:";
       for(const auto & [u,v] : layer) {
 	std::cout << " (" << u << "," << v << ")";
@@ -66,7 +66,7 @@ int main(int argc, char * argv[]) {
       std::cout << std::endl;
       m++;
     }
-    std::cout << " " << make_timestamp() << " Start construction of TPO " << std::endl;
+    std::cout << " " << tnbp::make_timestamp() << " Start construction of TPO " << std::endl;
     
   }
   std::vector<Tensor> TPO = CircuitTPO<Tensor>(ctx,edges,
@@ -84,14 +84,14 @@ int main(int argc, char * argv[]) {
   std::vector<Real> res_truncation_error;
 
   if( mpi_rank == 0 ) {
-    std::cout << " " << make_timestamp() << " start construction of Initial TPS " << std::endl;
+    std::cout << " " << tnbp::make_timestamp() << " start construction of Initial TPS " << std::endl;
   }
   tnbp::InitTensorProductState(ctx,edges,pdim,
 			       V,SiteIdx,Site_To_MpiRank,
 			       E,EdgeIdx,comm);
 
   if ( mpi_rank == 0 ) {
-    std::cout << " " << make_timestamp()
+    std::cout << " " << tnbp::make_timestamp()
 	      << " start construction of meas operators " << std::endl;
   }
 
@@ -107,7 +107,7 @@ int main(int argc, char * argv[]) {
   Real tolerance;
   for(uint32_t step=0; step < options.num_steps; step++) {
     if( mpi_rank == 0 ) {
-      std::cout << " " << make_timestamp()
+      std::cout << " " << tnbp::make_timestamp()
 		<< " start AbsorbTPO " << std::endl;
     }
     tnbp::AbsorbTPO(
@@ -115,13 +115,13 @@ int main(int argc, char * argv[]) {
 	  V,SiteIdx,Site_To_MpiRank,E,EdgeIdx,comm);
 
     if( mpi_rank == 0 ) {
-      std::cout << " " << make_timestamp()
+      std::cout << " " << tnbp::make_timestamp()
 		<< " start belief propagation loop " << std::endl;
     }
     for(uint32_t k=0; k < options.max_bp_iterations; k++) {
       
       if( mpi_rank == 0 ) {
-	std::cout << " " << make_timestamp()
+	std::cout << " " << tnbp::make_timestamp()
 		  << " start " << k
 		  << "th belief propagation " << std::endl;
       }
@@ -132,7 +132,7 @@ int main(int argc, char * argv[]) {
 	    layer_edges[p],E,EdgeIdx,comm,F);
       }
       if( mpi_rank == 0 ) {
-	std::cout << " " << make_timestamp()
+	std::cout << " " << tnbp::make_timestamp()
 		  << " update edge tensors " << std::endl;
       }
       auto itE = E.begin();
@@ -140,7 +140,7 @@ int main(int argc, char * argv[]) {
 	*itE++ = tcapi::copy(ctx,et);
       }
       if( mpi_rank == 0 ) {
-	std::cout << " " << make_timestamp()
+	std::cout << " " << tnbp::make_timestamp()
 		  << " calculate condition " << std::endl;
       }
       tnbp::BeliefPropagationCondition(
@@ -148,7 +148,7 @@ int main(int argc, char * argv[]) {
 	    Site_To_MpiRank,E,EdgeIdx,
 	    comm,tolerance);
       if( mpi_rank == 0 ) {
-	std::cout << " " << make_timestamp()
+	std::cout << " " << tnbp::make_timestamp()
 		  << " error from belief propagation condition at time step "
 		  << step << " = "
 		  << tolerance << std::endl;
@@ -166,7 +166,7 @@ int main(int argc, char * argv[]) {
 		     res_bond_dim,
 		     res_truncation_error);
     for(size_t k=0; k < EdgeIdx.size(); k++) {
-      std::cout << " " << make_timestamp()
+      std::cout << " " << tnbp::make_timestamp()
 		<< " truncation error for edge ("
 		<< edges[EdgeIdx[k]].first << ","
 		<< edges[EdgeIdx[k]].second
@@ -175,7 +175,7 @@ int main(int argc, char * argv[]) {
 		<< res_bond_dim[k] << std::endl;
     }
 
-    std::cout << " " << make_timestamp()
+    std::cout << " " << tnbp::make_timestamp()
 	      << " start measurements " << std::endl;
     
     auto res_x = tnbp::Measure(ctx,edges,V,SiteIdx,Site_To_MpiRank,
@@ -184,7 +184,7 @@ int main(int argc, char * argv[]) {
     
     for(size_t i=0; i < meas_site.size(); i++) {
       if( Site_To_MpiRank[meas_site[i]] == mpi_rank ) {
-	std::cout << " " << make_timestamp()
+	std::cout << " " << tnbp::make_timestamp()
 		  << " measurement of X at site " << meas_site[i]
 		  << " time step " << step
 		  << " = " << GetReal(res_x[i]) << std::endl;
@@ -197,7 +197,7 @@ int main(int argc, char * argv[]) {
     
     for(size_t i=0; i < meas_site.size(); i++) {
       if( Site_To_MpiRank[meas_site[i]] == mpi_rank ) {
-	std::cout << " " << make_timestamp()
+	std::cout << " " << tnbp::make_timestamp()
 		  << " measurement of Z at site " << meas_site[i]
 		  << " time step " << step
 		  << " = " << GetReal(res_z[i]) << std::endl;
@@ -221,7 +221,7 @@ int main(int argc, char * argv[]) {
 	mpi_type += 1;
       }
       if ( mpi_type > 1 ) {
-	std::cout << " " << make_timestamp()
+	std::cout << " " << tnbp::make_timestamp()
 		  << " measurement of ZZ at sites (" << meas_edge[m].first
 		  << "," << meas_edge[m].second
 		  << ") time step " << step

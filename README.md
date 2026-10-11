@@ -44,6 +44,14 @@ applications and backend integration tests. See [CUDA setup](apps/README.cuda.md
 The historical Cytnx build branches are not validated for this TCAPI migration.
 Existing CPU TPS stream format is retained.
 
+## Graph tensor conventions
+
+See [graph, tensor-axis and ownership conventions](docs/graph_tensor_conventions.md)
+for edge ordering, rank-local tensor storage, ownership during contraction and
+bond shifts, and partial tensor inputs.
+See also [automatic MCMC grouping](docs/automatic_mcmc_grouping.md) for the
+original-graph selection policy and shared manual/automatic execution plan.
+
 ## Requirements
 
 ### Backend repository access
@@ -101,3 +109,5 @@ If you use this code in your research, please cite:
 - Rongyang Sun
 - Hidehiko Kohshiro
 
+
+Function-specific regression suites and build instructions are listed in [test/README.md](test/README.md).

@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.18)
+project(tnbp_tests LANGUAGES CXX)
+include(CTest)
+include(cmake/Backend.cmake)
+add_subdirectory(backend_integration suites/backend_integration)
+add_subdirectory(graph_tensor_contraction suites/graph_tensor_contraction)
+add_subdirectory(boundary_mps suites/boundary_mps)
+add_subdirectory(mcmc_sampling suites/mcmc_sampling)
