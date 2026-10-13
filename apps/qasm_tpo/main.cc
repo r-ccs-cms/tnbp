@@ -10,7 +10,7 @@
 #include "tnbp/tnbp.h"
 
 #include "typedef.h"
-#include "timestamp.h"
+#include "tnbp/framework/timestamp.h"
 #include "option.h"
 
 int main(int argc, char * argv[]) {
@@ -39,7 +39,7 @@ int main(int argc, char * argv[]) {
   layer_edges = tnbp::GreedyEdgeLayering(edges);
 
   if( mpi_rank == mpi_master ) {
-    std::cout << " " << make_timestamp()
+    std::cout << " " << tnbp::make_timestamp()
 	      << " edges:";
     for(const auto & [u,v] : edges) {
       std::cout << " (" << u << "," << v << ")";
@@ -47,7 +47,7 @@ int main(int argc, char * argv[]) {
     std::cout << std::endl;
     int m=0;
     for(const auto & layer : layer_edges) {
-      std::cout << " " << make_timestamp()
+      std::cout << " " << tnbp::make_timestamp()
 		<< " layer " << m << " edges:";
       for(const auto & [u,v] : layer) {
 	std::cout << " (" << u << "," << v << ")";
@@ -56,7 +56,7 @@ int main(int argc, char * argv[]) {
       m++;
     }
     
-    std::cout << " " << make_timestamp()
+    std::cout << " " << tnbp::make_timestamp()
 	      << " Start TPO construction for quantum circuit " << std::endl;
   }
 
@@ -64,14 +64,14 @@ int main(int argc, char * argv[]) {
 
   TPO = tnbp::QasmToTPO<Tensor>(ctx,qasm_program,edges);
   if( mpi_rank == mpi_master ) {
-    std::cout << " " << make_timestamp()
+    std::cout << " " << tnbp::make_timestamp()
 	      << " barrier-based layering of QasmToTPO was performed " << std::endl;
   }
 
   if( options.do_opt_tpo ) {
     for(size_t l=0; l < TPO.size(); l++) {
       tnbp::OptTPObySVD(ctx,edges,TPO[l],options.opt_tpo_eps);
-      std::cout << " " << make_timestamp()
+      std::cout << " " << tnbp::make_timestamp()
 		<< " svd-based optimization for tpo is performed for layer " << l << std::endl;
     }
   }

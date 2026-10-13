@@ -11,7 +11,7 @@
 
 #include "typedef.h"
 #include "../cuda_device.h"
-#include "timestamp.h"
+#include "tnbp/framework/timestamp.h"
 #include "option.h"
 
 int main(int argc, char * argv[]) {
@@ -51,7 +51,7 @@ int main(int argc, char * argv[]) {
   }
 
   if( mpi_rank == mpi_master ) {
-    std::cout << " " << make_timestamp()
+    std::cout << " " << tnbp::make_timestamp()
 	      << " edges:";
     for(const auto & [u,v] : edges) {
       std::cout << " (" << u << "," << v << ")";
@@ -59,7 +59,7 @@ int main(int argc, char * argv[]) {
     std::cout << std::endl;
     int m=0;
     for(const auto & layer : layer_edges) {
-      std::cout << " " << make_timestamp()
+      std::cout << " " << tnbp::make_timestamp()
 		<< " layer " << m << " edges:";
       for(const auto & [u,v] : layer) {
 	std::cout << " (" << u << "," << v << ")";
@@ -68,7 +68,7 @@ int main(int argc, char * argv[]) {
       m++;
     }
     
-    std::cout << " " << make_timestamp()
+    std::cout << " " << tnbp::make_timestamp()
 	      << " Start TPO construction for quantum circuit " << std::endl;
   }
 
@@ -77,13 +77,13 @@ int main(int argc, char * argv[]) {
     TPO = tnbp::QasmToTPO<Tensor>(ctx,qasm_program,edges,
 				  options.num_gates);
     if( mpi_rank == mpi_master ) {
-      std::cout << " " << make_timestamp()
+      std::cout << " " << tnbp::make_timestamp()
 		<< " manual gate-number layering of QasmToTPO was performed " << std::endl;
     }
   } else {
     TPO = tnbp::QasmToTPO<Tensor>(ctx,qasm_program,edges);
     if( mpi_rank == mpi_master ) {
-      std::cout << " " << make_timestamp()
+      std::cout << " " << tnbp::make_timestamp()
 		<< " barrier-based layering of QasmToTPO was performed " << std::endl;
     }
   }
@@ -91,7 +91,7 @@ int main(int argc, char * argv[]) {
   if( options.do_opt_tpo ) {
     for(size_t l=0; l < TPO.size(); l++) {
       tnbp::OptTPObySVD(ctx,edges,TPO[l],options.eps_opt_tpo);
-      std::cout << " " << make_timestamp()
+      std::cout << " " << tnbp::make_timestamp()
 		<< " optimization of tpo for layer " << l << " is performed " << std::endl;
     }
   }
@@ -115,7 +115,7 @@ int main(int argc, char * argv[]) {
   std::vector<Real> res_truncation_error;
 
   if( mpi_rank == mpi_master ) {
-    std::cout << " " << make_timestamp()
+    std::cout << " " << tnbp::make_timestamp()
 	      << " Start circuit contractions " << std::endl;
   }
   
@@ -149,7 +149,7 @@ int main(int argc, char * argv[]) {
 	    Site_To_MpiRank,E,EdgeIdx,
 	    comm,tolerance);
       if( mpi_rank == mpi_master ) {
-	std::cout << " " << make_timestamp()
+	std::cout << " " << tnbp::make_timestamp()
 		  << " error from belief propagation condition at step "
 		  << t << " = "
 		  << tolerance << std::endl;
@@ -171,7 +171,7 @@ int main(int argc, char * argv[]) {
 		     res_bond_dim,
 		       res_truncation_error);
     for(size_t k=0; k < EdgeIdx.size(); k++) {
-      std::cout << " " << make_timestamp()
+      std::cout << " " << tnbp::make_timestamp()
 		<< " truncation error for edge ("
 		<< edges[EdgeIdx[k]].first << ","
 		<< edges[EdgeIdx[k]].second << ") = "
@@ -185,7 +185,7 @@ int main(int argc, char * argv[]) {
    */
 
   if( mpi_rank == mpi_master ) {
-    std::cout << " " << make_timestamp()
+    std::cout << " " << tnbp::make_timestamp()
 	      << " start measurements " << std::endl;
   }
   auto spo = pauli::load_sparse_pauli_op<Elem>(options.sparsepauli);
@@ -193,7 +193,7 @@ int main(int argc, char * argv[]) {
   std::vector<std::vector<int>> exSite;
   tnbp::SparsePauliToTensorOp(ctx,spo,exOp,exSite);
   if( mpi_rank == mpi_master ) {
-    std::cout << " " << make_timestamp()
+    std::cout << " " << tnbp::make_timestamp()
 	      << " number of measrement operators = " << exOp.size() << std::endl;
   }
   std::vector<Tensor> exOp_one;
@@ -205,7 +205,7 @@ int main(int argc, char * argv[]) {
 	      exOp_two,exPair_two);
 
   if( mpi_rank == mpi_master ) {
-    std::cout << " " << make_timestamp()
+    std::cout << " " << tnbp::make_timestamp()
 	      << " generated single site operator " << std::endl;
   }
 

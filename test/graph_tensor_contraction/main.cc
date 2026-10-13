@@ -10,7 +10,7 @@
 
 #include "tnbp/tnbp.h"
 #include "tnbp/framework/graph.h"
-#include "tnbp/framework/helper.h"
+#include "tnbp/framework/graph_contraction.h"
 
 #include "typedef.h"
 #include "timestamp.h"
