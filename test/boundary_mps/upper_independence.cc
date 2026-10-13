@@ -1,7 +1,12 @@
+#include "../common/device.h"
 #include "tnbp/ptns/function/bmps.h"
 #include "../common/dense_fixture.h"
 #include <iostream>
+#ifdef TNBP_TEST_CUDA
+using Tensor=tcapi::cuda::Tensor<Scalar>;
+#else
 using Tensor=gqten::tensor<Scalar>;
+#endif
 using Context=tcapi::context_handle_t<Tensor>;
 using Edges=std::vector<std::pair<int,int>>;
 // Compare the actual two-line tensor subset used by sampling, with and without
@@ -95,6 +100,7 @@ void upper_independence(Context& ctx,MPI_Comm comm) {
 }
 int main(int argc,char** argv) {
     MPI_Init(&argc,&argv);
+    initialize_tensor_device(MPI_COMM_WORLD);
     try {
         Context ctx;tcapi::create_context(ctx);
         upper_independence(ctx,MPI_COMM_WORLD);

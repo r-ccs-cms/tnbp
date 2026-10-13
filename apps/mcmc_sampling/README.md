@@ -5,9 +5,10 @@ and the TCAPI tensor interface.
 
 ## Build
 
-The currently validated build uses the CPU backend. Configure the
-[common test entry point](../../test/README.md#build-and-run) with the local MPI,
-gqten, HPTT, OpenMP and BLAS/LAPACK paths, then build:
+Configure the [common test entry point](../../test/README.md#build-and-run)
+for the CPU or CUDA backend, then build. The CPU configuration needs MPI, gqten,
+HPTT, OpenMP and BLAS/LAPACK; see [CUDA build selection](#cuda-build-selection)
+for the GPU configuration:
 
 ```sh
 cmake --build <build-dir> --target mcmc_sampling mcmc_sampling_complex
@@ -16,7 +17,6 @@ cmake --build <build-dir> --target mcmc_sampling mcmc_sampling_complex
 `mcmc_sampling` uses double; `mcmc_sampling_complex` uses complex double.
 Use the complex executable for complex checkpoints from estimator applications.
 Checkpoint backend, scalar type and MPI partition must match the producing run.
-GPU execution is planned; sampling validation on that backend is pending.
 
 ## Example
 
@@ -213,3 +213,20 @@ graph with manual and automatic grouping.
 Boundary-MPS truncation can make the sampled distribution approximate. These
 checks do not guarantee accuracy for arbitrary graphs or parameter choices;
 check convergence with boundary bond dimension and sampling length for your problem.
+
+## CUDA build selection
+
+The common test build accepts `-DTNBP_TEST_BACKEND=cuda` and builds both
+`mcmc_sampling` (real double) and `mcmc_sampling_complex` (complex double).
+See [backend configuration](../../test/backend_integration/README.md#build)
+for CUDA and cuTENSOR paths. The CLI selects `tcapi::cuda::Tensor` with
+`USE_TCAPI_CUDA`; CPU remains the default. Each MPI process must see exactly
+one GPU, selected before any TCAPI context is created.
+
+Real/complex CLI runs, native CUDA checkpoint loading, small exact-distribution
+comparisons, and 51-site manual/automatic grouping have been exercised on one
+GPU and two GPUs on the same node. The 51-site GPU runs use 64 retained heat-bath
+samples: product-state samples match an independent scalar reference; the D=2
+cases check execution and finite output, not distributional accuracy.
+CPU and CUDA tensor checkpoint formats are not interchangeable. Load checkpoints
+written by the same backend, with matching scalar type and MPI ownership.

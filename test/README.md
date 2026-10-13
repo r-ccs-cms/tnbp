@@ -37,7 +37,17 @@ Use `-S test` for new builds. Backend dependency setup is shared in
 `cmake/Backend.cmake`; each suite has its own `CMakeLists.txt`.
 
 CPU CTest uses MPI 1/2 ranks for sampling and 1/2/3 for graph/boundary shifts,
-with one OpenMP/BLAS thread per process. CUDA integration and shift executables
-can be compiled using the backend instructions, but sampling and upper-region
-independence tests currently require the CPU backend. CUDA runtime validation
-of the new graph/BMPS tests has not been performed.
+with one OpenMP/BLAS thread per process. Configure `TNBP_TEST_BACKEND=cuda`
+to build CUDA versions of the integration, graph, boundary, sampling CLI,
+sampling regression and heavyhex51 executables. Launch them explicitly inside
+a scheduler allocation with one visible GPU per process (for example,
+`srun --mpi=pmix --gpus-per-task=1 --gpu-bind=single:1`). CPU-only CTest
+registrations, including checkpoint fixture generation, are not enabled for CUDA.
+Graph contraction, boundary shifts, upper-region independence, and real/complex
+sampling CLI/checkpoint tests have passed on one GPU and same-node two GPUs.
+Small chain/square distributions and manual/automatic heat-bath distributions
+were checked with 4096 retained samples. The 51-site manual/automatic GPU cases
+use 64 samples, with independent bitstring checks for product states and execution
+checks for D=2. This does not cover every CPU CTest mode on CUDA, multi-node runs,
+or general sampling accuracy. CUDA checkpoint fixture executables are built;
+run each with one process to generate backend-native files before loading them.

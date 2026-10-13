@@ -92,6 +92,7 @@ namespace tnbp {
    * @brief Create a one-hot physical-state tensor.
    * @tparam TenT TCAPI tensor type.
    * @tparam IntT Signed integer type for site labels, states and indices.
+   * @tparam DimT Integer type for the physical dimension; may differ from IntT.
    * @param[in,out] ctx TCAPI tensor backend context.
    * @param[in] s Selected physical state, with 0 <= s < d.
    * @param[in] d Positive physical dimension.
@@ -99,10 +100,10 @@ namespace tnbp {
    *
    * @pre d and s are valid; bounds are not checked. This is a local operation.
    */
-  template <typename TenT, typename IntT>
+  template <typename TenT, typename IntT, typename DimT>
   void state_tensor(context_handle_t<TenT> & ctx,
 		    IntT s,
-		    IntT d,
+		    DimT d,
 		    TenT & U) {
     using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
     using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;
@@ -997,7 +998,9 @@ namespace tnbp {
 	}
 	MPI_Barrier(comm);
 #endif
-	std::vector<TenT> T_update(T_local);
+	std::vector<TenT> T_update;
+        T_update.reserve(T_local.size());
+        for(const auto& t : T_local) T_update.push_back(tcapi::copy(ctx,t));
 	std::vector<IntT> site_idx_update(site_idx_local);
 	std::map<IntT,IntT> site_to_mpi_rank_update(site_to_mpi_rank_local);
 	auto mpi_rank_target = site_to_mpi_rank.at(line_target[local_adrs]);

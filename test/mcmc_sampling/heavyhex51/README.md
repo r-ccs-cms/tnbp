@@ -71,8 +71,10 @@ only; current output says `SAMPLING COMPLETED`.
 
 ## Build and run
 
-Build targets `heavyhex51` and `heavyhex51_product_reference` with the CPU
+Build targets `heavyhex51` and `heavyhex51_product_reference` with the CPU or CUDA
 configuration of the [common test entry point](../../README.md#build-and-run).
+The commands below illustrate CPU launches; CUDA requires an allocation with
+one visible GPU per MPI process.
 Use one OpenMP/BLAS thread. Arguments:
 
 ```sh
@@ -101,8 +103,12 @@ correlation times. This is a sampler transition-kernel issue, not a failure to
 partition or absorb the heavy-hex graph. This probe records the failure; it does
 not change the sampler or automatically assert accuracy from normal completion.
 
-The 51-site fixture has been run on CPU at MPI 1/2 ranks. GPU, deep circuits,
-large virtual dimensions and production accuracy are outside this probe's scope.
+The fixture has been run on CPU and CUDA at MPI 1/2 ranks (same-node GPUs).
+GPU heat-bath runs use 64 retained samples for manual/automatic grouping with
+uniform D=1, nonuniform D=1, and D=2. All D=1 bitstrings match the independent
+scalar reference. D=2 checks completion, sample structure and finite marginals;
+it does not establish distributional accuracy. Deep circuits, large virtual
+dimensions and production accuracy remain outside this probe's scope.
 
 ## Independent product-state reference
 

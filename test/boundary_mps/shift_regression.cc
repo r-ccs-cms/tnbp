@@ -1,3 +1,4 @@
+#include "../common/device.h"
 #include "tnbp/ptns/function/bmps.h"
 #include "../common/graph_fixture.h"
 template<class S>
@@ -34,6 +35,7 @@ void invalid_checks(MPI_Comm comm) {
 }
 int main(int argc,char** argv) {
     MPI_Init(&argc,&argv);
+    initialize_tensor_device(MPI_COMM_WORLD);
     try {
         invalid_checks(MPI_COMM_WORLD);
         auto cases=[&](auto scalar) {

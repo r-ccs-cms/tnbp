@@ -15,6 +15,7 @@
 #include "tnbp/ptns/function/mcmc_group_io.h"
 
 #include "typedef.h"
+#include "../cuda_device.h"
 #include "tnbp/framework/timestamp.h"
 #include "option.h"
 #include "gcutils.h"
@@ -36,6 +37,7 @@ int main(int argc, char * argv[]) {
   }
   std::cout << " " << tnbp::make_timestamp()
             << " start program " << std::endl;
+  initialize_tensor_device(comm);
   ContextHandle ctx;
   tcapi::create_context(ctx);
   std::vector<std::pair<int,int>> edges;

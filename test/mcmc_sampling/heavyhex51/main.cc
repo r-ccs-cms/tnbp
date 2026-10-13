@@ -1,3 +1,4 @@
+#include "../../common/device.h"
 #include "tnbp/ptns/function/mcmc_sampling.h"
 #include "tnbp/ptns/function/mcmc_group_io.h"
 #include "tnbp/framework/graphio.h"
@@ -8,7 +9,11 @@
 #include <random>
 
 using S=std::complex<double>;
+#ifdef TNBP_TEST_CUDA
+using T=tcapi::cuda::Tensor<S>;
+#else
 using T=gqten::tensor<S>;
+#endif
 using Edges=std::vector<std::pair<int,int>>;
 using Lines=std::vector<std::vector<int>>;
 
@@ -30,7 +35,8 @@ void print_plan(const Lines& lines,const tnbp::MCMCGrouping<int>& groups) {
     std::cout<<std::flush;
 }
 int main(int argc,char** argv) {
-    MPI_Init(&argc,&argv);int rank,size;MPI_Comm_rank(MPI_COMM_WORLD,&rank);MPI_Comm_size(MPI_COMM_WORLD,&size);
+    MPI_Init(&argc,&argv);
+    initialize_tensor_device(MPI_COMM_WORLD);int rank,size;MPI_Comm_rank(MPI_COMM_WORLD,&rank);MPI_Comm_size(MPI_COMM_WORLD,&size);
     std::string stage="arguments";
     try {
         if(argc<6 || argc>8) throw std::runtime_error("usage: heavyhex51 data-dir manual|auto chi samples virtual-dim(1|2) [uniform] [heatbath]");

@@ -14,9 +14,16 @@ rank counts are not expected to produce identical sample sequences.
 
 CTest runs with 1 and 2 ranks, one OpenMP/BLAS thread, and case-dependent 30/120/180-second timeouts.
 The frequency check is a statistical smoke test, not a proof of unbiased sampling
-on arbitrary graphs or a test of deliberate boundary truncation. GPU sampling,
-large networks and single/disconnected vertices remain outside
-this initial test scope.
+on arbitrary graphs or a test of deliberate boundary truncation.
+The CUDA build also provides these executables, without registering CPU CTest
+launch commands for them. Explicit one-GPU and same-node two-GPU runs have passed
+for chain/square distributions, manual/automatic heat-bath distributions, product
+controls, fixed sites, and real/complex CLI/checkpoint cases. The heat-bath numerical
+cases can be run separately to fit scheduler limits, using the same 4096-sample
+checks; complete automatic/manual sample sequences matched within each rank count.
+Other CPU regression modes are not all validated on CUDA. Large networks and
+single/disconnected vertices remain outside this small-graph regression's scope.
+See the separate 51-site probe for its limited GPU coverage.
 
 ## Diagonal and manual grouping tests
 
@@ -174,3 +181,9 @@ precedence and valid boundary values.
 Real and complex CLI tests load it at MPI 1/2 ranks with two batches. At two ranks,
 rank 0 owns no tensors. CTest fixtures generate the matching rank files before
 sampling; the final sample must equal `002`.
+
+CUDA builds provide the same real/complex fixture generators. Launch a generator
+with one MPI process and one visible GPU; its `ranks` argument is the number of
+checkpoint files to write for the subsequent sampler, not the generator's process
+count. CPU and CUDA tensor serialization formats differ, so generate checkpoints
+with the backend that will read them.

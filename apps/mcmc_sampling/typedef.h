@@ -1,7 +1,16 @@
 #pragma once
 #include <complex>
 #include "tcapi/tcapi.h"
-#ifdef USE_CYTNX
+#if defined(USE_TCAPI_CUDA) && defined(USE_CYTNX)
+#error "Choose only one tensor backend: USE_TCAPI_CUDA or USE_CYTNX"
+#endif
+#ifdef USE_TCAPI_CUDA
+#ifdef USE_COMPLEX
+using Tensor = tcapi::cuda::Tensor<std::complex<double>>;
+#else
+using Tensor = tcapi::cuda::Tensor<double>;
+#endif
+#elif defined(USE_CYTNX)
 using Tensor = tcapi::CytnxTensor<cytnx::cytnx_float16>;
 #else
 #ifdef USE_COMPLEX

@@ -1,3 +1,4 @@
+#include "../common/device.h"
 #include "tnbp/ptns/function/mcmc_sampling.h"
 #include "tnbp/ptns/function/mcmc_group_io.h"
 #include <array>
@@ -6,7 +7,11 @@
 #include <stdexcept>
 
 using Scalar = std::complex<double>;
+#ifdef TNBP_TEST_CUDA
+using Tensor = tcapi::cuda::Tensor<Scalar>;
+#else
 using Tensor = gqten::tensor<Scalar>;
+#endif
 using Context = tcapi::context_handle_t<Tensor>;
 using Edges = std::vector<std::pair<int,int>>;
 
@@ -152,7 +157,8 @@ std::vector<int> run(Context& ctx, const Edges& edges, const std::vector<std::ve
                 target_ids.push_back(ids[j]);target.push_back(tcapi::copy(ctx,values[j]));
             }
         for(int direction:{0,1}) {
-            std::vector<Tensor> env{tcapi::zeros<Tensor>(ctx,tcapi::shape_t<Tensor>{})};
+            std::vector<Tensor> env;
+            env.push_back(tcapi::zeros<Tensor>(ctx,tcapi::shape_t<Tensor>{}));
             std::vector<int> env_ids{-999},expected;
             for(std::size_t step=0;step+1<lines[l].size();++step) {
                 const auto site=lines[l][direction==0 ? step : lines[l].size()-1-step];
@@ -359,6 +365,7 @@ void heat_bath_product_check(Context& ctx, MPI_Comm comm, bool uniform_binary) {
 }
 int main(int argc,char**argv) {
     MPI_Init(&argc,&argv);
+    initialize_tensor_device(MPI_COMM_WORLD);
     try {
         plan_checks();
         Context ctx; tcapi::create_context(ctx);

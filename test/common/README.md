@@ -10,3 +10,5 @@ These helpers have no standalone test registration or product implementation.
   reference calculation and the BMPS upper-region independence test.
 
 Test cases and executable entry points remain in their owning suite directories.
+
+`device.h` reuses the application GPU initialization contract for CUDA tests: one visible GPU per MPI process, selected before creating a TCAPI context. It is a no-op for CPU builds.

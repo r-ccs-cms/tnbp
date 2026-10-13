@@ -411,7 +411,7 @@ namespace tnbp {
    * @see bmps_increment_line
    */
   template <typename TenT, typename IntT, typename StepT>
-  void bmps_bp_truncation(context_handle_t<TenT> ctx,
+  void bmps_bp_truncation(context_handle_t<TenT>& ctx,
 			  const std::vector<std::pair<IntT,IntT>> & edges,
 			  const std::vector<IntT> & lines,
 			  std::vector<TenT> & T,

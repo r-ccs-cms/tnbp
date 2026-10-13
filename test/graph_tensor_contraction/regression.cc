@@ -1,3 +1,4 @@
+#include "../common/device.h"
 #include "../common/graph_fixture.h"
 template<class S>
 void run(const std::string& name,Edges edges,const std::vector<int>& sites,
@@ -152,6 +153,7 @@ void invalid_checks(MPI_Comm comm) {
 
 int main(int argc,char** argv) {
     MPI_Init(&argc,&argv);
+    initialize_tensor_device(MPI_COMM_WORLD);
     try {
         graph_plan_checks();
         invalid_checks(MPI_COMM_WORLD);

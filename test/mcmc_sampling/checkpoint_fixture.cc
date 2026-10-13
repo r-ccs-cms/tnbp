@@ -1,3 +1,4 @@
+#include "../common/device.h"
 #include "tnbp/tnbp.h"
 #include "../../apps/mcmc_sampling/typedef.h"
 #include <filesystem>
@@ -8,6 +9,10 @@
 // heterogeneous physical dimensions, and (for two ranks) an empty rank zero.
 int main(int argc,char** argv) {
   if(argc!=3) return 1;
+#ifdef TNBP_TEST_CUDA
+  MPI_Init(&argc,&argv);
+  initialize_tensor_device(MPI_COMM_WORLD);
+#endif
   const std::filesystem::path directory(argv[1]);
   const int ranks=std::stoi(argv[2]);
   std::filesystem::create_directories(directory);
@@ -34,4 +39,7 @@ int main(int argc,char** argv) {
     if(!out) throw std::runtime_error("checkpoint fixture write failed");
   }
   tcapi::destroy_context(ctx);
+#ifdef TNBP_TEST_CUDA
+  MPI_Finalize();
+#endif
 }

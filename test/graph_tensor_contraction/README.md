@@ -40,4 +40,6 @@ build/tests/graph_contraction_regression`.
 
 Open-boundary comparisons use tolerance `1e-10 * (1 + reference scale)`.
 Both real and complex tensors are exercised. The executable supports the
-CPU/CUDA backend selection, but only CPU execution is validated here.
+CPU/CUDA backend selection. CUDA execution has also passed on one GPU and
+same-node two GPUs, with one visible GPU per MPI process. The three-rank CTest
+coverage is CPU-only; CUDA executables are launched explicitly in a GPU allocation.

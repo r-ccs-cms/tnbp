@@ -40,8 +40,10 @@ ctest --test-dir build/tests -R bmps --output-on-failure
 ```
 
 `bmps_shift_1_rank` / `_2_rank` / `_3_rank` use a 90-second timeout.
-`bmps_upper_independence_1_rank` / `_2_rank` use 60 seconds and require CPU.
-Shift tests can compile with CUDA, but CUDA runtime validation is outstanding.
+`bmps_upper_independence_1_rank` / `_2_rank` use 60 seconds.
+These CTest registrations use the CPU backend. Both executables also build with
+CUDA and have passed explicit runs on one GPU and same-node two GPUs, with one
+visible GPU per MPI process. Three-GPU execution has not been validated.
 
 Sampling's end-to-end absorption/environment checks remain in
 [`mcmc_sampling`](../mcmc_sampling/README.md), because their final assertion is
