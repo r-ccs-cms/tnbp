@@ -23,7 +23,7 @@ Sun, R.-Y., Shirakawa, T., Kohshiro, H., Sheng, D. N., Yunoki, S.
 *Tensor Computing Interface: An Application-Oriented, Lightweight Interface for Portable High-Performance Tensor Network Applications*  
 https://arxiv.org/abs/2512.23917
 
-The original TCI layer is being migrated to the public TCAPI specification.
+TNBP uses the public TCAPI specification for its tensor operations.
 
 ### Current TCAPI integration
 
@@ -34,15 +34,16 @@ supported operations, binary I/O, diagnostics and limitations. The legacy
 `external/min-tci/include/tci` is retained only for adapter compatibility checks;
 TNBP does not maintain a second legacy implementation.
 
-SVD/eigh outputs are now diagonal matrices. Tensor copies use `tcapi::copy`,
+SVD/eigh outputs are diagonal matrices. Tensor copies use `tcapi::copy`,
 and linear combinations take `std::cref` inputs. `TensorProductState` construction
-from tensors now takes `ctx` as the first argument; deep copying is explicit
+from tensors takes `ctx` as the first argument; deep copying is explicit
 with `state.copy(ctx)`, while ordinary copying is disabled and moves are allowed.
 
 The validated backends are gqten on CPU and tcapi-cuda for the estimator
-applications and backend integration tests. See [CUDA setup](apps/README.cuda.md).
-The historical Cytnx build branches are not validated for this TCAPI migration.
-Existing CPU TPS stream format is retained.
+applications, MCMC sampler and selected test suites. See
+[CUDA setup](apps/README.cuda.md), the [sampler guide](apps/mcmc_sampling/README.md)
+and [test coverage](test/README.md). Cytnx configurations are not validated.
+CPU and CUDA tensor checkpoint formats differ; use the backend that wrote the files.
 
 ## Graph tensor conventions
 
@@ -84,10 +85,15 @@ submodule; a CPU build does not require the tcapi-cuda submodule.
   measurement layers, repeat a circuit and save/load rank-local states.
 - [Kicked Ising lattice example](apps/kicked_ising_lattice/README.md): simulate
   kicked Ising Floquet dynamics on a lattice.
+- [Markov-chain Monte Carlo sampler](apps/mcmc_sampling/README.md): sample
+  tensor-network states using general-graph boundary MPS, with Metropolis or
+  heat-bath updates, manual or automatic grouping, and CPU or CUDA tensors.
 
 For GPU setup and launch instructions for the two estimator applications, see
-[the CUDA guide](apps/README.cuda.md). For small CPU/CUDA regression checks,
-see [backend integration tests](test/backend_integration/README.md).
+[the CUDA guide](apps/README.cuda.md). For the sampler's CPU/CUDA build and
+launch instructions, see [its README](apps/mcmc_sampling/README.md#build).
+Function-specific regression suites and build instructions, including graph
+contraction, boundary MPS and sampling, are listed in [the test guide](test/README.md).
 
 ## Citation
 
@@ -108,6 +114,3 @@ If you use this code in your research, please cite:
 - Tomonori Shirakawa
 - Rongyang Sun
 - Hidehiko Kohshiro
-
-
-Function-specific regression suites and build instructions are listed in [test/README.md](test/README.md).

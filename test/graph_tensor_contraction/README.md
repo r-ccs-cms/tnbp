@@ -4,7 +4,7 @@ This directory owns tests of `tnbp/framework/graph_contraction.h`.
 
 ## Files and coverage
 
-- `regression.cc`: modern deterministic regression executable. Tests ordered
+- `regression.cc`: deterministic regression executable. Tests ordered
   contraction plans against explicit expected edges; real/complex contraction
   against independent dense open-boundary values; multiple common neighbors,
   unequal dimensions, reversed edge order, fresh/in-place result labels and
@@ -14,9 +14,9 @@ This directory owns tests of `tnbp/framework/graph_contraction.h`.
   endpoints and scalar remainders. They check every open-boundary component,
   exact tensor/graph-only edge order, owner preservation and unselected edges.
 - `main.cc`, `Makefile`, `Configuration`, `run.sh`, input and plotting utilities:
-  preserved legacy graph-contraction driver. It is separate from the CTest
-  regression target and its Makefile configuration has not been revalidated by
-  this reorganization.
+  standalone graph-input contraction driver. It is separate from the CTest
+  regression target; its Makefile configuration is outside the validation
+  scope reported here.
 - `CMakeLists.txt`: this suite's target and MPI test registrations.
 
 The independent reference fixture is shared through

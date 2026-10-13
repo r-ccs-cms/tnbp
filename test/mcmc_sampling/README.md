@@ -1,4 +1,4 @@
-# Sampling migration regression
+# MCMC sampling tests
 
 Build with the CPU configuration of the [common test entry point](../README.md#build-and-run). Run
 `ctest --test-dir <build-dir> -R mcmc --output-on-failure`.
@@ -18,9 +18,8 @@ on arbitrary graphs or a test of deliberate boundary truncation.
 The CUDA build also provides these executables, without registering CPU CTest
 launch commands for them. Explicit one-GPU and same-node two-GPU runs have passed
 for chain/square distributions, manual/automatic heat-bath distributions, product
-controls, fixed sites, and real/complex CLI/checkpoint cases. The heat-bath numerical
-cases can be run separately to fit scheduler limits, using the same 4096-sample
-checks; complete automatic/manual sample sequences matched within each rank count.
+controls, fixed sites, and real/complex CLI/checkpoint cases. The heat-bath checks require
+identical complete automatic/manual sample sequences within each rank count.
 Other CPU regression modes are not all validated on CUDA. Large networks and
 single/disconnected vertices remain outside this small-graph regression's scope.
 See the separate 51-site probe for its limited GPU coverage.
@@ -30,19 +29,18 @@ See the separate 51-site probe for its limited GPU coverage.
 The manual CTest cases cover both diagonal orientations, an explicit singleton
 group and three lines `{0}/{1,2}/{3}`, at 1 and 2 MPI ranks. Each case checks all
 16 exact amplitudes and 4096 sample frequencies with the same thresholds above.
-They use the workspace API, while the CLI tests exercise the full API and the
-`--linefile`/`--groupfile` parsing and MPI distribution paths. CLI tests require
+They use the workspace API. The CLI tests also cover
+`--linefile`/`--groupfile` parsing and MPI distribution. CLI tests require
 16 complex-valued-network samples to complete.
 
 The test also rejects duplicate/missing/unknown members, an extra target-line
 member, malformed/duplicate/missing input rows, and an invalid absorption path.
 A direct singleton relabel check verifies ownership, IDs and edge-vector order.
 
-`mcmc_regression diagonal03` and `diagonal12` select the earlier automatic
-reproducers. Their original failures are archived in the workspace experiment.
-These automatic cases now use the original-graph three-line planner and are
-included in the automatic grouping regression below. Unsupported greedy
-partitions are rejected before boundary construction.
+`mcmc_regression diagonal03` and `diagonal12` select the two diagonal
+orientations with automatic grouping. These cases use the original-graph
+three-line planner and are included in the automatic grouping tests below.
+Unsupported greedy partitions are rejected before boundary construction.
 
 ## Shared BMPS plan regression
 
@@ -55,10 +53,9 @@ invalid/no-destination plans must throw before changing the supplied graph.
 
 ## Upper-region independence
 
-The standalone eight-site upper/lower boundary test has moved to
-[`boundary_mps/upper_independence.cc`](../boundary_mps/README.md).
-Run the `bmps_upper_independence` executable or its CTest cases;
-`mcmc_regression upper-independence` is no longer an entry point.
+The standalone eight-site upper/lower boundary test is part of the
+[boundary-MPS suite](../boundary_mps/README.md).
+Run the `bmps_upper_independence` executable or its CTest cases.
 
 ## Single-site end lines on a diagonal square
 
@@ -112,11 +109,11 @@ Standalone bond-shift tests additionally compare the exact ordered graph-only
 result for real/complex, multihop, shared-neighbor and partial-input cases at
 MPI 1/2/3 ranks; see [graph tests](../graph_tensor_contraction/README.md) and [BMPS tests](../boundary_mps/README.md).
 
-## Fixed automatic grouping
+## Automatic grouping
 
-`mcmc_automatic_groups_1_rank` / `_2_rank` test the new original-graph policy.
-The chain `{0,1,2}/{3}` and its extra 0--2 edge reproduce the previous unsafe
-indexing and premature target consumption. Automatic full-API sampling and
+`mcmc_automatic_groups_1_rank` / `_2_rank` test grouping on the original graph.
+Cases include a chain with lines `{0,1,2}/{3}` and a variant with an extra
+0--2 edge. Automatic full-API sampling and
 explicitly supplying its generated plan through the workspace API must produce
 identical complete sample sequences with the same random seed. Both diagonal
 orientations are also checked against their 16-state exact distributions.
@@ -145,7 +142,7 @@ a uniform binary product distribution (periodicity regression),
 a three-state product distribution (including a zero-weight initial state),
 zero/equal/extremely scaled amplitudes and rejection of unknown method IDs.
 CTest runs it and the method-1 CLI smoke test with one and two MPI ranks.
-Method 0 remains the default Metropolis kernel.
+Method 0 is the default Metropolis kernel.
 
 ## Directory and targets
 

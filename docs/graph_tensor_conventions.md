@@ -120,7 +120,8 @@ See [bond-shift tests](../test/graph_tensor_contraction/README.md). CPU tests co
 complex tensors, MPI 1/2/3 ranks, reversed edge order, partial tensor/owner
 inputs, shared-neighbor fusion and absent neighbor bonds. They compare every
 open-boundary tensor component before/after and check site/owner preservation.
-CUDA execution of the new bond-shift tests has not been validated.
+CUDA tests have passed on one GPU and same-node two GPUs, with one visible GPU
+per MPI process. Three-GPU execution has not been validated.
 
 ## Shared validation and bond fusion
 

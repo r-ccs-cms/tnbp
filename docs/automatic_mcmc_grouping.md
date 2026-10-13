@@ -59,12 +59,11 @@ construction. The standalone two-line BMPS API without explicit groups uses the
 same neighbor-partition primitive; callers implementing repeated sweeps should
 pass a fixed plan, as MCMC does.
 
-`manual_grouping` remains an input override: empty means automatic initialization.
+`manual_grouping` is an input override: empty means automatic initialization.
 Changing a nonempty override after initialization is rejected if it disagrees
-with `site_line_sets`. The obsolete `mcmc_init_site_line_sets(edges, target, ...)`
-helper has been removed: a contracted graph and one line are insufficient to
-reconstruct the original three-line plan. Use `make_mcmc_grouping` with the
-original graph and all lines.
+with `site_line_sets`. To construct a plan, use `make_mcmc_grouping` with the
+original graph and all lines. A contracted graph and one line are insufficient
+to reconstruct the original three-line plan.
 
 ## Supported layouts and validation
 

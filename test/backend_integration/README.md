@@ -99,16 +99,14 @@ prerequisites. `parser/qasmutility.h` contains shared `OpQubitCount` metadata so
 
 `header_link_check` compiles three separate sources that include `tnbp/tnbp.h`
 and links them into one executable. On GCC/Clang it uses `-O0 -fno-inline` and
-explicitly disables unity builds. The test compares the addresses of11 public
+explicitly disables unity builds. The test compares the addresses of 11 public
 non-template functions across source files, ensuring a single shared entity
 rather than hiding duplicate definitions with `static`. It also checks a small
 get_range example. This adds no production library or library-build requirement.
 
-Before the inline fix, the test failed to link with11 duplicate symbols:
-get_range, string MpiBcast, seven lattice-generation functions, SitesFromQasm and
-EdgesFromQasm. These header-defined functions now have external inline linkage.
-Template functions and in-class definitions already have appropriate header-only
-semantics; explicit MPI datatype specializations were already inline.
+The checked functions are get_range, string MpiBcast, seven lattice-generation
+functions, SitesFromQasm and EdgesFromQasm. These header-defined functions have
+external inline linkage, allowing inclusion from multiple translation units.
 
 ## Test organization
 

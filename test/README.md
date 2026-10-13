@@ -11,8 +11,8 @@ Each numerical suite owns its sources, fixtures, CMake registration and README.
 | [backend_integration](backend_integration/README.md) | MPI/backend operations, BP, truncation, QASM and header checks | `integration|header_link` |
 | [common](common/README.md) | Shared deterministic fixtures and independent reference calculations | no standalone tests |
 
-The pre-existing `truncation`, `square_root_and_inverse` and `min-tcapi`
-directories remain in place; they are not newly registered by this reorganization.
+The `truncation`, `square_root_and_inverse` and `min-tcapi` directories provide
+additional tests outside this common CMake entry point.
 
 ## Build and run
 

@@ -33,7 +33,7 @@ The intermediate vertices connect these chain vertices:
 All input files are in `data/`. Both plans pass the shared validator. The probe
 prints every line/group before validation so failures can be diagnosed.
 
-## Small state, not the paper's dynamics
+## Test state
 
 The complex-double PEPS exactly represents
 
@@ -65,9 +65,8 @@ P_i(1) = (1-z_i)/2
 
 These marginals are reported as diagnostics, not a precision pass/fail threshold:
 MCMC observations are correlated and small boundary caps can introduce bias.
-The probe separately reports successful execution, which is not distributional
-correctness. Early experiment logs used the wording `SAMPLING PASS` for completion
-only; current output says `SAMPLING COMPLETED`.
+The output `SAMPLING COMPLETED` indicates successful execution, not
+distributional correctness.
 
 ## Build and run
 
@@ -91,17 +90,20 @@ and discard 16 stored samples. BP limit 10, tolerance 1e-9, singular-value cutof
 1e-12 and truncation target 1e-10. Ownership is ascending-site index modulo rank
 count. Random seed is 7129+rank. Every retained bitstring is printed.
 
-## Known failure: uniform product-state mixing
+## Metropolis periodicity for uniform states
 
-The uniform control executes successfully but produces all-zero retained samples
-in both modes, rather than the uniform distribution. The proposal for a binary
+With the default Metropolis method, the uniform control executes successfully
+but produces all-zero retained samples in both grouping modes, rather than the
+uniform distribution. The proposal for a binary
 site always flips it. Every flip is accepted for this state. Each stored sample
 follows a forward and backward sweep, so every bit has flipped twice and returns
 to its original value. More burn-in or a larger boundary cap cannot cure this
 exact periodicity. Near probability 1/2, the same mechanism can give long
-correlation times. This is a sampler transition-kernel issue, not a failure to
-partition or absorb the heavy-hex graph. This probe records the failure; it does
-not change the sampler or automatically assert accuracy from normal completion.
+correlation times. Use the `heatbath` option below for the uniform product-state
+control: its pairwise transition probability is 1/2, avoiding this deterministic
+flip cycle. Normal completion alone does not establish sampling accuracy.
+
+## Validation scope
 
 The fixture has been run on CPU and CUDA at MPI 1/2 ranks (same-node GPUs).
 GPU heat-bath runs use 64 retained samples for manual/automatic grouping with
@@ -115,14 +117,15 @@ dimensions and production accuracy remain outside this probe's scope.
 `heavyhex51_product_reference <probe.log>` uses only scalar probabilities and
 standard C++ random generators (no TNBP or TCAPI). It simulates the same proposal,
 acceptance and forward/backward visit order, with one generator per owning rank,
-and compares every retained bitstring. D=1 manual/automatic logs match exactly
-at MPI 1/2 ranks, including 512 retained samples at one rank. This separates
+and compares every retained bitstring. D=1 manual/automatic checks cover
+MPI 1/2 ranks. This separates
 contraction/ownership correctness from the periodicity of the update kernel.
 
 `python3 check_samples.py <probe.log>` checks completion and 51-bit sample output.
-Add `--uniform` to detect the all-identical uniform-state reproducer; that check
-currently exits 1 for both manual and automatic modes. Neither scalar-reference
-agreement nor normal completion proves that the transition kernel mixes.
+Add `--uniform` to reject all-identical samples from a uniform-state run.
+The default Metropolis method fails this check for both grouping modes because
+of the periodicity described above. Neither scalar-reference agreement nor
+normal completion proves that the transition kernel mixes.
 
 ## Heat-bath option
 
@@ -136,7 +139,7 @@ python3 check_samples.py <log> --uniform --accuracy
 ```
 
 The independent scalar reference reads method and uniform-state metadata from
-new logs (old logs retain the filename fallback). For D=1 it checks every
+the probe log. For D=1 it checks every
 complete retained bitstring. `--accuracy` additionally bounds the largest
 single-site marginal error by `3/sqrt(N)`; use this independent-sample bound
 for heat-bath product controls, not as a general correlated-chain guarantee.
