@@ -53,6 +53,9 @@ bond shifts, and partial tensor inputs.
 See also [automatic MCMC grouping](docs/automatic_mcmc_grouping.md) for the
 original-graph selection policy and shared manual/automatic execution plan.
 
+BP uses the [positive-real-trace convention](docs/bp_trace_phase.md) for
+message updates, convergence checks and checkpoint migration.
+
 ## Requirements
 
 ### Backend repository access

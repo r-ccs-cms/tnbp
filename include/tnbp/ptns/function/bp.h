@@ -21,6 +21,7 @@
 #include "tnbp/framework/typedef.h"
 #include "tnbp/framework/graph.h"
 #include "tnbp/framework/mpiutility.h"
+#include "tnbp/ptns/function/message_gauge.h"
 
 namespace tnbp {
 
@@ -93,6 +94,12 @@ namespace tnbp {
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
 
+    static bool logged=false;
+    if (!logged) {
+      if (mpi_rank==0) std::clog << "BP_ALGORITHM " << BPAlgorithm << " gauge=" << BPGauge
+                               << " residual=" << BPResidual << std::endl;
+      logged=true;
+    }
     std::size_t size_e = EdgeIdx.size();
     F.resize(2*size_e);
 
@@ -176,6 +183,7 @@ namespace tnbp {
 	  IdxA[BondIdxA] = static_cast<BondLabelT>(1);
 	  tcapi::contract(ctx,T,IdxT,AdagA,IdxA,AdagA,IdxN);
 	  auto norm_aa = tcapi::normalize(ctx,AdagA);
+          FixMessageTracePhase(ctx,AdagA,"BP edge="+std::to_string(TargetEdgeIdx)+" source="+std::to_string(SiteA),comm);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
@@ -227,6 +235,7 @@ namespace tnbp {
 	  IdxB[BondIdxB] = static_cast<BondLabelT>(1);
 	  tcapi::contract(ctx,T,IdxT,BdagB,IdxB,BdagB,IdxN);
 	  auto norm_bb = tcapi::normalize(ctx,BdagB);
+          FixMessageTracePhase(ctx,BdagB,"BP edge="+std::to_string(TargetEdgeIdx)+" source="+std::to_string(SiteB),comm);
 	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
 				 TargetEdgeIdx);
 	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
@@ -357,13 +366,15 @@ namespace tnbp {
 	std::cout << " belief propagation: Before linear_combine " << std::endl;
 #endif
 
+	FixMessageTracePhase(ctx,T,"BP prediction edge="+std::to_string(BondIdx[k]),comm);
+        FixMessageTracePhase(ctx,F,"BP reference edge="+std::to_string(BondIdx[k]),comm);
 	TenT D = tcapi::linear_combine<TenT>(ctx,{std::cref(T),std::cref(F)},{ElemT(1.0),ElemT(-1.0)});
 	RealT NormD = tcapi::norm(ctx,D);
 	result_rank += NormD * result_volume;
 	
       } // end for(std::size_t k=0; k < BondIdx.size(); k++)
     } // end for(int address=0; address < SiteIdx.size(); address++)
-    MPI_Allreduce(&result_rank,&result,1,MPI_DOUBLE,MPI_SUM,comm);
+    MPI_Allreduce(&result_rank,&result,1,GetMpiType<RealT>(),MPI_SUM,comm);
   }
 
 
@@ -377,7 +388,7 @@ namespace tnbp {
 			 const std::vector<TenT> & E,
 			 const std::vector<int> & EdgeIdx,
 			 std::vector<TenT> & F) {
-    StateBeliefPropagation(ctx,W.I_,W.V_,W.SiteIdx_,W.Site_To_MpiRank_,
+    BeliefPropagation(ctx,W.I_,W.V_,W.SiteIdx_,W.Site_To_MpiRank_,
 			   J,E,EdgeIdx,W.comm_,F);
   }
 

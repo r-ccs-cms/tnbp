@@ -84,12 +84,15 @@ int main(int argc, char * argv[]) {
   std::vector<int> pdim(qubit.size(),2);
   std::vector<Tensor> F;
 
+  tnbp::BPCheckpointMetadata bp_metadata;
+  bp_metadata.source_algorithm="fresh";
   if( !options.loadname.empty() ) {
     std::string filename = tnbp::make_rank_filename(options.loadname,mpi_rank);
     std::ifstream ifs(filename,std::ios::binary);
     std::cout << " " << tnbp::make_timestamp()
 	      << " Start loading of TPS data at rank " << mpi_rank << std::endl;
-    tnbp::LoadTPS(ctx,ifs,V,SiteIdx,Site_To_MpiRank,E,EdgeIdx);
+    tnbp::LoadTPS(ctx,ifs,V,SiteIdx,Site_To_MpiRank,E,EdgeIdx,&bp_metadata);
+    bp_metadata.source_checkpoint=filename;
     std::cout << " " << tnbp::make_timestamp()
 	      << " Load TPS data at rank " << mpi_rank << std::endl;
   } else {
@@ -256,7 +259,7 @@ int main(int argc, char * argv[]) {
   if( !options.savename.empty() ) {
     std::string filename = tnbp::make_rank_filename(options.savename,mpi_rank);
     std::ofstream ofs(filename,std::ios::binary);
-    tnbp::SaveTPS(ctx,ofs,V,SiteIdx,Site_To_MpiRank,E,EdgeIdx);
+    tnbp::SaveTPS(ctx,ofs,V,SiteIdx,Site_To_MpiRank,E,EdgeIdx,bp_metadata);
   }
 
   MPI_Finalize();
