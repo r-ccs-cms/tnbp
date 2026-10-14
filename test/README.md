@@ -51,3 +51,10 @@ use 64 samples, with independent bitstring checks for product states and executi
 checks for D=2. This does not cover every CPU CTest mode on CUDA, multi-node runs,
 or general sampling accuracy. CUDA checkpoint fixture executables are built;
 run each with one process to generate backend-native files before loading them.
+
+## BP trace-phase regression
+
+`bp_trace_phase` checks the default [trace-phase convention](../docs/bp_trace_phase.md),
+scalar-phase invariance, invalid traces, MPI boundaries and legacy/current
+checkpoint restart behavior. It is included in the CPU CTest suite for 1/2 ranks.
+The same target supports `TNBP_TEST_BACKEND=cuda` and scheduler-managed GPU launches.
