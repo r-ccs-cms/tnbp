@@ -51,9 +51,6 @@ namespace tnbp {
     using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
     using SizeT = typename tcapi::tensor_traits<TenT>::ten_size_t;
     using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
-    using CtxR = typename tcapi::tensor_traits<RealTenT>::context_handle_t;
-    CtxR ctx_r;
-    tcapi::create_context(ctx_r);
 
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
@@ -153,7 +150,7 @@ namespace tnbp {
 	  TenT Mb;
 	  MpiRecv(ctx,Mb,mpi_rank_a,comm);
 	  RealTenT spec;
-	  MpiRecv(ctx_r,spec,mpi_rank_a,comm);
+	  MpiRecv(ctx,spec,mpi_rank_a,comm);
 	  RealT scalars[2] = {RealT(0),RealT(0)};
 	  MPI_Recv(scalars,2,GetMpiType<RealT>(),mpi_rank_a,10,comm,
 		   MPI_STATUS_IGNORE);
@@ -161,16 +158,16 @@ namespace tnbp {
 	  RealT recv_norm_t = scalars[1];
 
 	  // res_bond_dim is the retained singular-value count == spectrum length.
-	  auto shape_spec = tcapi::shape(ctx_r,spec);
+	  auto shape_spec = tcapi::shape(ctx,spec);
 	  res_bond_dim[edge_address] = shape_spec[0];
 
 	  // Rebuild E = diag(spectrum) with the same real/complex handling the
 	  // authoritative rank uses for Z below.
 	  TenT Z;
 	  if constexpr (std::is_same_v<TenT,RealTenT>) {
-	    Z = tcapi::copy(ctx_r,spec);
+	    Z = tcapi::copy(ctx,spec);
 	  } else {
-	    Z = tcapi::to_cplx(ctx_r,spec);
+	    Z = tcapi::to_cplx(ctx,spec);
 	  }
 	  tcapi::diag(ctx,Z);
 	  E[edge_address] = tcapi::copy(ctx,Z);
@@ -216,7 +213,7 @@ namespace tnbp {
 	tcapi::trunc_svd(ctx,T,num_rows,X,S,Y,
 		       trunc_err,chi_min,chi_max,err,eps);
 	
-	auto shape_s = tcapi::shape(ctx_r,S);
+	auto shape_s = tcapi::shape(ctx,S);
 	res_bond_dim[edge_address] = shape_s[0];
 	res_trunc_err[edge_address] = trunc_err;
 	// Snapshot the pristine spectrum before the in-place sqrt below overwrites
@@ -224,17 +221,17 @@ namespace tnbp {
 	// receiver can rebuild diag(spectrum) for its E slots. Intra-rank and
 	// single-rank edges never send, so they skip this copy in the hot loop.
 	RealTenT spec;
-	if( cross_rank && mpi_type == 2 ) tcapi::diag(ctx_r,S,spec);
+	if( cross_rank && mpi_type == 2 ) tcapi::diag(ctx,S,spec);
 	TenT Z;
 	TenT P;
 	if constexpr (std::is_same_v<TenT,RealTenT>) {
-	  Z = tcapi::copy(ctx_r,S);
-	  tcapi::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
-	  P = tcapi::move(ctx_r,S);
+	  Z = tcapi::copy(ctx,S);
+	  tcapi::for_each(ctx,S,[](auto & elem){ elem = std::sqrt(elem); });
+	  P = tcapi::move(ctx,S);
 	} else {
-	  Z = tcapi::to_cplx(ctx_r,S);
-	  tcapi::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
-	  P = tcapi::to_cplx(ctx_r,S);
+	  Z = tcapi::to_cplx(ctx,S);
+	  tcapi::for_each(ctx,S,[](auto & elem){ elem = std::sqrt(elem); });
+	  P = tcapi::to_cplx(ctx,S);
 	}
 	E[edge_address] = tcapi::copy(ctx,Z);
 	E[edge_address+num_e] = tcapi::copy(ctx,Z);
@@ -303,7 +300,7 @@ namespace tnbp {
 	  IdxU[1] = static_cast<BondLabelT>(1);
 	  tcapi::contract(ctx,P,IdxP,Tb,IdxT,Mb,IdxU);
 	  MpiSend(ctx,Mb,mpi_rank_b,comm);
-	  MpiSend(ctx_r,spec,mpi_rank_b,comm);
+	  MpiSend(ctx,spec,mpi_rank_b,comm);
 	  RealT scalars[2] = { res_trunc_err[edge_address], norm_t };
 	  MPI_Send(scalars,2,GetMpiType<RealT>(),mpi_rank_b,10,comm);
 	}

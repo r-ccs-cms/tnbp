@@ -31,9 +31,6 @@ namespace tnbp {
     using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
     using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
     using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
-    using CtxR = typename tcapi::tensor_traits<RealTenT>::context_handle_t;
-    CtxR ctx_r;
-    tcapi::create_context(ctx_r);
 
     TenT U;
     TenT V;
@@ -41,12 +38,12 @@ namespace tnbp {
     OrderT lb_rt = static_cast<OrderT>(lb);
 
     tcapi::svd(ctx,T,lb_rt,U,E,V);
-    tcapi::for_each(ctx_r,E,[](auto & elem){ elem = std::sqrt(elem); });
+    tcapi::for_each(ctx,E,[](auto & elem){ elem = std::sqrt(elem); });
     TenT D;
     if constexpr (std::is_same_v<TenT,RealTenT>) {
-      D = tcapi::move(ctx_r,E);
+      D = tcapi::move(ctx,E);
     } else {
-      D = tcapi::to_cplx(ctx_r,E);
+      D = tcapi::to_cplx(ctx,E);
     }
 
     auto order_U = tcapi::order(ctx,U);
@@ -99,9 +96,6 @@ namespace tnbp {
     using BondLabelT  = typename tcapi::tensor_traits<TenT>::bond_label_t;
     using RealTenT = typename tcapi::tensor_traits<TenT>::real_ten_t;
     using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
-    using CtxR = typename tcapi::tensor_traits<RealTenT>::context_handle_t;
-    CtxR ctx_r;
-    tcapi::create_context(ctx_r);
 
     TenT U;
     TenT V;
@@ -110,21 +104,21 @@ namespace tnbp {
     tcapi::svd(ctx,M,lb_rt,U,E,V);
     TenT D;
     TenT F;
-    tcapi::for_each(ctx_r,E,[&sv_min](auto & elem){
+    tcapi::for_each(ctx,E,[&sv_min](auto & elem){
       if( std::abs(elem) > sv_min ) { elem = std::sqrt(elem); }
       else { elem = 0.0; } });
     if constexpr (std::is_same_v<TenT,RealTenT>) {
-      D = tcapi::copy(ctx_r,E);
+      D = tcapi::copy(ctx,E);
     } else {
-      D = tcapi::to_cplx(ctx_r,E);
+      D = tcapi::to_cplx(ctx,E);
     }
-    tcapi::for_each(ctx_r,E,[&sv_min](auto & elem) {
+    tcapi::for_each(ctx,E,[&sv_min](auto & elem) {
       if( std::abs(elem) > std::sqrt(sv_min)) { elem = elem/(elem*elem); }
       else { elem = 0.0; } });
     if constexpr (std::is_same_v<TenT,RealTenT>) {
-      F = tcapi::copy(ctx_r,E);
+      F = tcapi::copy(ctx,E);
     } else {
-      F = tcapi::to_cplx(ctx_r,E);
+      F = tcapi::to_cplx(ctx,E);
     }
 
     auto Idx_U = List<BondLabelT>(2);
@@ -172,12 +166,11 @@ namespace tnbp {
    */
   template <typename TenT, typename Func>
   TenT DiagFromSpectrum(context_handle_t<TenT> & ctx,
-			context_handle_t<real_ten_t<TenT>> & ctx_r,
 			const real_ten_t<TenT> & E,
 			Func && func) {
     using RealTenT = typename tcapi::tensor_traits<TenT>::real_ten_t;
-    RealTenT Emapped = tcapi::copy(ctx_r,E);
-    tcapi::for_each_with_coors(ctx_r,Emapped,[&](auto& elem, const auto& coors) {
+    RealTenT Emapped = tcapi::copy(ctx,E);
+    tcapi::for_each_with_coors(ctx,Emapped,[&](auto& elem, const auto& coors) {
       if (coors[0] == coors[1]) func(elem);
     });
     TenT D;
@@ -185,7 +178,7 @@ namespace tnbp {
       // Emapped is a private local, so ownership can be transferred directly.
       D = std::move(Emapped);
     } else {
-      D = tcapi::to_cplx(ctx_r,Emapped);
+      D = tcapi::to_cplx(ctx,Emapped);
     }
     return D;
   }
@@ -230,9 +223,6 @@ namespace tnbp {
     using RealT = typename tcapi::tensor_traits<TenT>::real_t;
     using RealTenT = typename tcapi::tensor_traits<TenT>::real_ten_t;
     using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
-    using CtxR = typename tcapi::tensor_traits<RealTenT>::context_handle_t;
-    CtxR ctx_r;
-    tcapi::create_context(ctx_r);
 
     TenT Mt = tcapi::copy(ctx,M);
     tcapi::transpose(ctx,Mt,{1,0});
@@ -253,7 +243,7 @@ namespace tnbp {
     // The drop rule exists once so R and S can never disagree on the cut.
     RealT floor_ev = std::max(sv_min,RealT(0.0));
     auto thresholded_diag = [&](auto && map) {
-      return DiagFromSpectrum<TenT>(ctx,ctx_r,E,[&](auto & elem){
+      return DiagFromSpectrum<TenT>(ctx,E,[&](auto & elem){
 	if( elem > floor_ev ) { elem = map(elem); }
 	else { elem = 0.0; } });
     };
