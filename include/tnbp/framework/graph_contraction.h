@@ -524,10 +524,7 @@ void graph_shift_bonds_to_neighbor(context_handle_t<TenT>& ctx,
         if constexpr(std::is_same_v<TenT,RealTensor>) {
           s=tcapi::copy(ctx,sigma);
         } else {
-          context_handle_t<RealTensor> real_ctx;tcapi::create_context(real_ctx);
-          try {s=tcapi::to_cplx(real_ctx,sigma);}
-          catch(...) {tcapi::destroy_context(real_ctx);throw;}
-          tcapi::destroy_context(real_ctx);
+          s=tcapi::to_cplx(ctx,sigma);
         }
         tcapi::List<Label> lu(moving.size()+1),lf(moving.size()+1);
         std::iota(lu.begin(),lu.end(),0);std::iota(lf.begin(),lf.end(),0);

@@ -106,9 +106,6 @@ namespace tnbp {
     using OrderT = typename tcapi::tensor_traits<TenT>::order_t;
     using SizeT = typename tcapi::tensor_traits<TenT>::ten_size_t;
     using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
-    using CtxR = typename tcapi::tensor_traits<RealTenT>::context_handle_t;
-    CtxR ctx_r;
-    tcapi::create_context(ctx_r);
 
     auto global_sites = GetSiteIndexFromBond(edges);
 
@@ -181,11 +178,11 @@ namespace tnbp {
       BondDimT chi_max = shape_a[bond_address_a];
       tcapi::trunc_svd(ctx,C,num_rows,U,S,V,
 		     trunc_err,chi_max,eps);
-      tcapi::for_each(ctx_r,S,[](auto & elem){ elem = std::sqrt(elem); });
+      tcapi::for_each(ctx,S,[](auto & elem){ elem = std::sqrt(elem); });
       if constexpr (std::is_same_v<TenT,RealTenT>) {
-	D = tcapi::move(ctx_r,S);
+	D = tcapi::move(ctx,S);
       } else {
-	D = tcapi::to_cplx(ctx_r,S);
+	D = tcapi::to_cplx(ctx,S);
       }
       List<BondLabelT> label_u(order_a);
       List<BondLabelT> label_d(2);

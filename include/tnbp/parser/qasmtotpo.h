@@ -241,9 +241,6 @@ namespace tnbp {
     using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;
     using BondLabelT = typename tcapi::tensor_traits<TenT>::bond_label_t;
     using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
-    using CtxR = typename tcapi::tensor_traits<RealTenT>::context_handle_t;
-    CtxR ctx_r;
-    tcapi::create_context(ctx_r);
     
     TenT gate = InstructionTensor<TenT>(ctx,ins);
     auto order_tensor = tcapi::order(ctx,gate);
@@ -290,14 +287,14 @@ namespace tnbp {
       RealT sv_min = 1.0e-12;
       tcapi::trunc_svd(ctx,gate,num_row_bonds,A,S,B,
 		     trunc_err,chi_max,sv_min);
-      tcapi::for_each(ctx_r,S,[&sv_min](auto & elem) {
+      tcapi::for_each(ctx,S,[&sv_min](auto & elem) {
 	if( std::abs(elem) > sv_min ) { elem = std::sqrt(std::abs(elem)); }
 	else { elem = 0.0; }});
       TenT D;
       if constexpr (std::is_same_v<TenT,RealTenT>) {
-	D = tcapi::move(ctx_r,S);
+	D = tcapi::move(ctx,S);
       } else {
-	D = tcapi::to_cplx(ctx_r,S);
+	D = tcapi::to_cplx(ctx,S);
       }
       List<BondLabelT> IdxG(3);
       List<BondLabelT> IdxD(2);
@@ -506,15 +503,15 @@ namespace tnbp {
       TenT Gv; // temporary
       OrderT num_row_bonds = 2;
       tcapi::svd(ctx,gate,num_row_bonds,Ga,S,Gv);
-      tcapi::for_each(ctx_r,S,[](auto & elem) {
+      tcapi::for_each(ctx,S,[](auto & elem) {
 	if( std::abs(elem) > 0.0 ) { elem = std::sqrt(elem); }
 	else             { elem = 0.0; }
       });
       TenT D;
       if constexpr (std::is_same_v<TenT,RealTenT>) {
-	D = tcapi::move(ctx_r,S);
+	D = tcapi::move(ctx,S);
       } else {
-	D = tcapi::to_cplx(ctx_r,S);
+	D = tcapi::to_cplx(ctx,S);
       }
       List<BondLabelT> IdxGa(3);
       List<BondLabelT> IdxD(2);
@@ -540,14 +537,14 @@ namespace tnbp {
       ShapeT shape_Dab = tcapi::shape(ctx,D);
       num_row_bonds = 3;
       tcapi::svd(ctx,Gv,num_row_bonds,Gb,S,Gc);
-      tcapi::for_each(ctx_r,S,[](auto & elem) {
+      tcapi::for_each(ctx,S,[](auto & elem) {
 	if( std::abs(elem) > 0.0 ) { elem = std::sqrt(elem); }
 	else             { elem = 0.0; }
       });
       if constexpr (std::is_same_v<TenT,RealTenT>) {
-	D = tcapi::move(ctx_r,S);
+	D = tcapi::move(ctx,S);
       } else {
-	D = tcapi::to_cplx(ctx_r,S);
+	D = tcapi::to_cplx(ctx,S);
       }
       List<BondLabelT> IdxGb(4);
       List<BondLabelT> IdxGb_new(4);
