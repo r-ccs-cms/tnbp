@@ -45,6 +45,29 @@ applications, MCMC sampler and selected test suites. See
 and [test coverage](test/README.md). Cytnx configurations are not validated.
 CPU and CUDA tensor checkpoint formats differ; use the backend that wrote the files.
 
+### CUDA backend alternatives
+
+Both CUDA implementations are pinned as separate submodules:
+
+- `external/tcapi-cuda`: original backend using direct allocation.
+- `external/tcapi-cuda-pool`: derived from tcapi-cuda `0cc6394`, using
+  context-owned pools for tensor storage and operation workspaces.
+
+Both provide `tcapi/tcapi.h` and `tcapi::cuda::Tensor`; select exactly one
+include root per build. The default remains the original backend.
+For Make builds use `TCAPI_CUDA_VARIANT=pool`; for the CMake test/sampler
+build use `TNBP_TEST_BACKEND=cuda` with `TCAPI_CUDA_ROOT` pointing to
+`external/tcapi-cuda-pool`. See [build commands](apps/README.cuda.md).
+
+The pool backend requires CUDA memory-pool support. Every initialized Tensor,
+including zero-element tensors and tensors stored in states/workspaces, must
+be destroyed or cleared before its Context. Declare the Context before those
+objects so reverse destruction order satisfies this contract. Explicit
+`destroy_context` rejects live tensors; implicit Context destruction with live
+tensors terminates. Ordinary operations must use the tensor's owning Context;
+use `convert` for transfers between contexts on the same GPU.
+See the [pool ownership contract](external/tcapi-cuda-pool/docs/pool-foundation.md).
+
 ## Graph tensor conventions
 
 See [graph, tensor-axis and ownership conventions](docs/graph_tensor_conventions.md)
@@ -60,19 +83,21 @@ message updates, convergence checks and checkpoint migration.
 
 ### Backend repository access
 
-As of October 2026, neither **tensor-ng-dev (gqten)** nor **tcapi-cuda** is
+As of October 2026, neither **tensor-ng-dev (gqten)** nor **tcapi-cuda / tcapi-cuda-pool** is
 publicly available. Access permission to the selected backend repository is
 required to clone its submodule and build with it. Listing these submodules in
 TNBP does not grant access to their contents. Without permission, submodule
-initialization will fail; a recursive clone attempts both restricted backends.
+initialization will fail; a recursive clone attempts all restricted backends.
 
 Initialize only the backend you intend to use, after obtaining access:
 
 ```sh
 # CPU: gqten, used by the bundled adapter in external/min-tci
 git submodule update --init --recursive external/tensor-ng-dev
-# GPU: tcapi-cuda, pinned to the tested commit by this repository
+# GPU: original direct-allocation backend
 git submodule update --init --recursive external/tcapi-cuda
+# GPU alternative: context-owned CUDA memory pools
+git submodule update --init --recursive external/tcapi-cuda-pool
 ```
 
 For CPU installation, see [tensor-ng-dev](https://github.com/gracequantum/tensor-ng-dev).

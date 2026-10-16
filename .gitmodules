@@ -4,3 +4,6 @@
 [submodule "external/tcapi-cuda"]
 	path = external/tcapi-cuda
 	url = git@github.com:r-ccs-cms/tcapi-cuda.git
+[submodule "external/tcapi-cuda-pool"]
+	path = external/tcapi-cuda-pool
+	url = git@github.com:r-ccs-cms/tcapi-cuda-pool.git
