@@ -1,4 +1,4 @@
-# tcapi-cuda for estimator applications
+# CUDA backends for estimator applications
 
 `estimator` and `estimator_restart` support `USE_TCAPI_CUDA` to select
 `tcapi::cuda::Tensor<std::complex<double>>`. `USE_SINGLE` selects
@@ -39,6 +39,46 @@ TNBP; it does not include min-tci/gqten. It links cudart, cuBLAS, cuSOLVER and
 cuTENSOR, with library search paths also recorded as runtime paths. Use the MPI
 compiler associated with the selected CUDA-compatible execution environment.
 The ordinary `make` path retains the existing CPU Configuration.
+
+## Pool backend
+
+The original `tcapi-cuda` and derived `tcapi-cuda-pool` share the same API,
+types and CUDA libraries. To select the pool implementation:
+
+```sh
+# From the repository root
+git submodule update --init --recursive external/tcapi-cuda-pool
+cd apps/estimator # or apps/estimator_restart
+make CONFIGURATION=../Configuration.cuda TCAPI_CUDA_VARIANT=pool \
+  CUDA_ROOT=/usr/local/cuda CUTENSOR_ROOT=/path/to/cutensor
+```
+
+`TCAPI_CUDA_VARIANT=direct` is the default. An explicit `TCAPI_CUDA_ROOT`
+overrides the selected default path. The application Makefiles rebuild when
+switching configurations; keep separately named copies for timing comparisons.
+Both backend repositories require access permission.
+
+The CMake test build also builds the MCMC CLI. Use a separate build directory
+for each backend and pass the desired absolute include root, for example:
+
+```sh
+cmake -S test -B build-pool -DTNBP_TEST_BACKEND=cuda \
+  -DTCAPI_CUDA_ROOT="$PWD/external/tcapi-cuda-pool" \
+  -DCUDAToolkit_ROOT=/usr/local/cuda \
+  -DCUTENSOR_INCLUDE_DIR=/path/to/cutensor/include \
+  -DCUTENSOR_LIBRARY=/path/to/cutensor/lib/libcutensor.so
+cmake --build build-pool --target mcmc_sampling
+```
+
+Context must outlive all its initialized tensors. The estimator, restart and
+MCMC entry points declare Context before tensor containers and use reverse
+scope destruction. Do not insert `destroy_context(ctx)` while those containers
+are alive. The pool also rejects ordinary operations across Contexts.
+
+`TCAPI_CUDA_POOL_RELEASE_THRESHOLD_BYTES` controls retention of unused pool
+memory at synchronization. The default favors reuse; `0` requests release of
+unused memory. It is neither a preallocation size nor an allocation cap.
+See [pool configuration](../external/tcapi-cuda-pool/docs/pool-foundation.md).
 
 ## GPU assignment
 
@@ -82,3 +122,12 @@ with 1/2/4 MPI ranks and on ROQUO with 1/2 GPUs. All 488 expectation values
 agreed with the CPU one-rank result to within 8e-14, and all four BP layers
 converged. The maximum retained bond dimension was only 5; this is a correctness
 smoke test, not a GPU performance benchmark.
+
+On 2026-10-17, the same 156-qubit input was run four times per backend on one
+GB200, alternating direct/pool order. The original backend (`0cc6394`) and pool
+backend (`507b210`) produced identical printed values for all 488 observables
+in all eight runs; all four BP layers converged with identical iteration counts.
+Median elapsed time was 39.71 s (direct) versus 24.75 s (pool), a 1.60x speedup.
+Timing includes process launch, initialization and teardown, but excludes builds.
+This small-bond result does not establish large-bond or multi-GPU performance;
+pool runs of the restart and MCMC applications were not included.
