@@ -99,7 +99,6 @@ template<class E> void run(MPI_Comm comm) {
   tnbp::TensorProductState<T> state(ctx,v,edges,sites,owners,comm);
   tnbp::BeliefPropagation(ctx,state,edges,e,edgeids,f);
   if(rank==0)std::cout<<"PASS type_bytes="<<sizeof(E)<<" ranks="<<size<<" residual="<<residual<<std::endl;
-  tcapi::destroy_context(ctx);
 }
 int main(int argc,char**argv){MPI_Init(&argc,&argv);try{
 #ifdef TNBP_TEST_CUDA

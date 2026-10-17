@@ -40,45 +40,52 @@ cuTENSOR, with library search paths also recorded as runtime paths. Use the MPI
 compiler associated with the selected CUDA-compatible execution environment.
 The ordinary `make` path retains the existing CPU Configuration.
 
-## Pool backend
+## Standard default-pool backend
 
-The original `tcapi-cuda` and derived `tcapi-cuda-pool` share the same API,
-types and CUDA libraries. To select the pool implementation:
+The pinned `tcapi-cuda` uses the CUDA device default pool for Tensor storage
+and internal workspaces. CUDA memory-pool support is required; there is no
+fallback to direct allocation. Only this CUDA implementation is bundled.
 
-```sh
-# From the repository root
-git submodule update --init --recursive external/tcapi-cuda-pool
-cd apps/estimator # or apps/estimator_restart
-make CONFIGURATION=../Configuration.cuda TCAPI_CUDA_VARIANT=pool \
-  CUDA_ROOT=/usr/local/cuda CUTENSOR_ROOT=/path/to/cutensor
-```
+`TCAPI_CUDA_VARIANT` has been removed. Old `direct` and `pool` selections are
+rejected with migration guidance. Build the standard backend without that
+variable. An explicit `TCAPI_CUDA_ROOT` can select another checkout, but such
+implementations are outside regular TNBP validation. All implementations share
+header/type names: include exactly one and rebuild after switching. The Make
+entry points always rebuild their application object before linking.
 
-`TCAPI_CUDA_VARIANT=direct` is the default. An explicit `TCAPI_CUDA_ROOT`
-overrides the selected default path. The application Makefiles rebuild when
-switching configurations; keep separately named copies for timing comparisons.
-Both backend repositories require access permission.
-
-The CMake test build also builds the MCMC CLI. Use a separate build directory
-for each backend and pass the desired absolute include root, for example:
+For CMake tests and the MCMC CLI, use a fresh build directory when changing
+backends or checkout paths. `TCAPI_CUDA_ROOT` defaults to
+`external/tcapi-cuda`; an existing CMake cache keeps its explicit root until
+reconfigured. For example, from the repository root:
 
 ```sh
-cmake -S test -B build-pool -DTNBP_TEST_BACKEND=cuda \
-  -DTCAPI_CUDA_ROOT="$PWD/external/tcapi-cuda-pool" \
+cmake -S test -B build-cuda -DTNBP_TEST_BACKEND=cuda \
   -DCUDAToolkit_ROOT=/usr/local/cuda \
   -DCUTENSOR_INCLUDE_DIR=/path/to/cutensor/include \
   -DCUTENSOR_LIBRARY=/path/to/cutensor/lib/libcutensor.so
-cmake --build build-pool --target mcmc_sampling
+cmake --build build-cuda --target mcmc_sampling
 ```
 
-Context must outlive all its initialized tensors. The estimator, restart and
-MCMC entry points declare Context before tensor containers and use reverse
-scope destruction. Do not insert `destroy_context(ctx)` while those containers
-are alive. The pool also rejects ordinary operations across Contexts.
+`create_context(ctx)` initializes execution resources and is required before
+operations. The CUDA Context releases them automatically at scope exit;
+ordinary application tests need no explicit `destroy_context(ctx)`. Tensor
+storage is independently owned and may outlive its creating Context. The entry
+points declare Context before tensor containers, so tensors are released first.
 
-`TCAPI_CUDA_POOL_RELEASE_THRESHOLD_BYTES` controls retention of unused pool
-memory at synchronization. The default favors reuse; `0` requests release of
-unused memory. It is neither a preallocation size nor an allocation cap.
-See [pool configuration](../external/tcapi-cuda-pool/docs/pool-foundation.md).
+Normal data-producing APIs complete numerical work before returning, including
+host staging used for blocking MPI transfers. Internal workspace returns may
+still be pending. Tensor destruction is not a synchronization barrier for
+outstanding GPU uses. External CUDA work needs explicit ordering and completion
+before storage is released; metadata queries are not general barriers.
+
+`TCAPI_CUDA_DEFAULT_POOL_RELEASE_THRESHOLD_BYTES` sets the shared default-pool
+release threshold before first Context creation. Unset leaves the existing
+CUDA setting unchanged; it does not select the maximum threshold. `0` requests
+release of unused memory at synchronization, while `18446744073709551615`
+requests maximum retention. This is neither preallocation nor an allocation cap,
+and affects other users of the same default pool. The dedicated implementation's
+`TCAPI_CUDA_POOL_RELEASE_THRESHOLD_BYTES` is ignored by the standard backend.
+See [pool configuration](../external/tcapi-cuda/docs/pool-foundation.md).
 
 ## GPU assignment
 
@@ -109,6 +116,30 @@ by this change. Computational options and existing checkpoint naming are
 unchanged. Sampling/boundary-MPS functionality is outside this app integration.
 
 ## Validation
+
+On October 17–18, 2026, the standard default-pool pin (`9dea1a0`) was checked
+in double precision on ROQUO with one GB200 and two GB200s on one node.
+Backend/MPI integration, graph contraction, BMPS shifts and upper-region
+independence, BP trace phase, and real/complex MCMC CLI/checkpoints passed.
+The seven MCMC regression modes also passed, using heat bath for fixed-site
+statistical checks. Long cases were split without reducing sample counts or
+relaxing tolerances.
+
+All 488 bundled-input expectation values agreed with the CPU reference within
+6.2e-14 on both GPU layouts; all four BP layers converged. Estimator and restart
+Bell checks passed. Restart preserved the tensor/graph payload on load/resave;
+provenance metadata was updated as intended. Saving after one circuit step and
+resuming for another matched two uninterrupted steps for all 15 nonidentity
+two-qubit Pauli observables, and agreed with an independent dense calculation
+within 1e-15. Integration also checks empty measurement requests and multiple
+observables on the same graph edge.
+
+These are correctness checks, not a performance comparison, multi-node test or
+GPU memory-sanitizer result.
+
+### Historical backend results
+
+The results below used the stated historical backend commits.
 
 On 2026-10-05 both applications built and ran in double precision on ROQUO
 with one rank/one GB200 and two ranks/two GB200s on one node. A two-qubit Bell

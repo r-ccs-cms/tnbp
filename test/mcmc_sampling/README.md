@@ -184,3 +184,9 @@ with one MPI process and one visible GPU; its `ranks` argument is the number of
 checkpoint files to write for the subsequent sampler, not the generator's process
 count. CPU and CUDA tensor serialization formats differ, so generate checkpoints
 with the backend that will read them.
+
+Fixed-site distribution regressions use pairwise heat bath. Near-balanced binary
+Metropolis proposals can almost undo each other on the return sweep, so retained
+samples can be strongly correlated even after burn-in. These cases keep the
+same sample counts and distribution tolerances; Metropolis remains covered by
+the default, manual, automatic-group, bond-shift and singleton regressions.

@@ -441,9 +441,12 @@ int main(int argc,char**argv) {
                 }
             } else if(std::string(argv[1])=="fixed-sites") {
                 tnbp::MCMCGrouping<int> groups{{{0},{1},{2,3}},{{3,2,1,0}}};
+                // Test fixed-site distributions with heat bath: near-balanced
+                // binary Metropolis flips can nearly undo each other on the
+                // return sweep, leaving strongly correlated retained samples.
                 for(int mask:{15,2,5})
                     run(ctx,{{0,1},{1,2},{2,3}},{{0,1,2},{3}},
-                        "fixed mask "+std::to_string(mask),MPI_COMM_WORLD,&groups,mask);
+                        "fixed mask "+std::to_string(mask),MPI_COMM_WORLD,&groups,mask,false,1);
             } else if(std::string(argv[1])=="singleton-ends") {
                 const Edges edges{{0,1},{2,3},{0,2},{1,3},{0,3}};
                 const std::vector<std::vector<int>> lines{{1},{0,3},{2}};
@@ -474,7 +477,6 @@ int main(int argc,char**argv) {
         run(ctx,{{0,1},{1,2},{2,3}},{{0},{1},{2},{3}},"chain",MPI_COMM_WORLD);
         run(ctx,{{0,1},{0,2},{1,3},{2,3}},{{0,1},{2,3}},"square",MPI_COMM_WORLD);
         }
-        tcapi::destroy_context(ctx);
     } catch(const std::exception& e) {
         std::cerr<<e.what()<<'\n'; MPI_Abort(MPI_COMM_WORLD,1);
     }

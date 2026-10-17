@@ -1,15 +1,11 @@
 # Shared by apps/estimator and apps/estimator_restart.
-# TCAPI_CUDA_VARIANT selects direct (default) or pool allocation.
+# Uses the standard CUDA default-pool backend.
 # Invoke make from either directory with CONFIGURATION=../Configuration.cuda.
 CCCOM ?= mpicxx
-TCAPI_CUDA_VARIANT ?= direct
-ifeq ($(TCAPI_CUDA_VARIANT),direct)
-TCAPI_CUDA_ROOT ?= ../../external/tcapi-cuda
-else ifeq ($(TCAPI_CUDA_VARIANT),pool)
-TCAPI_CUDA_ROOT ?= ../../external/tcapi-cuda-pool
-else
-$(error TCAPI_CUDA_VARIANT must be direct or pool)
+ifneq ($(origin TCAPI_CUDA_VARIANT),undefined)
+$(error TCAPI_CUDA_VARIANT was removed; use the standard backend or set TCAPI_CUDA_ROOT explicitly)
 endif
+TCAPI_CUDA_ROOT ?= ../../external/tcapi-cuda
 CUDA_ROOT ?= /usr/local/cuda
 CUDA_LIBDIR ?= $(CUDA_ROOT)/lib64
 CUTENSOR_LIBDIR ?= $(CUTENSOR_ROOT)/lib

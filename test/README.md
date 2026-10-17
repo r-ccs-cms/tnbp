@@ -43,6 +43,15 @@ sampling regression and heavyhex51 executables. Launch them explicitly inside
 a scheduler allocation with one visible GPU per process (for example,
 `srun --mpi=pmix --gpus-per-task=1 --gpu-bind=single:1`). CPU-only CTest
 registrations, including checkpoint fixture generation, are not enabled for CUDA.
+The standard default-pool pin `9dea1a0` passed backend integration, graph/BMPS,
+BP trace phase, real/complex sampling CLI/checkpoints, and all seven sampling
+regression modes on one GPU and same-node two GPUs on October 17–18, 2026.
+Fixed-site distribution checks use heat bath; sample counts and tolerances
+are unchanged. See the [sampling tests](mcmc_sampling/README.md).
+
+The older GPU results below used the historical direct-allocation backend;
+the optional 51-site experiments have not been repeated with the new pin.
+
 Graph contraction, boundary shifts, upper-region independence, and real/complex
 sampling CLI/checkpoint tests have passed on one GPU and same-node two GPUs.
 Small chain/square distributions and manual/automatic heat-bath distributions

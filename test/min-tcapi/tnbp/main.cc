@@ -35,7 +35,6 @@ template<class E> void integration(MPI_Comm comm) {
     auto matrix=tcapi::zeros<T>(ctx,{2,2});tcapi::set_elem(ctx,matrix,{0,0},E(4));tcapi::set_elem(ctx,matrix,{1,1},E(9));T root;
     tnbp::SquareRoot(ctx,matrix,1,root);
     check(std::abs(root.GetElem(0)-E(2))<R(1e-5) && std::abs(root.GetElem(3)-E(3))<R(1e-5),"SquareRoot migrated explicit labels");
-    tcapi::destroy_context(ctx);
 }
 int main(int argc,char** argv) {
     MPI_Init(&argc,&argv);

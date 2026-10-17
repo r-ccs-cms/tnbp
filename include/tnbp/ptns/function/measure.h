@@ -106,6 +106,7 @@ namespace tnbp {
 
   /**
      Function for the measurements of nearest-neighbor two-site local operators
+     Returns one value per entry in Edge, including repeated graph edges.
    */
   template <typename TenT>
   std::vector<elem_t<TenT>> Measure(context_handle_t<TenT> & ctx,
@@ -131,7 +132,7 @@ namespace tnbp {
 
     std::size_t size_e = EdgeIdx.size();
 
-    std::vector<ElemT> result(I.size(),ElemT(0.0));
+    std::vector<ElemT> result(Edge.size(),ElemT(0.0));
 
     for(int m=0; m < Edge.size(); m++) {
       int site_a = Edge[m].first;

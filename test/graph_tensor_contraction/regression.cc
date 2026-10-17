@@ -1,9 +1,9 @@
 #include "../common/device.h"
 #include "../common/graph_fixture.h"
 template<class S>
-void run(const std::string& name,Edges edges,const std::vector<int>& sites,
+void run(tcapi::context_handle_t<TensorOf<S>>& ctx,const std::string& name,Edges edges,const std::vector<int>& sites,
          int ownership_shift,bool zero,MPI_Comm comm,bool single) {
-    run_shift_fixture<S>(name,edges,sites,ownership_shift,zero,comm,
+    run_shift_fixture<S>(ctx,name,edges,sites,ownership_shift,zero,comm,
         [](const auto&,auto&){}, [](auto&...){}, single);
 }
 // Explicit edge-order expectations, independent of the shared plan used by
@@ -70,7 +70,6 @@ void contraction_checks(MPI_Comm comm) {
                 throw std::runtime_error("contraction open-boundary value mismatch");
     }
     if(rank==0) std::cout<<"direct contraction fusion/edge order/partial owners PASS"<<std::endl;
-    tcapi::destroy_context(ctx);
 }
 
 void invalid_contraction_checks(MPI_Comm comm) {
@@ -129,7 +128,6 @@ void invalid_contraction_checks(MPI_Comm comm) {
         }
     }
     if(rank==0) std::cout<<"collective contraction preflight: 15 invalid cases PASS"<<std::endl;
-    tcapi::destroy_context(ctx);
 }
 
 void invalid_checks(MPI_Comm comm) {
@@ -148,7 +146,6 @@ void invalid_checks(MPI_Comm comm) {
         } catch(const std::invalid_argument&) {threw=true;}
         if(!threw || edges!=Edges{{0,2},{1,2}}) throw std::runtime_error("invalid selected bond accepted");
     }
-    tcapi::destroy_context(ctx);
 }
 
 int main(int argc,char** argv) {
@@ -160,13 +157,14 @@ int main(int argc,char** argv) {
         invalid_contraction_checks(MPI_COMM_WORLD);
         auto cases=[&](auto scalar) {
             using S=decltype(scalar);
+            tcapi::context_handle_t<TensorOf<S>> ctx;tcapi::create_context(ctx);
             contraction_checks<S>(MPI_COMM_WORLD);
             for(int shift:{0,1}) {
-                run<S>("single partial, no neighbor",{{0,3},{1,3},{0,10},{1,11},{2,12},{3,13}},
+                run<S>(ctx,"single partial, no neighbor",{{0,3},{1,3},{0,10},{1,11},{2,12},{3,13}},
                        {0,1,2,3},shift,false,MPI_COMM_WORLD,true);
-                run<S>("single partial, shared endpoint",{{0,3},{1,3},{2,3},{0,2},{0,10},{1,11},{2,12},{3,13}},
+                run<S>(ctx,"single partial, shared endpoint",{{0,3},{1,3},{2,3},{0,2},{0,10},{1,11},{2,12},{3,13}},
                        {0,1,2,3},shift,false,MPI_COMM_WORLD,true);
-                run<S>("single scalar remainder",{{0,2}}, {0,1,2},shift,false,MPI_COMM_WORLD,true);
+                run<S>(ctx,"single scalar remainder",{{0,2}}, {0,1,2},shift,false,MPI_COMM_WORLD,true);
             }
         };
         cases(double{});cases(std::complex<double>{});

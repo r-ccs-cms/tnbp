@@ -13,12 +13,14 @@ Coverage:
   overload also exercises `OptTPObySVD` and rank-local `AttachTPO`.
 - `BeliefPropagation` and `BeliefPropagationCondition` on a two-site tree;
   `Truncation` preserves the normalized Bell state with maximum bond dimension 2.
+- Empty two-site measurement requests and multiple observables on one graph
+  edge: result counts and Bell XX=1, YY=-1, ZZ=1, including MPI reduction.
 - Nondegenerate Schmidt weights 2:1: BP followed by rank-one truncation gives
   discarded weight 0.2 and normalized state |00>. This also exercises real
   spectrum transfer inside the complex calculation on two ranks.
 - One unit-coefficient Pauli string ZX: qubit ordering, shape and all 16 dense
-  entries. Coefficient handling, identity-only terms, Y, and file parsing are
-  not covered by this smoke test.
+  entries. General coefficient handling, identity-only terms and file parsing
+  are not covered by this suite.
 
 State comparisons reconstruct the two-site state by an independent host sum.
 After truncation they remove normalization/global phase, avoiding comparison of

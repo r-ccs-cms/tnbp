@@ -104,7 +104,6 @@ int main(int argc,char** argv) {
     try {
         Context ctx;tcapi::create_context(ctx);
         upper_independence(ctx,MPI_COMM_WORLD);
-        tcapi::destroy_context(ctx);
     } catch(const std::exception& e) {std::cerr<<e.what()<<std::endl;MPI_Abort(MPI_COMM_WORLD,1);}
     MPI_Finalize();
 }
