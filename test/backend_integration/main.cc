@@ -157,6 +157,26 @@ void qasm_bp(Context& ctx,MPI_Comm comm) {
     for(auto d:dims)check(d==2,"Bell retains Schmidt rank two");
     for(auto err:errors)near(err,0,"Bell no-discard error");
     state_near(amplitudes(ctx,v,sites,owners,comm),expected,"BP truncation preserves Bell state");
+    // One result per requested observable, including repeated graph edges.
+    const std::vector<std::pair<int,int>> no_edges;
+    const std::vector<Tensor> no_operators;
+    check(tnbp::Measure(ctx,edges,v,sites,owners,e,edgeids,comm,
+                       no_edges,no_operators).empty(),"empty measurement request");
+    const std::vector<pauli::Term<Complex>> paulis{
+        {Complex(1),"XX"},{Complex(1),"YY"},{Complex(1),"ZZ"}};
+    std::vector<Tensor> observables;
+    std::vector<std::vector<int>> observable_sites;
+    tnbp::SparsePauliToTensorOp(ctx,paulis,observables,observable_sites);
+    const std::vector<std::pair<int,int>> requests(3,{0,1});
+    const auto local=tnbp::Measure(ctx,edges,v,sites,owners,e,edgeids,comm,
+                                 requests,observables);
+    check(local.size()==requests.size(),"measurement count exceeds graph edges");
+    std::vector<Complex> measured(local.size());
+    MPI_Allreduce(local.data(),measured.data(),static_cast<int>(local.size()),
+                  tnbp::GetMpiType<Complex>(),MPI_SUM,comm);
+    near(measured[0],1,"Bell XX");
+    near(measured[1],-1,"Bell YY");
+    near(measured[2],1,"Bell ZZ");
 }
 void known_truncation(Context& ctx,MPI_Comm comm) {
     const std::vector<std::pair<int,int>> edges{{0,1}};
@@ -203,7 +223,6 @@ int main(int argc,char** argv) {
         qasm_bp(ctx,MPI_COMM_WORLD);
         known_truncation(ctx,MPI_COMM_WORLD);
         pauli_smoke(ctx);
-        tcapi::destroy_context(ctx);
         std::cout<<"PASS rank="<<rank<<" checks="<<checks<<'\n';
     }catch(const std::exception& e){std::cerr<<"FAIL rank="<<rank<<": "<<e.what()<<'\n';MPI_Abort(MPI_COMM_WORLD,1);}
     MPI_Finalize();

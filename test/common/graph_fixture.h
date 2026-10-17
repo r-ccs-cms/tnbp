@@ -80,10 +80,10 @@ std::vector<tcapi::elem_t<T>> boundary(tcapi::context_handle_t<T>& ctx,
 }
 
 template<class S, class ShiftEdges, class ShiftTensors>
-void run_shift_fixture(const std::string& name,Edges edges,const std::vector<int>& line,
+void run_shift_fixture(tcapi::context_handle_t<TensorOf<S>>& ctx,
+         const std::string& name,Edges edges,const std::vector<int>& line,
          int ownership_shift,bool zero,MPI_Comm comm,ShiftEdges shift_edges,ShiftTensors shift_tensors,bool single=false) {
     using T=TensorOf<S>;
-    tcapi::context_handle_t<T> ctx;tcapi::create_context(ctx);
     int rank,size;MPI_Comm_rank(comm,&rank);MPI_Comm_size(comm,&size);
     std::map<int,int> owners;
     std::vector<int> ids;
@@ -181,5 +181,4 @@ void run_shift_fixture(const std::string& name,Edges edges,const std::vector<int
     }
     if(rank==0) std::cout<<name<<" "<<(std::is_same_v<S,double> ? "real" : "complex")
                         <<" error="<<max_error<<" PASS"<<std::endl;
-    tcapi::destroy_context(ctx);
 }

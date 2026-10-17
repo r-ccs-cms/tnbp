@@ -31,10 +31,6 @@ std::vector<TenT> CircuitTPO(
   using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
   using RealTenT = typename tcapi::tensor_traits<TenT>::real_ten_t;
 
-  using ContextHandleR = typename tcapi::tensor_traits<RealTenT>::context_handle_t;
-  ContextHandleR ctx_r;
-  tcapi::create_context(ctx_r);
-
   int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
   int mpi_size; MPI_Comm_size(comm,&mpi_size);
 
@@ -60,12 +56,12 @@ std::vector<TenT> CircuitTPO(
   RealTenT S;
   OrderT lb = 2;
   tcapi::svd(ctx,Uj,lb,Ua,S,Ub);
-  tcapi::for_each(ctx_r,S,[](auto & elem) { elem = std::sqrt(elem); } );
+  tcapi::for_each(ctx,S,[](auto & elem) { elem = std::sqrt(elem); } );
   TenT D;
   if constexpr (std::is_same_v<TenT,RealTenT>) {
-    D = tcapi::copy(ctx_r,S);
+    D = tcapi::copy(ctx,S);
   } else {
-    D = tcapi::to_cplx(ctx_r,S);
+    D = tcapi::to_cplx(ctx,S);
   }
   tcapi::List<BondLabelT> label_ua = {0,1,-1};
   tcapi::List<BondLabelT> label_da = {-1,2};

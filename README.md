@@ -45,28 +45,18 @@ applications, MCMC sampler and selected test suites. See
 and [test coverage](test/README.md). Cytnx configurations are not validated.
 CPU and CUDA tensor checkpoint formats differ; use the backend that wrote the files.
 
-### CUDA backend alternatives
+### CUDA backend
 
-Both CUDA implementations are pinned as separate submodules:
+`external/tcapi-cuda` pins the standard CUDA default-pool implementation.
+CUDA memory-pool support is required; there is no direct-allocation fallback.
+Tensor storage is independently owned and may outlive its creating Context.
+Ordinary operations require an initialized Context on the same GPU.
 
-- `external/tcapi-cuda`: original backend using direct allocation.
-- `external/tcapi-cuda-pool`: derived from tcapi-cuda `0cc6394`, using
-  context-owned pools for tensor storage and operation workspaces.
-
-Both provide `tcapi/tcapi.h` and `tcapi::cuda::Tensor`; select exactly one
-include root per build. The default remains the original backend.
-For Make builds use `TCAPI_CUDA_VARIANT=pool`; for the CMake test/sampler
-build use `TNBP_TEST_BACKEND=cuda` with `TCAPI_CUDA_ROOT` pointing to
-`external/tcapi-cuda-pool`. See [build commands](apps/README.cuda.md).
-
-The pool backend requires CUDA memory-pool support. Every initialized Tensor,
-including zero-element tensors and tensors stored in states/workspaces, must
-be destroyed or cleared before its Context. Declare the Context before those
-objects so reverse destruction order satisfies this contract. Explicit
-`destroy_context` rejects live tensors; implicit Context destruction with live
-tensors terminates. Ordinary operations must use the tensor's owning Context;
-use `convert` for transfers between contexts on the same GPU.
-See the [pool ownership contract](external/tcapi-cuda-pool/docs/pool-foundation.md).
+Use one backend include root per build and rebuild after changing it.
+`TCAPI_CUDA_ROOT` can select an external checkout; alternative CUDA
+implementations are not bundled or included in the regular validation scope.
+See [CUDA setup](apps/README.cuda.md) and the
+[ownership contract](external/tcapi-cuda/docs/pool-foundation.md).
 
 ## Graph tensor conventions
 
@@ -83,7 +73,7 @@ message updates, convergence checks and checkpoint migration.
 
 ### Backend repository access
 
-As of October 2026, neither **tensor-ng-dev (gqten)** nor **tcapi-cuda / tcapi-cuda-pool** is
+As of October 2026, neither **tensor-ng-dev (gqten)** nor **tcapi-cuda** is
 publicly available. Access permission to the selected backend repository is
 required to clone its submodule and build with it. Listing these submodules in
 TNBP does not grant access to their contents. Without permission, submodule
@@ -94,10 +84,8 @@ Initialize only the backend you intend to use, after obtaining access:
 ```sh
 # CPU: gqten, used by the bundled adapter in external/min-tci
 git submodule update --init --recursive external/tensor-ng-dev
-# GPU: original direct-allocation backend
+# GPU: standard CUDA default-pool backend
 git submodule update --init --recursive external/tcapi-cuda
-# GPU alternative: context-owned CUDA memory pools
-git submodule update --init --recursive external/tcapi-cuda-pool
 ```
 
 For CPU installation, see [tensor-ng-dev](https://github.com/gracequantum/tensor-ng-dev).

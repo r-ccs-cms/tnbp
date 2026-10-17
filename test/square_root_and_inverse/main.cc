@@ -227,8 +227,6 @@ double check_unitary(const Mat & w) {
 int main() {
   ContextHandle ctx;
   tcapi::create_context(ctx);
-  typename tcapi::tensor_traits<RealTensor>::context_handle_t ctx_r;
-  tcapi::create_context(ctx_r);
 
   // Self-verify the fixtures: W must be unitary / orthogonal to machine
   // precision, otherwise the spectral oracle is meaningless.
@@ -258,7 +256,7 @@ int main() {
 
   // Fixture D: the real-tensor instantiation (real orthogonal W), covering
   // the RealTenT branch of the diagonal construction.
-  run_fixture<RealTensor>(ctx_r, "D(real)", w_real,
+  run_fixture<RealTensor>(ctx, "D(real)", w_real,
 			  {1.0, 0.5, 1.0e-2, 1.0e-9, 1.0e-13, 0.0}, 1.0e-8,
 			  false);
 

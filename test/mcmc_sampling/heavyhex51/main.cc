@@ -146,7 +146,6 @@ int main(int argc,char** argv) {
             std::cout<<"SAMPLING COMPLETED mean_ones="<<mean_observed<<" exact_mean_ones="<<mean_expected
                      <<" max_marginal_error="<<max_error<<" seconds="<<seconds<<'\n';
         }
-        tcapi::destroy_context(ctx);
     } catch(const std::exception& e) {
         std::cerr<<"FAILED rank="<<rank<<" stage="<<stage<<": "<<e.what()<<std::endl;
         MPI_Abort(MPI_COMM_WORLD,1);
