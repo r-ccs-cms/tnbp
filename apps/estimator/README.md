@@ -134,3 +134,19 @@ and on ROQUO with 1/2 GPUs. All 488 expectation values agreed within `8e-14`
 with the CPU one-rank result. This is an execution and backend-consistency
 check, not an independent exact solution or a performance benchmark.
 See also the [backend integration tests](../../test/backend_integration/README.md).
+
+## BP convergence
+
+BP stops when the mean directed-edge Frobenius distance between the previous
+and updated messages is below `--bp_tolerance`. Messages have unit Frobenius norm and positive-real trace at initialization,
+attach, truncation, restart loading and BP update boundaries. The check only
+subtracts successive messages and sums their Frobenius distances. The
+updated messages are committed even on the terminating iteration. Each
+directed edge contributes on its source site's owner and the scalar residual
+is combined with MPI Allreduce.
+
+This differs from the legacy fixed-point check, which constructs another
+prediction from the updated state. Iteration counts and final values can
+therefore differ at the same tolerance. The library keeps
+`BeliefPropagationCondition` for that legacy check; these app loops use
+`BeliefPropagationDifference`. No site-sized prefix cache is retained.

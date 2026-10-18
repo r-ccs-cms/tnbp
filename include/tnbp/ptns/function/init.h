@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "tnbp/framework/graph.h"
+#include "tnbp/ptns/function/message_gauge.h"
 
 namespace tnbp {  
 
@@ -82,6 +83,7 @@ namespace tnbp {
     TenT Eorig;
     ShapeT BondDimE(2,1);
     Eorig = tcapi::fill<TenT>(ctx,BondDimE,static_cast<ElemT>(1.0));
+    NormalizeMessage(ctx,Eorig,comm);
     E.resize(2*NumEdges);
     for(auto & Em : E) {
       Em = tcapi::copy(ctx,Eorig);
@@ -190,6 +192,7 @@ namespace tnbp {
 	E[edge_adrs+num_edges] = tcapi::eye<TenT>(ctx,shape_v[target_bond]);
       }
     }
+    NormalizeMessages(ctx,E,comm);
   }
   
 }

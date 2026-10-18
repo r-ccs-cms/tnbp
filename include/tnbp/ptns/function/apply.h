@@ -7,6 +7,7 @@
 #define TNBP_PTNS_FUNCTION_APPLY_H
 
 #include "tnbp/framework/graph.h"
+#include "tnbp/ptns/function/message_gauge.h"
 #include "tnbp/framework/mpiutility.h"
 #include "tnbp/framework/typedef.h"
 #include <algorithm>
@@ -185,6 +186,7 @@ namespace tnbp {
 	tcapi::reshape(ctx,T,shape_N,E[address+num_e]);
       }
     }
+    NormalizeMessages(ctx,E,comm);
   }
 
   /**
@@ -355,6 +357,7 @@ namespace tnbp {
 	tcapi::reshape(ctx,T,shape_N,E[edge_adrs+num_e]);
       }
     }
+    NormalizeMessages(ctx,E,comm);
   }
   
 

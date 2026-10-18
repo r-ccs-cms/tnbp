@@ -170,7 +170,7 @@ namespace tnbp {
     } else {
       in.clear(in.rdstate() & ~std::ios::eofbit);
     }
-    FixMessageTraceGauges(ctx,E,EdgeIdx);
+    NormalizeMessages(ctx,E);
     if (metadata) {
       metadata->source_algorithm=algorithm;
       metadata->source_fingerprint=fingerprint;

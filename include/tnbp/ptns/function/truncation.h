@@ -7,6 +7,7 @@
 #define TNBP_PTNS_FUNCTION_TRUNCATION_H
 
 #include "tnbp/framework/graph.h"
+#include "tnbp/ptns/function/message_gauge.h"
 #include "tnbp/framework/typedef.h"
 #include <algorithm>
 #include <cmath>
@@ -170,6 +171,7 @@ namespace tnbp {
 	    Z = tcapi::to_cplx(ctx,spec);
 	  }
 	  tcapi::diag(ctx,Z);
+	  NormalizeMessage(ctx,Z,comm);
 	  E[edge_address] = tcapi::copy(ctx,Z);
 	  E[edge_address+num_e] = tcapi::copy(ctx,Z);
 
@@ -233,6 +235,8 @@ namespace tnbp {
 	  tcapi::for_each(ctx,S,[](auto & elem){ elem = std::sqrt(elem); });
 	  P = tcapi::to_cplx(ctx,S);
 	}
+	// Normalize only the stored messenger; P, spectrum and site norms stay unchanged.
+	NormalizeMessage(ctx,Z,comm);
 	E[edge_address] = tcapi::copy(ctx,Z);
 	E[edge_address+num_e] = tcapi::copy(ctx,Z);
 

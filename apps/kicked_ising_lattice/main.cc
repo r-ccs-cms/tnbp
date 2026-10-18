@@ -135,18 +135,14 @@ int main(int argc, char * argv[]) {
 	std::cout << " " << tnbp::make_timestamp()
 		  << " update edge tensors " << std::endl;
       }
-      auto itE = E.begin();
-      for(const auto & et : F) {
-	*itE++ = tcapi::copy(ctx,et);
-      }
+      // Compare before committing the complete synchronous update.
       if( mpi_rank == 0 ) {
 	std::cout << " " << tnbp::make_timestamp()
 		  << " calculate condition " << std::endl;
       }
-      tnbp::BeliefPropagationCondition(
-	    ctx,edges,V,SiteIdx,
-	    Site_To_MpiRank,E,EdgeIdx,
-	    comm,tolerance);
+      tnbp::BeliefPropagationDifference(ctx,edges,Site_To_MpiRank,
+                                            E,F,EdgeIdx,comm,tolerance);
+      E.swap(F);
       if( mpi_rank == 0 ) {
 	std::cout << " " << tnbp::make_timestamp()
 		  << " error from belief propagation condition at time step "

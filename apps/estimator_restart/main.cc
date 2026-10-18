@@ -167,14 +167,10 @@ int main(int argc, char * argv[]) {
 		layer_edges[p],E,EdgeIdx,
 		comm,F);
 	}
-	auto itE = E.begin();
-	for(const auto & et : F) {
-	  *itE++ = tcapi::copy(ctx,et);
-	}
-	tnbp::BeliefPropagationCondition(
-	      ctx,edges,V,SiteIdx,
-	      Site_To_MpiRank,E,EdgeIdx,
-	      comm,tolerance);
+	// Compare before committing the complete synchronous update.
+	tnbp::BeliefPropagationDifference(ctx,edges,Site_To_MpiRank,
+                                            E,F,EdgeIdx,comm,tolerance);
+      E.swap(F);
 	if( mpi_rank == mpi_master ) {
 	  std::cout << " " << tnbp::make_timestamp()
 		    << " error from belief propagation condition at step "

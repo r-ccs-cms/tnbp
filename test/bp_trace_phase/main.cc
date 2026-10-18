@@ -37,7 +37,17 @@ template<class E> void run(MPI_Comm comm) {
     check(std::abs(scalar(ctx,trace)-E(9))<tol*20,"positive real trace");
     check(std::abs(tcapi::norm(ctx,m)-norm)<tol*norm,"norm preserved");
     check(std::abs(tcapi::get_elem(ctx,m,{0,0})/scalar(ctx,trace)-obs_before)<tol,"normalized observable invariant");
+    tnbp::NormalizeMessage(ctx,m);
+    check(std::abs(tcapi::norm(ctx,m)-R(1))<tol,"combined normalization unit norm");
+    tcapi::trace(ctx,m,{{0,1}},trace);
+    check(std::abs(scalar(ctx,trace)-E(3/std::sqrt(R(5))))<tol,"combined normalization positive trace");
+    check(std::abs(tcapi::get_elem(ctx,m,{0,0})-E(1/std::sqrt(R(5))))<tol,"combined normalization independent entry");
   }
+  // Exercise backend normalization at a tiny lazy scale without forming 1/n.
+  auto tiny=tcapi::copy(ctx,original);
+  tcapi::scale(ctx,tiny,E(R(16)*std::numeric_limits<R>::min())*phase<E>(.7));
+  tnbp::NormalizeMessage(ctx,tiny);
+  check(std::abs(tcapi::get_elem(ctx,tiny,{1,1})-E(2/std::sqrt(R(5))))<tol,"tiny-scale normalization remains stable");
   for(int invalid=0;invalid<4;++invalid) {
     auto m=tcapi::zeros<T>(ctx,{2,2});
     tcapi::for_each_with_coors(ctx,m,[&](auto& v,const auto& c){
@@ -48,6 +58,9 @@ template<class E> void run(MPI_Comm comm) {
     });
     bool caught=false;try{tnbp::FixMessageTracePhase(ctx,m,"test-edge");}catch(const std::domain_error& e){caught=std::string(e.what()).find("test-edge")!=std::string::npos;}
     check(caught,"invalid trace diagnostic");
+    caught=false;
+    try{tnbp::NormalizeMessage(ctx,m);}catch(const std::domain_error&){caught=true;}
+    check(caught,"combined normalization retains invalid-message rejection");
   }
   int rank,size;MPI_Comm_rank(comm,&rank);MPI_Comm_size(comm,&size);
   std::vector<std::pair<int,int>> edges={{0,1},{0,2},{1,2}};
@@ -61,7 +74,9 @@ template<class E> void run(MPI_Comm comm) {
   for(int i=0;i<2*edgeids.size();++i)e.push_back(tcapi::eye<T>(ctx,2));
   R residual=0;
   for(int k=0;k<60;++k) {
-    tnbp::BeliefPropagation(ctx,edges,v,sites,owners,edges,e,edgeids,comm,f);e=std::move(f);
+    // Keep the previous messages in f, exercising the buffers reused by apps.
+    tnbp::BeliefPropagation(ctx,edges,v,sites,owners,edges,e,edgeids,comm,f);
+    e.swap(f);
     tnbp::BeliefPropagationCondition(ctx,edges,v,sites,owners,e,edgeids,comm,residual);
     if(residual<tol)break;
   }
@@ -79,6 +94,7 @@ template<class E> void run(MPI_Comm comm) {
   R shifted=0;tnbp::BeliefPropagationCondition(ctx,edges,v,sites,owners,e,edgeids,comm,shifted);
   check(std::abs(shifted-residual)<tol,"phase invariant BP residual");
   std::stringstream checkpoint(std::ios::in|std::ios::out|std::ios::binary);
+  for(auto& m:e)tcapi::scale(ctx,m,E(3)); // Legacy checkpoint with non-unit messages.
   tnbp::SaveTPS(ctx,checkpoint,v,sites,owners,e,edgeids);
   auto payload=checkpoint.str();
   for(bool legacy:{false,true}) {
@@ -87,6 +103,13 @@ template<class E> void run(MPI_Comm comm) {
     std::vector<T> vr,er,fr;std::vector<int> sr,ir;std::map<int,int> mr;
     tnbp::BPCheckpointMetadata metadata;
     tnbp::LoadTPS(ctx,input,vr,sr,mr,er,ir,&metadata);
+    for(const auto& m:er) {
+      check(std::abs(tcapi::norm(ctx,m)-R(1))<tol,"restart unit-norm messages");
+      T trace;tcapi::trace(ctx,m,{{0,1}},trace);
+      const E value=scalar(ctx,trace);
+      check(std::real(value)>0 && std::abs(std::imag(value))<tol,"restart positive-real trace");
+    }
+
     check(metadata.source_fingerprint.find("fnv1a64:")==0,"checkpoint source fingerprint");
     check(metadata.source_algorithm==(legacy?"legacy-unspecified":tnbp::BPAlgorithm),"algorithm provenance");
     auto resumed=tnbp::Measure(ctx,edges,vr,sr,mr,er,ir,comm,std::vector<int>{0,1,2},observables);
