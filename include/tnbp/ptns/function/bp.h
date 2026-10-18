@@ -182,17 +182,7 @@ namespace tnbp {
 	  IdxT[BondIdxA] = static_cast<BondLabelT>(0);
 	  IdxA[BondIdxA] = static_cast<BondLabelT>(1);
 	  tcapi::contract(ctx,T,IdxT,AdagA,IdxA,AdagA,IdxN);
-	  auto norm_aa = tcapi::normalize(ctx,AdagA);
-          FixMessageTracePhase(ctx,AdagA,"BP edge="+std::to_string(TargetEdgeIdx)+" source="+std::to_string(SiteA),comm);
-	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
-				 TargetEdgeIdx);
-	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
-	  if( I[TargetEdgeIdx].first == SiteA ) {
-	    F[MpT] = tcapi::copy(ctx,AdagA);
-	  } else {
-	    F[MpT+size_e] = tcapi::copy(ctx,AdagA);
-	  }
-	  
+          NormalizeMessage(ctx,AdagA,comm,"BP edge="+std::to_string(TargetEdgeIdx)+" source="+std::to_string(SiteA));
 	}
 
 	if( type == 3 || type == 1 ) {
@@ -234,55 +224,34 @@ namespace tnbp {
 	  IdxT[BondIdxB] = static_cast<BondLabelT>(0);
 	  IdxB[BondIdxB] = static_cast<BondLabelT>(1);
 	  tcapi::contract(ctx,T,IdxT,BdagB,IdxB,BdagB,IdxN);
-	  auto norm_bb = tcapi::normalize(ctx,BdagB);
-          FixMessageTracePhase(ctx,BdagB,"BP edge="+std::to_string(TargetEdgeIdx)+" source="+std::to_string(SiteB),comm);
-	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
-				 TargetEdgeIdx);
-	  int MpT = std::distance(EdgeIdx.begin(),itMpT);
-	  if( I[TargetEdgeIdx].first == SiteB ) {
-	    F[MpT] = tcapi::copy(ctx,BdagB);
-	  } else {
-	    F[MpT+size_e] = tcapi::copy(ctx,BdagB);
-	  }
-	  
+          NormalizeMessage(ctx,BdagB,comm,"BP edge="+std::to_string(TargetEdgeIdx)+" source="+std::to_string(SiteB));
 	}
 
-	if( type == 1 ) {
-	  MpiSend(ctx,BdagB,MpiRankA,comm);
-	}
-	if( type == 2 ) {
-	  MpiRecv(ctx,BdagB,MpiRankB,comm);
-	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
-				 TargetEdgeIdx);
-	  auto MpT = std::distance(EdgeIdx.begin(),itMpT);
-	  if( I[TargetEdgeIdx].first == SiteB ) {
-	    F[MpT] = tcapi::copy(ctx,BdagB);
-	  } else {
-	    F[MpT+size_e] = tcapi::copy(ctx,BdagB);
-	  }
-	}
+        if( type == 1 ) MpiSend(ctx,BdagB,MpiRankA,comm);
+        if( type == 2 ) MpiRecv(ctx,BdagB,MpiRankB,comm);
+        if( type == 2 ) MpiSend(ctx,AdagA,MpiRankB,comm);
+        if( type == 1 ) MpiRecv(ctx,AdagA,MpiRankA,comm);
 
-	if( type == 2 ) {
-	  MpiSend(ctx,AdagA,MpiRankB,comm);
-	}
-	if( type == 1 ) {
-	  MpiRecv(ctx,AdagA,MpiRankA,comm);
-	  auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),
-				 TargetEdgeIdx);
-	  auto MpT = std::distance(EdgeIdx.begin(),itMpT);
-	  if( I[TargetEdgeIdx].first == SiteA ) {
-	    F[MpT] = tcapi::copy(ctx,AdagA);
-	  } else {
-	    F[MpT+size_e] = tcapi::copy(ctx,AdagA);
-	  }
-	}
-	
+        // Both directions are now local, and all sends have consumed their
+        // input. Transfer ownership without copying the completed messages.
+        auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),TargetEdgeIdx);
+        auto MpT = std::distance(EdgeIdx.begin(),itMpT);
+        if( I[TargetEdgeIdx].first == SiteA ) {
+          F[MpT] = tcapi::move(ctx,AdagA);
+          F[MpT+size_e] = tcapi::move(ctx,BdagB);
+        } else {
+          F[MpT+size_e] = tcapi::move(ctx,AdagA);
+          F[MpT] = tcapi::move(ctx,BdagB);
+        }
+
       } // end if( type > 0 )
     } // end for(int m=0; m < J.size(); m++)
   }
 
   /**
-     Function to check belief propagation condition for tensor product state
+     Legacy fixed-point check: reconstruct predictions from current messages.
+     Kept for compatibility and diagnostic comparisons. New BP loops use
+     BeliefPropagationDifference on the actual previous/updated pair.
    */
   template <typename TenT>
   void BeliefPropagationCondition(context_handle_t<TenT> & ctx,
@@ -321,7 +290,7 @@ namespace tnbp {
 	    if( I[BondIdx[l]].first == SiteIdx[address] ) {
 	      EdgeAddress += num_e;
 	    }
-	    TenT F = tcapi::copy(ctx,E[EdgeAddress]);
+	    const TenT & F = E[EdgeAddress];
 	    List<BondLabelT> IdxE(2);
 	    List<BondLabelT> IdxV(OrderV);
 	    List<BondLabelT> IdxV_res(OrderV);
@@ -379,6 +348,55 @@ namespace tnbp {
 
 
   /**
+   * @brief Mean directed-edge distance between successive BP messages.
+   *
+   * Both inputs must satisfy the messenger invariant: unit Frobenius norm
+   * and positive-real trace. Only the source site's owner contributes each
+   * directed edge, so inter-rank replica slots are not counted twice. The
+   * scalar sum is reduced across comm and divided by 2*I.size(). No site
+   * tensors or new BP predictions are computed here.
+   *
+   * Call after the entire synchronous update has filled updated, before
+   * replacing previous. On convergence callers still commit updated. This
+   * stopping rule differs from the legacy BeliefPropagationCondition, which
+   * reconstructs another prediction from the already updated messages.
+   */
+  template<class TenT>
+  void BeliefPropagationDifference(context_handle_t<TenT>& ctx,
+      const std::vector<std::pair<int,int>>& I,
+      const std::map<int,int>& Site_To_MpiRank,
+      const std::vector<TenT>& previous,
+      const std::vector<TenT>& updated,
+      const std::vector<int>& EdgeIdx,
+      MPI_Comm comm, real_t<TenT>& result) {
+    using ElemT = elem_t<TenT>;
+    using RealT = real_t<TenT>;
+    const std::size_t n = EdgeIdx.size();
+    if(previous.size()!=2*n || updated.size()!=2*n)
+      throw std::invalid_argument("BP difference: message count must equal twice the local edge count");
+    int rank; MPI_Comm_rank(comm,&rank);
+    static bool logged=false;
+    if(!logged) {
+      if(rank==0) std::clog << "BP_CONVERGENCE successive-normalized-message-difference-v1" << std::endl;
+      logged=true;
+    }
+    RealT local=0;
+    const RealT volume=I.empty() ? RealT(0) : RealT(1)/(RealT(2)*RealT(I.size()));
+    for(std::size_t j=0;j<n;++j) {
+      const auto& edge=I.at(EdgeIdx[j]);
+      for(int direction=0;direction<2;++direction) {
+        const int source=direction ? edge.second : edge.first;
+        if(Site_To_MpiRank.at(source)!=rank) continue;
+        const std::size_t slot=j+direction*n;
+        TenT delta=tcapi::linear_combine<TenT>(ctx,
+            {std::cref(updated[slot]),std::cref(previous[slot])},{ElemT(1),ElemT(-1)});
+        local+=tcapi::norm(ctx,delta)*volume;
+      }
+    }
+    MPI_Allreduce(&local,&result,1,GetMpiType<RealT>(),MPI_SUM,comm);
+  }
+
+  /**
      Function to do the belief propagation for TensorProductState class
    */
   template <typename TenT>
@@ -393,7 +411,8 @@ namespace tnbp {
   }
 
   /**
-     Function to evaluate bp condition for TensorProductState class
+     Legacy fixed-point check wrapper for TensorProductState.
+     Reconstructs predictions; it is not the successive-message difference.
    */
   template <typename TenT>
   void BeliefPropagationCondition(context_handle_t<TenT> & ctx,

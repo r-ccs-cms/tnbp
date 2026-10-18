@@ -108,3 +108,19 @@ one/two GPUs. Loading and saving without further circuit application preserved
 checkpoint bytes for each rank. Continued nontrivial evolution, arbitrary
 restart options and cross-backend checkpoint loading have not been validated
 in this integration. See the [CUDA validation summary](../README.cuda.md#validation).
+
+## BP convergence
+
+BP stops when the mean directed-edge Frobenius distance between the previous
+and updated messages is below `--bp_tolerance`. Messages have unit Frobenius norm and positive-real trace at initialization,
+attach, truncation, restart loading and BP update boundaries. The check only
+subtracts successive messages and sums their Frobenius distances. The
+updated messages are committed even on the terminating iteration. Each
+directed edge contributes on its source site's owner and the scalar residual
+is combined with MPI Allreduce.
+
+This differs from the legacy fixed-point check, which constructs another
+prediction from the updated state. Iteration counts and final values can
+therefore differ at the same tolerance. The library keeps
+`BeliefPropagationCondition` for that legacy check; these app loops use
+`BeliefPropagationDifference`. No site-sized prefix cache is retained.

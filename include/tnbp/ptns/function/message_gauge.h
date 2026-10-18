@@ -19,17 +19,26 @@ inline constexpr const char* BPResidual = "mean-directed-edge-frobenius-distance
 // Select a scalar-phase representative only; this is not a PSD projection.
 // A null communicator allows callers to catch domain_error. Distributed BP
 // aborts its communicator on invalid messages, avoiding stranded peer receives.
+namespace detail {
+// Share trace validation between phase-only and normalized messages.
 template<class TenT>
-void FixMessageTracePhase(context_handle_t<TenT>& ctx, TenT& message,
-                          const std::string& location = "message",
-                          MPI_Comm comm = MPI_COMM_NULL) {
+void SetMessageTraceGauge(context_handle_t<TenT>& ctx, TenT& message,
+                                 bool normalize_message, const std::string& location,
+                                 MPI_Comm comm) {
   try {
   using Elem = elem_t<TenT>;
   using Real = real_t<TenT>;
   const auto shape = tcapi::shape(ctx,message);
   if (shape.size()!=2 || shape[0]!=shape[1])
     throw std::invalid_argument("trace-phase gauge requires a square rank-2 message");
-  const Real norm = tcapi::norm(ctx,message);
+  Real norm;
+  if (normalize_message) {
+    // normalize validates the measured norm and preserves backend tiny-scale handling.
+    tcapi::normalize(ctx,message);
+    norm = Real(1);
+  } else {
+    norm = tcapi::norm(ctx,message);
+  }
   TenT traced;
   tcapi::trace(ctx,message,{{0,1}},traced);
   // Empty coordinates address the logical rank-0 value, including lazy scale.
@@ -60,6 +69,15 @@ void FixMessageTracePhase(context_handle_t<TenT>& ctx, TenT& message,
   }
 }
 
+} // namespace detail
+
+template<class TenT>
+void FixMessageTracePhase(context_handle_t<TenT>& ctx, TenT& message,
+                          const std::string& location = "message",
+                          MPI_Comm comm = MPI_COMM_NULL) {
+  detail::SetMessageTraceGauge(ctx,message,false,location,comm);
+}
+
 template<class TenT>
 void FixMessageTraceGauges(context_handle_t<TenT>& ctx, std::vector<TenT>& messages,
                            const std::vector<int>& edges) {
@@ -69,4 +87,19 @@ void FixMessageTraceGauges(context_handle_t<TenT>& ctx, std::vector<TenT>& messa
     FixMessageTracePhase(ctx,messages[m],"checkpoint edge="+std::to_string(edges[m%edges.size()])+
                          " direction="+std::to_string(m/edges.size()));
 }
+// Messenger invariant at creation/replacement boundaries: unit Frobenius norm
+// and positive-real trace. This changes only the scalar representative.
+template<class TenT>
+void NormalizeMessage(context_handle_t<TenT>& ctx, TenT& message,
+                      MPI_Comm comm = MPI_COMM_NULL,
+                      const std::string& location = "message normalization") {
+  detail::SetMessageTraceGauge(ctx,message,true,location,comm);
+}
+
+template<class TenT>
+void NormalizeMessages(context_handle_t<TenT>& ctx, std::vector<TenT>& messages,
+                       MPI_Comm comm = MPI_COMM_NULL) {
+  for(auto& message : messages) NormalizeMessage(ctx,message,comm);
+}
+
 }

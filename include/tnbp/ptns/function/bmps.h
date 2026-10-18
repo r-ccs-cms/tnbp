@@ -387,7 +387,8 @@ namespace tnbp {
    * @param[in,out] edge_idx Messenger edge indices relative to the induced line
    * edge list; initialized with E when do_init is true.
    * @param[in] max_bp_steps Maximum BP iterations before truncation.
-   * @param[in] bp_tolerance Stop BP when its residual is strictly below this value.
+   * @param[in] bp_tolerance Stop BP when the mean normalized, trace-gauged successive-message
+   * distance is strictly below this value.
    * @param[in] max_bond_dim Maximum retained bond dimension passed to Truncation().
    * @param[in] sv_min Singular-value threshold passed to Truncation().
    * @param[in] tg_err Target truncation error passed to Truncation().
@@ -482,13 +483,10 @@ namespace tnbp {
 			  layering_edges[layer],
 			  E,edge_idx,comm,E_new);
       }
-      for(std::size_t me_adrs=0; me_adrs < E.size(); me_adrs++) {
-	E[me_adrs] = tcapi::copy(ctx,E_new[me_adrs]);
-      }
       RealT res_bp_err;
-      BeliefPropagationCondition(ctx,edges_for_bp,
-				 T,site_idx,site_to_mpi_rank,
-				 E,edge_idx,comm,res_bp_err);
+      BeliefPropagationDifference(ctx,edges_for_bp,site_to_mpi_rank,
+                                 E,E_new,edge_idx,comm,res_bp_err);
+      E.swap(E_new);
 #ifdef BMPS_DEBUG
       if( mpi_rank == 0 ) {
 	std::cout << " bp step " << step << ": error = " << res_bp_err << std::endl;

@@ -123,6 +123,15 @@ void state_near(std::vector<Complex> actual,const std::vector<Complex>& expected
     for(std::size_t i=0;i<actual.size();++i)near(actual[i]/std::sqrt(norm)/phase,expected[i],label);
 }
 void qasm_bp(Context& ctx,MPI_Comm comm) {
+    auto check_messages = [&](const std::vector<Tensor>& messages) {
+      for(const auto& m:messages) {
+        near(tcapi::norm(ctx,m),1,"messenger unit Frobenius norm");
+        Tensor trace; tcapi::trace(ctx,m,{{0,1}},trace);
+        const auto value=tcapi::get_elem(ctx,trace,{});
+        check(value.real()>0 && std::abs(value.imag())<1e-12,"messenger positive-real trace");
+      }
+    };
+
     const auto p=qasm::parse_any("OPENQASM 2.0; include \"qelib1.inc\"; qreg q[2]; h q[0]; cx q[0],q[1];");
     const auto edges=tnbp::EdgesFromQasm(p);
     check(edges==std::vector<std::pair<int,int>>{{0,1}},"QASM edge extraction");
@@ -131,7 +140,20 @@ void qasm_bp(Context& ctx,MPI_Comm comm) {
     check(op.size()==1 && grouped.size()==1,"QASM TPO layers");
     std::vector<Tensor> v,e; std::vector<int> sites,edgeids; std::map<int,int> owners;
     tnbp::InitTensorProductState(ctx,edges,{2,2},v,sites,owners,e,edgeids,comm);
+    check_messages(e);
     tnbp::AbsorbTPO(ctx,op[0],edges,v,sites,owners,e,edgeids,comm);
+    check_messages(e);
+    // Dimension > 1: initializer must produce I/sqrt(d), not raw I.
+    std::vector<Tensor> initialized; std::vector<int> initialized_edges;
+    tnbp::init_edge_messenger_tensors(ctx,edges,v,sites,owners,
+                                     initialized,initialized_edges,comm);
+    check_messages(initialized);
+    for(const auto& m:initialized) {
+      const auto shape=tcapi::shape(ctx,m);
+      for(Dim i=0;i<shape[0];++i)for(Dim j=0;j<shape[1];++j)
+        near(tcapi::get_elem(ctx,m,{i,j}),i==j ? Complex(1/std::sqrt(double(shape[0]))) : Complex(0),
+             "normalized identity initializer");
+    }
     const double h=1/std::sqrt(2.0);
     const std::vector<Complex> expected{h,0,0,h};
     auto before=amplitudes(ctx,v,sites,owners,comm);
@@ -143,6 +165,7 @@ void qasm_bp(Context& ctx,MPI_Comm comm) {
     std::vector<Tensor> local_op;
     for(int site:s2) local_op.push_back(tcapi::copy(ctx,grouped[0].at(site)));
     tnbp::AttachTPO(ctx,edges,local_op,v2,s2,o2,e2,ei2,comm);
+    check_messages(e2);
     const auto second=amplitudes(ctx,v2,s2,o2,comm);
     for(std::size_t i=0;i<4;++i)near(second[i],expected[i],"grouped QASM Bell amplitudes");
     std::vector<Tensor> updated;
@@ -153,6 +176,7 @@ void qasm_bp(Context& ctx,MPI_Comm comm) {
     check(std::isfinite(residual) && residual<1e-9,"BP tree fixed point");
     std::vector<Dim> dims; std::vector<double> errors;
     tnbp::Truncation(ctx,edges,v,sites,owners,e,edgeids,comm,Dim(2),0.0,0.0,dims,errors);
+    check_messages(e);
     check(!dims.empty(),"BP truncation produced dimensions");
     for(auto d:dims)check(d==2,"Bell retains Schmidt rank two");
     for(auto err:errors)near(err,0,"Bell no-discard error");
