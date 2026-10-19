@@ -17,6 +17,16 @@ template<class E> E phase(double x) {
   if constexpr(std::is_arithmetic_v<E>) return E(-1);
   else return std::polar(typename E::value_type(1),typename E::value_type(x));
 }
+// Rank-chain edge order would serialize 0-1, 1-2, 2-3. The schedule must
+// instead pair 0-1 with 2-3 first, including all edges of each rank pair.
+void check_communication_order() {
+  const std::vector<std::pair<int,int>> edges{{0,1},{1,2},{2,3},{3,0},{1,0},{4,4}};
+  const std::map<int,int> owners{{0,0},{1,1},{2,2},{3,3},{4,4}};
+  const std::vector<std::vector<int>> expected{{0,4,3},{0,4,1},{2,1},{2,3},{},{}};
+  for(int rank=0;rank<expected.size();++rank)
+    check(tnbp::MakeBPCommunicationOrder(edges,owners,rank)==expected[rank],
+          "disjoint rank pairs precede conflicting pairs; repeated pair edges stay together");
+}
 template<class E> void run(MPI_Comm comm) {
   using T=Tensor<E>; using R=tnbp::real_t<T>;
   tnbp::context_handle_t<T> ctx; tcapi::create_context(ctx);
@@ -72,10 +82,12 @@ template<class E> void run(MPI_Comm comm) {
   }
   for(int k=0;k<3;++k)if(owners[edges[k].first]==rank || owners[edges[k].second]==rank)edgeids.push_back(k);
   for(int i=0;i<2*edgeids.size();++i)e.push_back(tcapi::eye<T>(ctx,2));
+  const auto order=tnbp::MakeBPCommunicationOrder(edges,owners,rank);
   R residual=0;
   for(int k=0;k<60;++k) {
     // Keep the previous messages in f, exercising the buffers reused by apps.
-    tnbp::BeliefPropagation(ctx,edges,v,sites,owners,edges,e,edgeids,comm,f);
+    tnbp::UpdateBPMessages(ctx,edges,v,sites,e,edgeids,comm,f);
+    tnbp::ExchangeBPMessages(ctx,edges,owners,edgeids,order,comm,f);
     e.swap(f);
     tnbp::BeliefPropagationCondition(ctx,edges,v,sites,owners,e,edgeids,comm,residual);
     if(residual<tol)break;
@@ -114,19 +126,53 @@ template<class E> void run(MPI_Comm comm) {
     check(metadata.source_algorithm==(legacy?"legacy-unspecified":tnbp::BPAlgorithm),"algorithm provenance");
     auto resumed=tnbp::Measure(ctx,edges,vr,sr,mr,er,ir,comm,std::vector<int>{0,1,2},observables);
     for(std::size_t i=0;i<measured.size();++i)check(std::abs(measured[i]-resumed[i])<tol,"restart observable invariant");
-    tnbp::BeliefPropagation(ctx,edges,v,sites,owners,edges,e,edgeids,comm,f);
-    tnbp::BeliefPropagation(ctx,edges,vr,sr,mr,edges,er,ir,comm,fr);
+    tnbp::UpdateBPMessages(ctx,edges,v,sites,e,edgeids,comm,f);
+    tnbp::ExchangeBPMessages(ctx,edges,owners,edgeids,order,comm,f);
+    const auto resumed_order=tnbp::MakeBPCommunicationOrder(edges,mr,rank);
+    tnbp::UpdateBPMessages(ctx,edges,vr,sr,er,ir,comm,fr);
+    tnbp::ExchangeBPMessages(ctx,edges,mr,ir,resumed_order,comm,fr);
     for(std::size_t j=0;j<f.size();++j)check(tcapi::close(ctx,f[j],fr[j],tol),"continuous/restart message match");
   }
-  // Instantiate the public TPS overload too.
+  // The state overloads must agree with the explicit graph interfaces.
   tnbp::TensorProductState<T> state(ctx,v,edges,sites,owners,comm);
-  tnbp::BeliefPropagation(ctx,state,edges,e,edgeids,f);
+  std::vector<T> state_messages;
+  const auto state_order=tnbp::MakeBPCommunicationOrder(state);
+  check(state_order==order,"state boundary schedule matches explicit graph");
+  tnbp::UpdateBPMessages(ctx,state,e,edgeids,state_messages);
+  tnbp::ExchangeBPMessages(ctx,state,edgeids,state_order,state_messages);
+  for(std::size_t j=0;j<f.size();++j)
+    check(tcapi::close(ctx,f[j],state_messages[j],tol),"state message update matches explicit graph");
+  // Compatibility checks only: retain both legacy entry points for external apps.
+  std::vector<T> compatibility;
+  tnbp::BeliefPropagation(ctx,edges,v,sites,owners,edges,e,edgeids,comm,compatibility);
+  for(std::size_t j=0;j<f.size();++j)
+    check(tcapi::close(ctx,f[j],compatibility[j],tol),"legacy graph wrapper matches split update");
+  tnbp::BeliefPropagation(ctx,state,edges,e,edgeids,compatibility);
+  for(std::size_t j=0;j<f.size();++j)
+    check(tcapi::close(ctx,f[j],compatibility[j],tol),"legacy state wrapper matches split update");
+  // A subset call must preserve previously filled slots outside J.
+  compatibility.clear();
+  for(const auto& message:e) {
+    auto sentinel=tcapi::copy(ctx,message);
+    tcapi::scale(ctx,sentinel,E(2));
+    compatibility.push_back(std::move(sentinel));
+  }
+  const std::vector<std::pair<int,int>> subset{edges.front()};
+  tnbp::BeliefPropagation(ctx,state,subset,e,edgeids,compatibility);
+  for(std::size_t j=0;j<edgeids.size();++j)for(int direction=0;direction<2;++direction) {
+    const auto slot=j+direction*edgeids.size();
+    auto expected=tcapi::copy(ctx,edgeids[j]==0 ? f[slot] : e[slot]);
+    if(edgeids[j]!=0)tcapi::scale(ctx,expected,E(2));
+    check(tcapi::close(ctx,compatibility[slot],expected,tol),
+          "legacy subset updates selected edge and preserves other messages");
+  }
   if(rank==0)std::cout<<"PASS type_bytes="<<sizeof(E)<<" ranks="<<size<<" residual="<<residual<<std::endl;
 }
 int main(int argc,char**argv){MPI_Init(&argc,&argv);try{
 #ifdef TNBP_TEST_CUDA
 int rank;MPI_Comm_rank(MPI_COMM_WORLD,&rank);int n=0;cudaGetDeviceCount(&n);check(n>0,"CUDA device required");cudaSetDevice(rank%n);
 #endif
+check_communication_order();
 run<double>(MPI_COMM_WORLD);run<std::complex<double>>(MPI_COMM_WORLD);
 #ifndef TNBP_TEST_CUDA
 run<float>(MPI_COMM_WORLD);run<std::complex<float>>(MPI_COMM_WORLD);

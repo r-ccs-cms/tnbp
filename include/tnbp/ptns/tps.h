@@ -84,9 +84,25 @@ namespace tnbp {
 		     std::vector<TenT_> & E,
 		     std::vector<int> & EdgeIdx);
 
-    /**
-       Function to calculate messenger tensors for belief propagation
-     */
+    /** New BP interfaces for the state-owned graph, sites and communicator. */
+    template <typename TenT_>
+    friend std::vector<int> MakeBPCommunicationOrder(const TensorProductState<TenT_>& W);
+
+    template <typename TenT_>
+    friend void UpdateBPMessages(context_handle_t<TenT_>& ctx,
+                                const TensorProductState<TenT_>& W,
+                                const std::vector<TenT_>& E,
+                                const std::vector<int>& EdgeIdx,
+                                std::vector<TenT_>& F);
+
+    template <typename TenT_>
+    friend void ExchangeBPMessages(context_handle_t<TenT_>& ctx,
+                                  const TensorProductState<TenT_>& W,
+                                  const std::vector<int>& EdgeIdx,
+                                  const std::vector<int>& order,
+                                  std::vector<TenT_>& F);
+
+    /** Legacy subset-update interface retained for external applications. */
     template <typename TenT_>
     friend void BeliefPropagation(context_handle_t<TenT_> & ctx,
 			     const TensorProductState<TenT_> & W,

@@ -401,8 +401,9 @@ namespace tnbp {
    * When reusing E/edge_idx, they must match the induced graph and current dimensions.
    *
    * Extract the edges with both endpoints in lines. Temporarily transpose each
-   * line tensor so these internal axes precede external axes, run BP using greedy
-   * edge layers, then call Truncation() on the induced graph. On normal return,
+   * line tensor so these internal axes precede external axes, run BP with local
+   * message updates followed by rank-pair boundary exchanges, then call
+   * Truncation() on the induced graph. On normal return,
    * restore tensor axes to the original incident-edge order. External axes are
    * not truncated. Reaching max_bp_steps still proceeds to truncation; convergence
    * is not required, and zero steps skips BP updates.
@@ -474,15 +475,12 @@ namespace tnbp {
 				  site_idx,site_to_mpi_rank,
 				  E,edge_idx,comm);
     }
-    auto layering_edges = GreedyEdgeLayering(edges_for_bp);
+    int bp_rank; MPI_Comm_rank(comm,&bp_rank);
+    const auto bp_order=MakeBPCommunicationOrder(edges_for_bp,site_to_mpi_rank,bp_rank);
     for(StepT step=0; step < max_bp_steps; step++) {
       std::vector<TenT> E_new;
-      for(std::size_t layer=0; layer < layering_edges.size(); layer++) {
-	BeliefPropagation(ctx,edges_for_bp,
-			  T,site_idx,site_to_mpi_rank,
-			  layering_edges[layer],
-			  E,edge_idx,comm,E_new);
-      }
+      UpdateBPMessages(ctx,edges_for_bp,T,site_idx,E,edge_idx,comm,E_new);
+      ExchangeBPMessages(ctx,edges_for_bp,site_to_mpi_rank,edge_idx,bp_order,comm,E_new);
       RealT res_bp_err;
       BeliefPropagationDifference(ctx,edges_for_bp,site_to_mpi_rank,
                                  E,E_new,edge_idx,comm,res_bp_err);

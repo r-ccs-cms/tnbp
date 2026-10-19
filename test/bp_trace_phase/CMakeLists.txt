@@ -1,7 +1,7 @@
 add_executable(bp_trace_phase main.cc)
 target_link_libraries(bp_trace_phase PRIVATE tnbp_test_backend)
 if(BUILD_TESTING AND TNBP_TEST_BACKEND STREQUAL "cpu")
-  foreach(ranks IN ITEMS 1 2)
+  foreach(ranks IN ITEMS 1 2 3 4)
     add_test(NAME bp_trace_phase_${ranks}_rank COMMAND ${MPIEXEC_EXECUTABLE}
       ${MPIEXEC_NUMPROC_FLAG} ${ranks} ${MPIEXEC_PREFLAGS}
       $<TARGET_FILE:bp_trace_phase> ${MPIEXEC_POSTFLAGS})
