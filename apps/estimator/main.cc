@@ -40,14 +40,11 @@ int main(int argc, char * argv[]) {
   ContextHandle ctx;
   tcapi::create_context(ctx);
   std::vector<std::pair<int,int>> edges;
-  std::vector<std::vector<std::pair<int,int>>> layer_edges;
   
   if( options.backend == std::string("ibm_kobe") ) {
     edges = tnbp::bond_ibm_kobe();
-    layer_edges = tnbp::parallel_bond_ibm_kobe();
   } else if ( options.backend == std::string("default") ) {
     edges = tnbp::EdgesFromQasm(qasm_program);
-    layer_edges = tnbp::GreedyEdgeLayering(edges);
   }
 
   if( mpi_rank == mpi_master ) {
@@ -57,16 +54,6 @@ int main(int argc, char * argv[]) {
       std::cout << " (" << u << "," << v << ")";
     }
     std::cout << std::endl;
-    int m=0;
-    for(const auto & layer : layer_edges) {
-      std::cout << " " << tnbp::make_timestamp()
-		<< " layer " << m << " edges:";
-      for(const auto & [u,v] : layer) {
-	std::cout << " (" << u << "," << v << ")";
-      }
-      std::cout << std::endl;
-      m++;
-    }
     
     std::cout << " " << tnbp::make_timestamp()
 	      << " Start TPO construction for quantum circuit " << std::endl;
@@ -119,6 +106,7 @@ int main(int argc, char * argv[]) {
 	      << " Start circuit contractions " << std::endl;
   }
   
+  const auto bp_order=tnbp::MakeBPCommunicationOrder(edges,Site_To_MpiRank,mpi_rank);
   for(size_t t=0; t < TPO.size(); t++) {
     /**
        Attach operator tensor to site tensor
@@ -133,13 +121,8 @@ int main(int argc, char * argv[]) {
      */
     for(size_t k=0; k < options.max_bp_iterations; k++) {
       
-      for(size_t p=0; p < layer_edges.size(); p++) {
-	tnbp::BeliefPropagation(
-	      ctx,edges,V,SiteIdx,
-	      Site_To_MpiRank,
-	      layer_edges[p],E,EdgeIdx,
-	      comm,F);
-      }
+      tnbp::UpdateBPMessages(ctx,edges,V,SiteIdx,E,EdgeIdx,comm,F);
+      tnbp::ExchangeBPMessages(ctx,edges,Site_To_MpiRank,EdgeIdx,bp_order,comm,F);
       // Compare before committing the complete synchronous update.
       tnbp::BeliefPropagationDifference(ctx,edges,Site_To_MpiRank,
                                             E,F,EdgeIdx,comm,tolerance);

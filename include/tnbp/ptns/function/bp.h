@@ -15,6 +15,7 @@
 #include <map>
 #include <numeric>
 #include <ostream>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -25,55 +26,140 @@
 
 namespace tnbp {
 
-/**
- * @brief Perform a belief propagation (BP) step on a tensor network state.
- *
- * @details Each site is associated with a site tensor that has some
- *          physical bonds. In the BP procedure, messenger tensors are defined
- *          on the doubled virtual bonds obtained by contracting the physical
- *          bonds of each site. Consequently, each messenger tensor has order 2.
- *
- * @param[in] ctx
- *     Context handle for TCI functionality.
- *
- * @param[in] I
- *     Global graph structure defined as an edge list (std::vector<std::pair<int,int>>).
- *     Each pair represents an virtual bond between two sites.
- *
- * @param[in] V
- *     Site tensors managed by this MPI process
- *     (std::vector<TenT>, where TenT denotes the tensor type).
- *
- * @param[in] SiteIdx
- *     Indices of the sites managed by this MPI process, given in terms of
- *     their global site labels.
-  *     
- * @param[in] Site_To_MpiRank
- *     Array mapping site labels to the MPI rank that manages them.
- *     Accessing Site_To_MpiRank[site_label] gives the MPI process
- *     responsible for the site identified by `site_label`.
- *
- * @param[in] edges
- *     Subset of edges used to compute messenger tensors in the BP step.
- *     Only non-overlapping edges are selected to allow parallel execution.
- *
- * @param[in] local_messages
- *     Messenger tensors around the site tensors managed by this MPI process.
- *     On boundaries between MPI processes, these messenger tensors are
- *     shared across processes.
- *
- * @param[in] edge_labels
- *     Edge labels corresponding to the messenger tensors above.
- *     These are identifiers of the edges, not the edge objects themselves.
- *
- * @param[in] comm
- *     The global MPI communicator including all processes participating
- *     in the belief propagation step.
- *
- * @param[out] updated_messages
- *     The updated messenger tensors. These have the same structure and
- *     correspondence as the input messenger tensors, but are returned
- *     separately without modifying the originals.
+/** Build a local boundary-edge schedule from disjoint rank-pair rounds.
+ * All ranks derive identical rounds from the shared graph/ownership. Each
+ * round greedily selects rank pairs without reusing a rank, and exchanges all
+ * edges of each selected pair in global edge order. Only this rank's edges
+ * are retained. Rebuild when graph or ownership changes, not bond dimensions.
+ */
+inline std::vector<int> MakeBPCommunicationOrder(
+    const std::vector<std::pair<int,int>>& I,
+    const std::map<int,int>& owners, int rank) {
+  std::map<std::pair<int,int>,std::vector<int>> pending;
+  for(std::size_t edge=0; edge<I.size(); ++edge) {
+    const int a=owners.at(I[edge].first), b=owners.at(I[edge].second);
+    if(a!=b) pending[{std::min(a,b),std::max(a,b)}].push_back(static_cast<int>(edge));
+  }
+  std::vector<int> result;
+  while(!pending.empty()) {
+    std::set<int> used;
+    for(auto it=pending.begin(); it!=pending.end();) {
+      const auto pair=it->first;
+      if(used.count(pair.first) || used.count(pair.second)) {
+        ++it;
+        continue;
+      }
+      used.insert(pair.first);
+      used.insert(pair.second);
+      if(rank==pair.first || rank==pair.second)
+        result.insert(result.end(),it->second.begin(),it->second.end());
+      it=pending.erase(it);
+    }
+  }
+  return result;
+}
+
+/** Compute all locally sourced messages from immutable E into F.
+ * F uses the same two-direction layout as E; remote-source slots are filled
+ * by ExchangeBPMessages. Intermediate normalization follows the legacy update.
+ */
+template<typename TenT>
+void UpdateBPMessages(context_handle_t<TenT>& ctx,
+    const std::vector<std::pair<int,int>>& I, const std::vector<TenT>& V,
+    const std::vector<int>& SiteIdx, const std::vector<TenT>& E,
+    const std::vector<int>& EdgeIdx, MPI_Comm comm, std::vector<TenT>& F) {
+  using BondLabelT=typename tcapi::tensor_traits<TenT>::bond_label_t;
+  int rank; MPI_Comm_rank(comm,&rank);
+  static bool logged=false;
+  if(!logged) {
+    if(rank==0) std::clog << "BP_ALGORITHM " << BPAlgorithm << " gauge=" << BPGauge
+                         << " residual=" << BPResidual << std::endl;
+    logged=true;
+  }
+  const std::size_t size_e=EdgeIdx.size();
+  F.resize(2*size_e);
+  for(std::size_t address=0; address<SiteIdx.size(); ++address) {
+    const int site=SiteIdx[address];
+    const auto bonds=GetSurroundingBondIndex(site,I);
+    for(std::size_t target=0; target<bonds.size(); ++target) {
+      const int edge=bonds[target];
+      TenT message;
+      TenT T = tcapi::copy(ctx,V[address]);
+      auto order_v = tcapi::order(ctx,T);
+      List<BondLabelT> idx_v(order_v);
+      List<BondLabelT> idx_e(2);
+      List<BondLabelT> idx_result(order_v);
+
+      for(int k=0; k < bonds.size(); k++) {
+        auto it_message = std::find(EdgeIdx.begin(),EdgeIdx.end(),
+                               bonds[k]);
+        int message_slot = std::distance(EdgeIdx.begin(),it_message);
+        if( k != target ) {
+          std::iota(idx_v.begin(),idx_v.end(),0);
+          std::iota(idx_result.begin(),idx_result.end(),0);
+          idx_v[k] = static_cast<BondLabelT>(-1);
+          idx_e[0] = static_cast<BondLabelT>(-1);
+          idx_e[1] = static_cast<BondLabelT>(k);
+          if( I[bonds[k]].first == site ) {
+            tcapi::contract(ctx,T,idx_v,E[message_slot+size_e],idx_e,T,idx_result);
+          } else {
+            tcapi::contract(ctx,T,idx_v,E[message_slot],idx_e,T,idx_result);
+          }
+        }
+        tcapi::normalize(ctx,T);
+      }
+      message = tcapi::copy(ctx,V[address]);
+      tcapi::cplx_conj(ctx,message);
+
+      List<BondLabelT> idx_t(order_v);
+      List<BondLabelT> idx_message(2);
+      std::iota(idx_v.begin(),idx_v.end(),-order_v);
+      std::iota(idx_t.begin(),idx_t.end(),-order_v);
+      std::iota(idx_message.begin(),idx_message.end(),0);
+      idx_t[target] = static_cast<BondLabelT>(0);
+      idx_v[target] = static_cast<BondLabelT>(1);
+      tcapi::contract(ctx,T,idx_t,message,idx_v,message,idx_message);
+      NormalizeMessage(ctx,message,comm,"BP edge="+std::to_string(edge)+" source="+std::to_string(site));
+      const auto pos=std::find(EdgeIdx.begin(),EdgeIdx.end(),edge);
+      const std::size_t slot=std::distance(EdgeIdx.begin(),pos)
+          +(I[edge].second==site ? size_e : 0);
+      F[slot]=tcapi::move(ctx,message);
+    }
+  }
+}
+
+/** Exchange only boundary messages after local computation has completed.
+ * order must come from MakeBPCommunicationOrder: disjoint rank pairs within
+ * each shared round, with matching edge order at both endpoints. The first
+ * endpoint sends then receives; the second receives then sends. Blocking
+ * dependencies cannot cycle; independent pairs may communicate concurrently.
+ * No round barrier is needed (rounds may overlap in time).
+ */
+template<typename TenT>
+void ExchangeBPMessages(context_handle_t<TenT>& ctx,
+    const std::vector<std::pair<int,int>>& I,
+    const std::map<int,int>& owners, const std::vector<int>& EdgeIdx,
+    const std::vector<int>& order, MPI_Comm comm, std::vector<TenT>& F) {
+  int rank; MPI_Comm_rank(comm,&rank);
+  const std::size_t n=EdgeIdx.size();
+  for(const int edge:order) {
+    const int a=owners.at(I[edge].first), b=owners.at(I[edge].second);
+    const std::size_t slot=std::distance(EdgeIdx.begin(),
+        std::find(EdgeIdx.begin(),EdgeIdx.end(),edge));
+    if(rank==a) {
+      MpiSend(ctx,F[slot],b,comm);
+      MpiRecv(ctx,F[slot+n],b,comm);
+    } else {
+      MpiRecv(ctx,F[slot],a,comm);
+      MpiSend(ctx,F[slot+n],a,comm);
+    }
+  }
+}
+
+/** Compatibility entry point for subset-edge updates.
+ * Computes local predictions into a temporary buffer, but exchanges and commits
+ * only J. Repeated full sweeps should use UpdateBPMessages/ExchangeBPMessages
+ * directly to avoid recomputing predictions for each legacy layer.
  */
   template <typename TenT>
   void BeliefPropagation(context_handle_t<TenT> & ctx,
@@ -86,166 +172,24 @@ namespace tnbp {
 			 const std::vector<int> & EdgeIdx,
 			 MPI_Comm comm,
 			 std::vector<TenT> & F) {
-    
-    using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
-    using RealT = typename tcapi::tensor_traits<TenT>::real_t;
-    using BondLabelT  = typename tcapi::tensor_traits<TenT>::bond_label_t;
 
-    int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
-    int mpi_size; MPI_Comm_size(comm,&mpi_size);
-
-    static bool logged=false;
-    if (!logged) {
-      if (mpi_rank==0) std::clog << "BP_ALGORITHM " << BPAlgorithm << " gauge=" << BPGauge
-                               << " residual=" << BPResidual << std::endl;
-      logged=true;
+    std::vector<TenT> all;
+    UpdateBPMessages(ctx,I,V,SiteIdx,E,EdgeIdx,comm,all);
+    int rank; MPI_Comm_rank(comm,&rank);
+    auto order=MakeBPCommunicationOrder(I,Site_To_MpiRank,rank);
+    auto selected=[&](int edge) {
+      return std::any_of(J.begin(),J.end(),[&](const auto& pair) {
+        return pair==I[edge] || (pair.first==I[edge].second && pair.second==I[edge].first);
+      });
+    };
+    order.erase(std::remove_if(order.begin(),order.end(),
+        [&](int edge){return !selected(edge);}),order.end());
+    ExchangeBPMessages(ctx,I,Site_To_MpiRank,EdgeIdx,order,comm,all);
+    F.resize(2*EdgeIdx.size());
+    for(std::size_t j=0;j<EdgeIdx.size();++j) if(selected(EdgeIdx[j])) {
+      F[j]=tcapi::move(ctx,all[j]);
+      F[j+EdgeIdx.size()]=tcapi::move(ctx,all[j+EdgeIdx.size()]);
     }
-    std::size_t size_e = EdgeIdx.size();
-    F.resize(2*size_e);
-
-    for(int m=0; m < J.size(); m++) {
-      int SiteA = J[m].first;
-      int SiteB = J[m].second;
-      int MpiRankA = Site_To_MpiRank.at(SiteA);
-      int MpiRankB = Site_To_MpiRank.at(SiteB);
-      int type = 0;
-
-      if( MpiRankA == mpi_rank ) {
-	type += 2;
-      }
-      if( MpiRankB == mpi_rank ) {
-	type += 1;
-      }
-
-      if( type > 0 ) {
-	std::vector<int> EdgeIdxA = GetSurroundingBondIndex(SiteA,I);
-	std::vector<int> EdgeIdxB = GetSurroundingBondIndex(SiteB,I);
-	int TargetEdgeIdx = 0;
-	int BondIdxA = 0;
-
-	for(int k=0; k < EdgeIdxA.size(); k++) {
-	  if( (I[EdgeIdxA[k]].first == SiteA)
-	      && ( I[EdgeIdxA[k]].second == SiteB ) ) {
-	    TargetEdgeIdx = EdgeIdxA[k];
-	    BondIdxA = k;
-	  } else if ( (I[EdgeIdxA[k]].first == SiteB)
-		      && ( I[EdgeIdxA[k]].second == SiteA) ) {
-	    TargetEdgeIdx = EdgeIdxA[k];
-	    BondIdxA = k;
-	  }
-	}
-
-	auto itBondIdxB = std::find(EdgeIdxB.begin(),EdgeIdxB.end(),
-				    TargetEdgeIdx);
-	int BondIdxB = std::distance(EdgeIdxB.begin(),itBondIdxB);
-
-	int AddressA;
-	int AddressB;
-	TenT AdagA;
-	TenT BdagB;
-
-	if( type == 3 || type == 2 ) {
-	  auto itAddressA = std::find(SiteIdx.begin(),SiteIdx.end(),SiteA);
-	  AddressA = std::distance(SiteIdx.begin(),itAddressA);
-	  TenT T = tcapi::copy(ctx,V[AddressA]);
-	  auto OrderA = tcapi::order(ctx,T);
-	  List<BondLabelT> IdxA(OrderA);
-	  List<BondLabelT> IdxE(2);
-	  List<BondLabelT> IdxA_res(OrderA);
-
-	  for(int k=0; k < EdgeIdxA.size(); k++) {
-	    auto itMpA = std::find(EdgeIdx.begin(),EdgeIdx.end(),
-				   EdgeIdxA[k]);
-	    int MpA = std::distance(EdgeIdx.begin(),itMpA);
-	    if( k != BondIdxA ) {
-	      std::iota(IdxA.begin(),IdxA.end(),0);
-	      std::iota(IdxA_res.begin(),IdxA_res.end(),0);
-	      IdxA[k] = static_cast<BondLabelT>(-1);
-	      IdxE[0] = static_cast<BondLabelT>(-1);
-	      IdxE[1] = static_cast<BondLabelT>(k);
-	      if( I[EdgeIdxA[k]].first == SiteA ) {
-		tcapi::contract(ctx,T,IdxA,E[MpA+size_e],IdxE,T,IdxA_res);
-	      } else {
-		tcapi::contract(ctx,T,IdxA,E[MpA],IdxE,T,IdxA_res);
-	      }
-	    }
-	    auto norm_a = tcapi::normalize(ctx,T);
-	  }
-	  AdagA = tcapi::copy(ctx,V[AddressA]);
-	  tcapi::cplx_conj(ctx,AdagA);
-	  
-	  List<BondLabelT> IdxT(OrderA);
-	  List<BondLabelT> IdxN(2);
-	  std::iota(IdxA.begin(),IdxA.end(),-OrderA);
-	  std::iota(IdxT.begin(),IdxT.end(),-OrderA);
-	  std::iota(IdxN.begin(),IdxN.end(),0);
-	  IdxT[BondIdxA] = static_cast<BondLabelT>(0);
-	  IdxA[BondIdxA] = static_cast<BondLabelT>(1);
-	  tcapi::contract(ctx,T,IdxT,AdagA,IdxA,AdagA,IdxN);
-          NormalizeMessage(ctx,AdagA,comm,"BP edge="+std::to_string(TargetEdgeIdx)+" source="+std::to_string(SiteA));
-	}
-
-	if( type == 3 || type == 1 ) {
-
-	  auto itAddressB = std::find(SiteIdx.begin(),SiteIdx.end(),SiteB);
-	  AddressB = std::distance(SiteIdx.begin(),itAddressB);
-	  TenT T = tcapi::copy(ctx,V[AddressB]);
-	  auto OrderB = tcapi::order(ctx,T);
-	  List<BondLabelT> IdxB(OrderB);
-	  List<BondLabelT> IdxE(2);
-	  List<BondLabelT> IdxB_res(OrderB);
-
-	  for(int k=0; k < EdgeIdxB.size(); k++) {
-	    auto itMpB = std::find(EdgeIdx.begin(),EdgeIdx.end(),
-				   EdgeIdxB[k]);
-	    int MpB = std::distance(EdgeIdx.begin(),itMpB);
-	    if( k != BondIdxB ) {
-	      std::iota(IdxB.begin(),IdxB.end(),0);
-	      std::iota(IdxB_res.begin(),IdxB_res.end(),0);
-	      IdxB[k] = static_cast<BondLabelT>(-1);
-	      IdxE[0] = static_cast<BondLabelT>(-1);
-	      IdxE[1] = static_cast<BondLabelT>(k);
-	      if( I[EdgeIdxB[k]].first == SiteB ) {
-		tcapi::contract(ctx,T,IdxB,E[MpB+size_e],IdxE,T,IdxB_res);
-	      } else {
-		tcapi::contract(ctx,T,IdxB,E[MpB],IdxE,T,IdxB_res);
-	      }
-	    }
-	    auto norm_b = tcapi::normalize(ctx,T);
-	  }
-	  BdagB = tcapi::copy(ctx,V[AddressB]);
-	  tcapi::cplx_conj(ctx,BdagB);
-	  
-	  List<BondLabelT> IdxT(OrderB);
-	  List<BondLabelT> IdxN(2);
-	  std::iota(IdxB.begin(),IdxB.end(),-OrderB);
-	  std::iota(IdxT.begin(),IdxT.end(),-OrderB);
-	  std::iota(IdxN.begin(),IdxN.end(),0);
-	  IdxT[BondIdxB] = static_cast<BondLabelT>(0);
-	  IdxB[BondIdxB] = static_cast<BondLabelT>(1);
-	  tcapi::contract(ctx,T,IdxT,BdagB,IdxB,BdagB,IdxN);
-          NormalizeMessage(ctx,BdagB,comm,"BP edge="+std::to_string(TargetEdgeIdx)+" source="+std::to_string(SiteB));
-	}
-
-        if( type == 1 ) MpiSend(ctx,BdagB,MpiRankA,comm);
-        if( type == 2 ) MpiRecv(ctx,BdagB,MpiRankB,comm);
-        if( type == 2 ) MpiSend(ctx,AdagA,MpiRankB,comm);
-        if( type == 1 ) MpiRecv(ctx,AdagA,MpiRankA,comm);
-
-        // Both directions are now local, and all sends have consumed their
-        // input. Transfer ownership without copying the completed messages.
-        auto itMpT = std::find(EdgeIdx.begin(),EdgeIdx.end(),TargetEdgeIdx);
-        auto MpT = std::distance(EdgeIdx.begin(),itMpT);
-        if( I[TargetEdgeIdx].first == SiteA ) {
-          F[MpT] = tcapi::move(ctx,AdagA);
-          F[MpT+size_e] = tcapi::move(ctx,BdagB);
-        } else {
-          F[MpT+size_e] = tcapi::move(ctx,AdagA);
-          F[MpT] = tcapi::move(ctx,BdagB);
-        }
-
-      } // end if( type > 0 )
-    } // end for(int m=0; m < J.size(); m++)
   }
 
   /**
@@ -263,7 +207,7 @@ namespace tnbp {
 				  const std::vector<int> & EdgeIdx,
 				  MPI_Comm comm,
 				  real_t<TenT> & result) {
-    
+
     using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
     using RealT = typename tcapi::tensor_traits<TenT>::real_t;
     using RealTenT = typename tcapi::tensor_traits<TenT>::real_ten_t;
@@ -303,11 +247,11 @@ namespace tnbp {
 	    auto norm_v = tcapi::normalize(ctx,T);
 	  }
 	} // end for(std::size_t l=0; l < BondIdx.size(); l++)
-	
+
 #ifdef BP_DEBUG
 	std::cout << " belief propagation: Before physical contruction " << std::endl;
 #endif
-	
+
 	TenT C = tcapi::copy(ctx,V[address]);
 	tcapi::cplx_conj(ctx,C);
 	List<BondLabelT> IdxV(OrderV);
@@ -340,7 +284,7 @@ namespace tnbp {
 	TenT D = tcapi::linear_combine<TenT>(ctx,{std::cref(T),std::cref(F)},{ElemT(1.0),ElemT(-1.0)});
 	RealT NormD = tcapi::norm(ctx,D);
 	result_rank += NormD * result_volume;
-	
+
       } // end for(std::size_t k=0; k < BondIdx.size(); k++)
     } // end for(int address=0; address < SiteIdx.size(); address++)
     MPI_Allreduce(&result_rank,&result,1,GetMpiType<RealT>(),MPI_SUM,comm);
@@ -396,8 +340,34 @@ namespace tnbp {
     MPI_Allreduce(&local,&result,1,GetMpiType<RealT>(),MPI_SUM,comm);
   }
 
-  /**
-     Function to do the belief propagation for TensorProductState class
+  /** Build the boundary schedule for a TensorProductState. */
+  template <typename TenT>
+  std::vector<int> MakeBPCommunicationOrder(const TensorProductState<TenT>& W) {
+    return MakeBPCommunicationOrder(W.I_,W.Site_To_MpiRank_,W.mpi_rank_);
+  }
+
+  /** Compute local messages using the state-owned communicator. */
+  template <typename TenT>
+  void UpdateBPMessages(context_handle_t<TenT>& ctx,
+                        const TensorProductState<TenT>& W,
+                        const std::vector<TenT>& E,
+                        const std::vector<int>& EdgeIdx,
+                        std::vector<TenT>& F) {
+    UpdateBPMessages(ctx,W.I_,W.V_,W.SiteIdx_,E,EdgeIdx,W.comm_,F);
+  }
+
+  /** Complete boundary messages using the state-owned ownership map. */
+  template <typename TenT>
+  void ExchangeBPMessages(context_handle_t<TenT>& ctx,
+                          const TensorProductState<TenT>& W,
+                          const std::vector<int>& EdgeIdx,
+                          const std::vector<int>& order,
+                          std::vector<TenT>& F) {
+    ExchangeBPMessages(ctx,W.I_,W.Site_To_MpiRank_,EdgeIdx,order,W.comm_,F);
+  }
+
+  /** Legacy subset-update wrapper retained for external applications.
+   * New callers should compute local messages and exchange boundaries explicitly.
    */
   template <typename TenT>
   void BeliefPropagation(context_handle_t<TenT> & ctx,
@@ -423,7 +393,7 @@ namespace tnbp {
     BeliefPropagationCondition(ctx,W.I_,W.V_,W.SiteIdx_,W.Site_To_MpiRank_,
 			       E,EdgeIdx,W.comm_,result);
   }
-  
+
 
 }
 

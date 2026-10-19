@@ -36,17 +36,13 @@ int main(int argc, char * argv[]) {
   ContextHandle ctx;
   tcapi::create_context(ctx);
   std::vector<std::pair<int,int>> edges;
-  std::vector<std::vector<std::pair<int,int>>> layer_edges;
 
   if( options.lattice == std::string("oned") ) {
     edges = tnbp::bond_oned_lattice(options.L,0);
-    layer_edges = tnbp::parallel_bond_oned_lattice(options.L,0);
   } else if ( options.lattice == std::string("honeycomb") ) {
     edges = tnbp::bond_honeycomb_lattice(options.L,options.L);
-    layer_edges = tnbp::parallel_bond_honeycomb_lattice(options.L,options.L);
   } else if ( options.lattice == std::string("square") ) {
     edges = tnbp::bond_square_lattice(options.L,options.L);
-    layer_edges = tnbp::GreedyEdgeLayering(edges);
   }
 
   if( mpi_rank == 0 ) {
@@ -56,16 +52,6 @@ int main(int argc, char * argv[]) {
       std::cout << " (" << u << "," << v << ")";
     }
     std::cout << std::endl;
-    int m=0;
-    for(const auto & layer : layer_edges) {
-      std::cout << " " << tnbp::make_timestamp()
-		<< " layer " << m << " edges:";
-      for(const auto & [u,v] : layer) {
-	std::cout << " (" << u << "," << v << ")";
-      }
-      std::cout << std::endl;
-      m++;
-    }
     std::cout << " " << tnbp::make_timestamp() << " Start construction of TPO " << std::endl;
     
   }
@@ -105,6 +91,7 @@ int main(int argc, char * argv[]) {
 
   std::cout.precision(16);
   Real tolerance;
+  const auto bp_order=tnbp::MakeBPCommunicationOrder(edges,Site_To_MpiRank,mpi_rank);
   for(uint32_t step=0; step < options.num_steps; step++) {
     if( mpi_rank == 0 ) {
       std::cout << " " << tnbp::make_timestamp()
@@ -125,12 +112,8 @@ int main(int argc, char * argv[]) {
 		  << " start " << k
 		  << "th belief propagation " << std::endl;
       }
-      for(size_t p=0; p < layer_edges.size(); p++) {
-	tnbp::BeliefPropagation(
-	    ctx,edges,
-	    V,SiteIdx,Site_To_MpiRank,
-	    layer_edges[p],E,EdgeIdx,comm,F);
-      }
+      tnbp::UpdateBPMessages(ctx,edges,V,SiteIdx,E,EdgeIdx,comm,F);
+      tnbp::ExchangeBPMessages(ctx,edges,Site_To_MpiRank,EdgeIdx,bp_order,comm,F);
       if( mpi_rank == 0 ) {
 	std::cout << " " << tnbp::make_timestamp()
 		  << " update edge tensors " << std::endl;

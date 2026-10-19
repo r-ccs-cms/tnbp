@@ -65,5 +65,12 @@ run each with one process to generate backend-native files before loading them.
 
 `bp_trace_phase` checks the default [trace-phase convention](../docs/bp_trace_phase.md),
 scalar-phase invariance, invalid traces, MPI boundaries and legacy/current
-checkpoint restart behavior. It is included in the CPU CTest suite for 1/2 ranks.
+checkpoint restart behavior. The local-update/boundary-exchange path is exercised
+on 1/2/3/4 CPU ranks, including an empty rank and cyclic rank connectivity.
 The same target supports `TNBP_TEST_BACKEND=cuda` and scheduler-managed GPU launches.
+
+BP integration and restart updates use `UpdateBPMessages` followed by
+`ExchangeBPMessages`. The trace-phase suite also checks the `TensorProductState`
+overloads against the explicit graph interfaces. Legacy `BeliefPropagation(J)`
+calls are confined to compatibility checks, including preservation of messages
+outside the requested subset.

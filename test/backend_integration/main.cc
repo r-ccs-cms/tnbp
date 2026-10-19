@@ -169,7 +169,10 @@ void qasm_bp(Context& ctx,MPI_Comm comm) {
     const auto second=amplitudes(ctx,v2,s2,o2,comm);
     for(std::size_t i=0;i<4;++i)near(second[i],expected[i],"grouped QASM Bell amplitudes");
     std::vector<Tensor> updated;
-    tnbp::BeliefPropagation(ctx,edges,v,sites,owners,edges,e,edgeids,comm,updated);
+    int bp_rank; MPI_Comm_rank(comm,&bp_rank);
+    const auto bp_order=tnbp::MakeBPCommunicationOrder(edges,owners,bp_rank);
+    tnbp::UpdateBPMessages(ctx,edges,v,sites,e,edgeids,comm,updated);
+    tnbp::ExchangeBPMessages(ctx,edges,owners,edgeids,bp_order,comm,updated);
     e=std::move(updated);
     double residual=0;
     tnbp::BeliefPropagationCondition(ctx,edges,v,sites,owners,e,edgeids,comm,residual);
@@ -213,7 +216,10 @@ void known_truncation(Context& ctx,MPI_Comm comm) {
         v.at(std::find(sites.begin(),sites.end(),site)-sites.begin())=tensor(ctx,{2,2},{first,0,0,1});
     }
     std::vector<Tensor> updated;
-    tnbp::BeliefPropagation(ctx,edges,v,sites,owners,edges,e,edgeids,comm,updated);
+    int bp_rank; MPI_Comm_rank(comm,&bp_rank);
+    const auto bp_order=tnbp::MakeBPCommunicationOrder(edges,owners,bp_rank);
+    tnbp::UpdateBPMessages(ctx,edges,v,sites,e,edgeids,comm,updated);
+    tnbp::ExchangeBPMessages(ctx,edges,owners,edgeids,bp_order,comm,updated);
     e=std::move(updated);
     std::vector<Dim> dims;std::vector<double> errors;
     tnbp::Truncation(ctx,edges,v,sites,owners,e,edgeids,comm,Dim(1),0.0,0.0,dims,errors);

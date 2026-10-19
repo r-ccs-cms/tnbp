@@ -33,10 +33,8 @@ int main(int argc, char * argv[]) {
   ContextHandle ctx;
   tcapi::create_context(ctx);
   std::vector<std::pair<int,int>> edges;
-  std::vector<std::vector<std::pair<int,int>>> layer_edges;
   
   edges = tnbp::EdgesFromQasm(qasm_program);
-  layer_edges = tnbp::GreedyEdgeLayering(edges);
 
   if( mpi_rank == mpi_master ) {
     std::cout << " " << tnbp::make_timestamp()
@@ -45,16 +43,6 @@ int main(int argc, char * argv[]) {
       std::cout << " (" << u << "," << v << ")";
     }
     std::cout << std::endl;
-    int m=0;
-    for(const auto & layer : layer_edges) {
-      std::cout << " " << tnbp::make_timestamp()
-		<< " layer " << m << " edges:";
-      for(const auto & [u,v] : layer) {
-	std::cout << " (" << u << "," << v << ")";
-      }
-      std::cout << std::endl;
-      m++;
-    }
     
     std::cout << " " << tnbp::make_timestamp()
 	      << " Start TPO construction for quantum circuit " << std::endl;
