@@ -5,6 +5,13 @@ at selected TPO layers. Each step applies the entire supplied QASM circuit;
 multiple steps repeat that circuit. The executable in this directory is named
 `estimator`, as in the ordinary estimator directory.
 
+## Portable checkpoint input and output
+
+See [portable TPS checkpoints](../../docs/portable_checkpoints.md) for independent
+site/message files shared by estimator and sampler, including restart with a
+new MPI process count. This is a separate format from the legacy rank-local
+options described below. No external library dependency is added.
+
 ## Build
 
 For CPU dependencies and configuration, follow the
@@ -86,6 +93,8 @@ valid layer indices; the CLI does not provide comprehensive validation.
 | `--circuit` | `circuit.qasm` | Input QASM path; required even when loading a checkpoint. |
 | `--sparse_pauli` | `sparsepauliop.txt` | Input Pauli path; read even if no measurement layers are selected. |
 | `--measurement_barrier` | Unset | Comma-separated zero-based TPO layer indices, e.g. `0,3`. Unset means no measurements. |
+| `--portable_save` | Unset | Save an immutable portable TPS directory after the complete cycles. |
+| `--portable_load` | Unset | Load a portable TPS and validate estimator resume metadata on the new MPI partition. |
 | `--savename` | Unset | Prefix for checkpoint files saved at the end. |
 | `--loadname` | Unset | Prefix for checkpoint files to load; otherwise initialize a product state. |
 | `--step_start` | `0` | First circuit repetition index, inclusive. |

@@ -3,6 +3,13 @@
 This application samples a tensor-network state using general-graph boundary MPS
 and the TCAPI tensor interface.
 
+## Portable checkpoint input and output
+
+See [portable TPS checkpoints](../../docs/portable_checkpoints.md) for independent
+site/message files shared by estimator and sampler, including restart with a
+new MPI process count. This is a separate format from the legacy rank-local
+options described below. No external library dependency is added.
+
 ## Build
 
 Configure the [common test entry point](../../test/README.md#build-and-run)
@@ -44,6 +51,7 @@ The real and complex executables accept the same options.
 |---|---|---|
 | `-h, --help` | `—` | Show this help and exit successfully; no input files are required. |
 | `--inputedge FILE` | `required` | Undirected graph edge file, one pair of site IDs per row. |
+| `--portable_input DIRECTORY` | `none` | Load shared portable TPS and its graph on the current MPI partition. |
 | `--inputname PREFIX` | `none` | Load rank-specific TPS files; otherwise generate random tensors. |
 | `--outputname NAME` | `none` | Displayed only; does not write a file. Redirect stdout to save samples. |
 | `--seed N` | `1729` | Random seed for tensor generation, initial states and sampling. |

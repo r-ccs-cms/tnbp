@@ -14,7 +14,7 @@ void rejects(const std::vector<std::string>& args) {
   throw std::runtime_error("invalid option was accepted: "+args.front());
 }
 int main() {
-  for(const char* flag:{"--inputname","--inputedge","--outputname","--seed",
+  for(const char* flag:{"--portable_input","--inputname","--inputedge","--outputname","--seed",
       "--p_bond_dim","--v_bond_dim","--bmps_bond_dim","--bmps_bp_tolerance",
       "--bmps_max_bp_steps","--bmps_tg_err","--bmps_sv_min","--init_line",
       "--groupfile","--linefile","--num_samples","--num_batches","--sampling_method"}) {

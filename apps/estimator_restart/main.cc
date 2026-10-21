@@ -22,10 +22,15 @@ int main(int argc, char * argv[]) {
   int mpi_size; MPI_Comm_size(comm,&mpi_size);
   int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
   
+  try {
   initialize_tensor_device(comm);
 
   Option options =generate_options(argc,argv);
 
+  if(!options.portable_save.empty() && !options.loadname.empty())
+    throw std::invalid_argument("legacy import requires a separate converter");
+  if(!options.portable_save.empty() && options.portable_load.empty() && options.step_start!=0)
+    throw std::invalid_argument("fresh portable evolution must start at step zero");
   std::string qasm_source;
   if( mpi_rank == mpi_master ) {
     qasm_source = qasm::read_all_file(options.circuit);
@@ -73,7 +78,36 @@ int main(int argc, char * argv[]) {
 
   tnbp::BPCheckpointMetadata bp_metadata;
   bp_metadata.source_algorithm="fresh";
-  if( !options.loadname.empty() ) {
+  if(!options.portable_load.empty() && !options.loadname.empty())
+    throw std::invalid_argument("choose portable_load or loadname");
+  auto estimator_settings = [&] {
+    std::ostringstream out;out<<std::setprecision(17)<<options.max_bond_dim<<' '
+      <<options.max_bp_iterations<<' '<<options.bp_tolerance<<' '<<options.sv_min<<' '<<options.truncation_error;
+    return out.str();
+  };
+  std::size_t portable_next_step=0;
+  if(!options.portable_load.empty()) {
+    tnbp::PortableCheckpoint descriptor;
+    tnbp::portable_detail::phase(comm,[&] {
+      descriptor=tnbp::ReadTPSCheckpoint(options.portable_load);
+      if(descriptor.edges!=edges) throw std::runtime_error("portable graph differs from circuit graph/order");
+      const auto& app=descriptor.application;
+      if(app.at("estimator.version")!="1" || app.at("estimator.phase")!="cycle-complete" ||
+         app.at("estimator.circuit_sha256")!=tnbp::portable_detail::sha256(qasm_source) ||
+         app.at("estimator.settings")!=estimator_settings())
+        throw std::runtime_error("estimator resume conditions differ");
+      std::istringstream next(app.at("estimator.next_step"));
+      auto n=tnbp::portable_detail::number(next);tnbp::portable_detail::end(next);
+      if(n>SIZE_MAX) throw std::runtime_error("next step exceeds range");
+      portable_next_step=static_cast<std::size_t>(n);
+      if(options.step_start_set && options.step_start!=portable_next_step)
+        throw std::runtime_error("step_start conflicts with checkpoint next step");
+    });
+    auto owners=tnbp::PortableContiguousOwners(descriptor.sites,comm);
+    auto loaded=tnbp::LoadTPSPortable<Tensor>(ctx,options.portable_load,owners,comm);
+    V=std::move(loaded.V); E=std::move(loaded.E); SiteIdx=std::move(loaded.SiteIdx);
+    EdgeIdx=std::move(loaded.EdgeIdx); Site_To_MpiRank=std::move(loaded.owners);
+  } else if( !options.loadname.empty() ) {
     std::string filename = tnbp::make_rank_filename(options.loadname,mpi_rank);
     std::ifstream ifs(filename,std::ios::binary);
     std::cout << " " << tnbp::make_timestamp()
@@ -132,6 +166,9 @@ int main(int argc, char * argv[]) {
     step_end = options.step_end;
   }
 
+  if(!options.portable_load.empty()) step_start=portable_next_step;
+  if((!options.portable_save.empty()||!options.portable_load.empty()) && step_end<step_start)
+    throw std::invalid_argument("step_end precedes checkpoint next step");
   const auto bp_order=tnbp::MakeBPCommunicationOrder(edges,Site_To_MpiRank,mpi_rank);
   for(size_t t=step_start; t < step_end; t++) {
     for(size_t m=barrier_start; m < barrier_end; m++) {
@@ -241,6 +278,21 @@ int main(int argc, char * argv[]) {
     tnbp::SaveTPS(ctx,ofs,V,SiteIdx,Site_To_MpiRank,E,EdgeIdx,bp_metadata);
   }
 
+  if(!options.portable_save.empty()) {
+    const auto next=step_end;
+    std::map<std::string,std::string> app{
+      {"estimator.version","1"},{"estimator.phase","cycle-complete"},
+      {"estimator.next_step",std::to_string(next)},
+      {"estimator.completed_cycles",std::to_string(next)},
+      {"estimator.circuit_sha256",tnbp::portable_detail::sha256(qasm_source)},
+      {"estimator.settings",estimator_settings()}};
+    auto checkpoint=tnbp::SaveTPSPortable(ctx,options.portable_save,edges,V,SiteIdx,
+        Site_To_MpiRank,E,EdgeIdx,app,comm);
+    if(mpi_rank==0) std::cout<<"PORTABLE_SAVED digest="<<checkpoint.state_digest<<std::endl;
+  }
+  } catch(const std::exception& error) {
+    std::cerr<<"estimator: "<<error.what()<<std::endl;MPI_Abort(comm,1);
+  }
   MPI_Finalize();
   
   return 0;
