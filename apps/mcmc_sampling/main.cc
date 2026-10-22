@@ -42,6 +42,18 @@ int main(int argc, char * argv[]) {
   tcapi::create_context(ctx);
   std::vector<std::pair<int,int>> edges;
 
+  tnbp::PortableCheckpoint portable_descriptor;
+  if(!options.portable_input.empty()) {
+    if(!options.inputname.empty()) throw std::invalid_argument("choose portable_input or inputname");
+    tnbp::portable_detail::phase(comm,[&]{portable_descriptor=tnbp::ReadTPSCheckpoint(options.portable_input);});
+    edges=portable_descriptor.edges;
+    if(!options.inputedge.empty()) {
+      tnbp::portable_detail::phase(comm,[&]{
+        if(tnbp::read_edges_from_file<int>(options.inputedge,false)!=edges)
+          throw std::invalid_argument("external graph differs from checkpoint graph/order");
+      });
+    }
+  } else {
   if( mpi_rank == 0 ) {
     cout_options(options);
     if( options.inputedge.empty() ) {
@@ -66,6 +78,7 @@ int main(int argc, char * argv[]) {
     std::cout << "\n";
   }
   tnbp::bcast_edges(edges,0,comm);
+  }
 
   std::size_t num_batches = options.num_batches;
 
@@ -73,8 +86,25 @@ int main(int argc, char * argv[]) {
   std::vector<int> site_idx;
   std::map<int,int> site_to_mpi_rank;
   std::mt19937 rng(options.seed);
+  if(!options.portable_input.empty()) {
+    // Independent chains on different owners must not share identical draws.
+    // Retain the legacy input/random-state seed behavior for compatibility.
+    std::seed_seq sequence{options.seed,static_cast<std::uint32_t>(mpi_rank)};
+    rng.seed(sequence);
+  }
 
-  if( options.inputname.empty() ) {
+  if(!options.portable_input.empty()) {
+    auto owners=tnbp::PortableContiguousOwners(portable_descriptor.sites,comm);
+    auto loaded=tnbp::LoadTPSPortable<Tensor>(ctx,options.portable_input,owners,comm,
+        tnbp::PortableLoadMode::VerticesOnly);
+    W=std::move(loaded.V);site_idx=std::move(loaded.SiteIdx);site_to_mpi_rank=std::move(loaded.owners);
+    if(mpi_rank==0) {
+      std::cout<<"PORTABLE_INPUT digest="<<loaded.checkpoint.state_digest;
+      const auto step=loaded.checkpoint.application.find("estimator.next_step");
+      if(step!=loaded.checkpoint.application.end())std::cout<<" estimator_next_step="<<step->second;
+      std::cout<<std::endl;
+    }
+  } else if( options.inputname.empty() ) {
     init_random_tensor_state(ctx,edges,
 		options.p_bond_dim,
 		options.v_bond_dim,

@@ -63,6 +63,8 @@ See [CUDA setup](apps/README.cuda.md) and the
 See [graph, tensor-axis and ownership conventions](docs/graph_tensor_conventions.md)
 for edge ordering, rank-local tensor storage, ownership during contraction and
 bond shifts, and partial tensor inputs.
+See [portable TPS checkpoints](docs/portable_checkpoints.md) for estimator-to-sampler
+state sharing with a different MPI process count.
 See also [automatic MCMC grouping](docs/automatic_mcmc_grouping.md) for the
 original-graph selection policy and shared manual/automatic execution plan.
 

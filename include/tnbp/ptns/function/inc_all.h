@@ -16,5 +16,6 @@
 #include "tnbp/ptns/function/mcmc_sampling.h"
 
 #include "tnbp/ptns/function/iotps.h"
+#include "tnbp/ptns/function/portable_checkpoint.h"
 
 #endif
