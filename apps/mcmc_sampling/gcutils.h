@@ -2,37 +2,14 @@
 #include "tnbp/tnbp.h"
 
 template <typename IntT>
-void init_site_labels(const std::vector<std::pair<IntT,IntT>> & edges,
-		      std::vector<IntT> & site_idx,
-		      std::map<IntT,IntT> & site_to_mpi_rank,
-		      MPI_Comm comm) {
-  int mpi_size; MPI_Comm_size(comm,&mpi_size);
-  int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
-  auto sites = tnbp::GetSiteIndexFromBond(edges);
-  int num_sites = static_cast<int>(sites.size());
-  int site_begin = 0;
-  int site_end   = num_sites;
-  tnbp::get_range(mpi_size,mpi_rank,site_begin,site_end);
-  site_idx.resize(site_end-site_begin);
-  std::copy(sites.begin()+site_begin,
-	    sites.begin()+site_end,
-	    site_idx.begin());
-  std::vector<int> site_to_mpi_rank_vec(num_sites,0);
-  std::vector<int> site_to_mpi_rank_send(num_sites,0);
-  for(const auto & i : site_idx) {
-    auto it_site_adrs = std::find(sites.begin(),sites.end(),i);
-    auto site_adrs = std::distance(sites.begin(),it_site_adrs);
-    site_to_mpi_rank_send[site_adrs] = mpi_rank;
-  }
-  MPI_Allreduce(site_to_mpi_rank_send.data(),
-		site_to_mpi_rank_vec.data(),
-		num_sites,
-		MPI_INT,
-		MPI_SUM,
-		comm);
-  for(std::size_t i=0; i < num_sites; i++) {
-    site_to_mpi_rank[sites[i]] = site_to_mpi_rank_vec[i];
-  }
+void init_site_labels(const std::vector<std::pair<IntT,IntT>>& edges,
+                      std::vector<IntT>& site_idx,
+                      const std::map<IntT,IntT>& owners, MPI_Comm comm) {
+  int rank; MPI_Comm_rank(comm,&rank);
+  auto sites=tnbp::GetSiteIndexFromBond(edges);
+  tnbp::ValidateSiteOwners(sites,owners,comm);
+  site_idx.clear();
+  for(auto site:sites) if(owners.at(site)==rank) site_idx.push_back(site);
 }
 
 template <typename TenT, typename IntT, typename RNG>
@@ -41,7 +18,7 @@ void init_random_tensor(tcapi::context_handle_t<TenT> & ctx,
 			std::size_t bond_dim,
 			std::vector<TenT> & W,
 			std::vector<IntT> & site_idx,
-			std::map<IntT,IntT> & site_to_mpi_rank,
+			const std::map<IntT,IntT> & site_to_mpi_rank,
 			RNG & rng,
 			MPI_Comm comm) {
 
@@ -79,7 +56,7 @@ void init_random_tensor_state(tcapi::context_handle_t<TenT> & ctx,
 	  std::size_t p_bond_dim, std::size_t v_bond_dim,
 	  std::vector<TenT> & W,
 	  std::vector<IntT> & site_idx,
-	  std::map<IntT,IntT> & site_to_mpi_rank,
+	  const std::map<IntT,IntT> & site_to_mpi_rank,
 	  RNG & rng, MPI_Comm comm) {
   using ShapeT = typename tcapi::tensor_traits<TenT>::shape_t;
   using BondDimT = typename tcapi::tensor_traits<TenT>::bond_dim_t;

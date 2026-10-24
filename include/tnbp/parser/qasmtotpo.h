@@ -14,6 +14,8 @@
 #include <cstddef>
 #include <iterator>
 #include <numeric>
+#include <limits>
+#include <string>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -242,6 +244,12 @@ namespace tnbp {
     using BondLabelT = typename tcapi::tensor_traits<TenT>::bond_label_t;
     using CoorsT = typename tcapi::tensor_traits<TenT>::elem_coors_t;
     
+    // Every operand must be represented by an actual tensor in this graph.
+    for(const auto& q:ins.qubits) {
+      if(q.index>static_cast<std::size_t>(std::numeric_limits<int>::max()) ||
+         std::find(sites.begin(),sites.end(),static_cast<int>(q.index))==sites.end())
+        throw std::invalid_argument("QasmToTPO: gate site is absent from tensor graph");
+    }
     TenT gate = InstructionTensor<TenT>(ctx,ins);
     auto order_tensor = tcapi::order(ctx,gate);
     int num_qubits = order_tensor/2;
@@ -319,6 +327,9 @@ namespace tnbp {
       auto site_a = static_cast<int>(ins.qubits[0].index);
       auto site_b = static_cast<int>(ins.qubits[1].index);
       auto path = FindShortestPath(edges,site_a,site_b);
+      if(path.empty())
+        throw std::invalid_argument("QasmToTPO: gate cannot be represented on graph; no path between sites " +
+                                    std::to_string(site_a) + " and " + std::to_string(site_b));
 
       for(std::size_t i=0; i < path.size(); i++) {
 	
@@ -427,6 +438,8 @@ namespace tnbp {
       auto path_ab = FindShortestPath(edges,site_a,site_b);
       auto path_bc = FindShortestPath(edges,site_b,site_c);
       auto path_ca = FindShortestPath(edges,site_c,site_a);
+      if(path_ab.empty() || path_bc.empty() || path_ca.empty())
+        throw std::invalid_argument("QasmToTPO: three-site gate cannot be represented on disconnected graph");
       
       std::vector<std::size_t> path_length(3);
       path_length[0] = path_ab.size()+path_bc.size()-1;

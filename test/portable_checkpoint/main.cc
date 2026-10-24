@@ -30,9 +30,11 @@ int main(int argc, char **argv) {
     ContextHandle ctx;
     tcapi::create_context(ctx);
     const std::string mode = argv[1];
-    if (mode == "save" || mode == "mismatch") {
-      const std::vector<std::pair<int, int>> edges{{7, 20}, {2, 7}, {-4, 2}};
-      const std::vector<int> all{-4, 2, 7, 20};
+    if (mode == "save" || mode == "mismatch" || mode == "wide-save") {
+      const std::vector<std::pair<int, int>> edges=mode=="wide-save" ?
+          std::vector<std::pair<int,int>>{{0,1},{1,9},{9,1000000}} :
+          std::vector<std::pair<int,int>>{{7,20},{2,7},{-4,2}};
+      const std::vector<int> all=GetSiteIndexFromBond(edges);
       auto owners = PortableContiguousOwners(all, comm);
       std::vector<Tensor> V, E;
       std::vector<int> sites, ei;
@@ -55,13 +57,14 @@ int main(int argc, char **argv) {
           E.push_back(
               tcapi::fill<Tensor>(ctx, tcapi::shape_t<Tensor>{2, 2}, Elem(x)));
         }
-      auto d = SaveTPSPortable(ctx, argv[2], edges, V, sites, owners, E, ei, {},
+      auto d = SaveTPSPortable(ctx, argv[2], edges, V, sites, owners, E, ei,
                                comm);
       if (rank == 0)
         std::cout << "DIGEST " << d.state_digest << '\n';
     } else {
       PortableCheckpoint d;
       phase(comm, [&] { d = ReadTPSCheckpoint(argv[2]); });
+      const auto vw=site_name_width(d.sites),ew=edge_name_width(d.edges.size());
       auto owners = PortableContiguousOwners(d.sites, comm);
       if (mode == "reverse") {
         int size;
@@ -82,7 +85,7 @@ int main(int argc, char **argv) {
                 "unexpected payload reads");
         std::uint64_t bytes = 0;
         for (auto site : state.SiteIdx)
-          bytes += d.records.at(vertex(site)).length;
+          bytes += d.records.at(vertex(site,vw)).length;
         require(state.payload_bytes == bytes, "unexpected payload bytes");
         for (const auto &path : state.read_records)
           require(path.rfind("vertices/", 0) == 0,
@@ -92,7 +95,7 @@ int main(int argc, char **argv) {
       for (std::size_t i = 0; i < state.V.size(); ++i) {
         std::ostringstream o(std::ios::binary);
         tcapi::save(ctx, state.V[i], o);
-        require(sha256(o.str()) == d.records.at(vertex(state.SiteIdx[i])).hash,
+        require(sha256(o.str()) == d.records.at(vertex(state.SiteIdx[i],vw)).hash,
                 "V round trip");
       }
       for (int dir = 0; mode != "vertices-only" && dir < 2; ++dir)
@@ -100,14 +103,14 @@ int main(int argc, char **argv) {
           std::ostringstream o(std::ios::binary);
           tcapi::save(ctx, state.E[j + dir * state.EdgeIdx.size()], o);
           require(sha256(o.str()) ==
-                      d.records.at(message(state.EdgeIdx[j], dir)).hash,
+                      d.records.at(message(state.EdgeIdx[j],dir,ew)).hash,
                   "directed E round trip");
         }
       if (argc > 3) {
         auto copy = SaveTPSPortable(ctx, argv[3], d.edges, state.V,
                                     state.SiteIdx, owners, state.E,
-                                    state.EdgeIdx, d.application, comm);
-        require(copy.state_digest == d.state_digest, "resave digest");
+                                    state.EdgeIdx, comm);
+        require(copy.state_digest==d.state_digest,"resave digest");
       }
       if (rank == 0)
         std::cout << "DIGEST " << d.state_digest << " VERIFIED_BYTES\n";

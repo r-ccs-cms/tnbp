@@ -1,9 +1,10 @@
 #pragma once
 #include "tnbp/ptns/function/bp.h"
 #include "tnbp/ptns/function/detail/checkpoint_sha256.h"
+#include <algorithm>
 #include <charconv>
 #include <climits>
-#include <filesystem>
+#include "tnbp/framework/fileutility.h"
 #include <fstream>
 #include <iomanip>
 #include <limits>
@@ -13,7 +14,7 @@
 
 namespace tnbp {
 namespace portable_detail {
-namespace fs = std::filesystem;
+namespace fs = tnbp::file_io;
 inline void require(bool b, const std::string &msg) {
   if (!b)
     throw std::runtime_error("portable checkpoint: " + msg);
@@ -35,14 +36,14 @@ template <class F> void phase(MPI_Comm comm, F &&f) {
     throw std::runtime_error(error);
   }
 }
-inline std::string file_hash(const fs::path &p) {
+inline std::string file_hash(const std::string &p) {
   std::ifstream in(p, std::ios::binary);
-  require(bool(in), "cannot open " + p.string());
+  require(bool(in), "cannot open " + p);
   return sha256(in);
 }
-inline std::string text(const fs::path &p) {
+inline std::string text(const std::string &p) {
   require(fs::is_regular_file(p) && fs::file_size(p) <= 64 * 1024 * 1024,
-          "invalid metadata file " + p.string());
+          "invalid metadata file " + p);
   std::ifstream in(p, std::ios::binary);
   require(bool(in), "cannot open metadata");
   std::ostringstream out;
@@ -50,11 +51,11 @@ inline std::string text(const fs::path &p) {
   require(!in.bad(), "metadata read failed");
   return out.str();
 }
-inline void write_text(const fs::path &p, const std::string &value) {
+inline void write_text(const std::string &p, const std::string &value) {
   std::ofstream out(p, std::ios::binary | std::ios::trunc);
   out << value;
   out.close();
-  require(bool(out), "write/close failed " + p.string());
+  require(bool(out), "write/close failed " + p);
 }
 inline void agree(const std::string &value, MPI_Comm comm) {
   std::string root = value;
@@ -90,11 +91,24 @@ inline std::uint64_t mul(std::uint64_t a, std::uint64_t b) {
   require(!b || a <= UINT64_MAX / b, "size overflow");
   return a * b;
 }
-inline std::string vertex(int site) {
-  return "vertices/site-" + std::to_string(site) + ".ten";
+inline std::size_t site_name_width(const std::vector<int>& sites) {
+  std::size_t width=6;
+  for(auto site:sites) width=std::max(width,std::to_string(site).size());
+  return width;
 }
-inline std::string message(int edge, int direction) {
-  return "messages/edge-" + std::to_string(edge) +
+inline std::size_t edge_name_width(std::size_t count) {
+  return std::max<std::size_t>(6,std::to_string(count ? count-1 : 0).size());
+}
+inline std::string record_id(int id,std::size_t width) {
+  std::ostringstream out;
+  out<<std::internal<<std::setfill('0')<<std::setw(static_cast<int>(width))<<id;
+  return out.str();
+}
+inline std::string vertex(int site,std::size_t width=6) {
+  return "vertices/site-"+record_id(site,width)+".ten";
+}
+inline std::string message(int edge,int direction,std::size_t width=6) {
+  return "messages/edge-"+record_id(edge,width)+
          (direction ? "-reverse.ten" : "-forward.ten");
 }
 template <class T, class = void> struct native_cpu : std::false_type {};
@@ -160,7 +174,7 @@ std::vector<std::uint64_t> shape(context_handle_t<T> &ctx, const T &t) {
 // Check the native header and allocation bounds before calling the backend
 // loader.
 template <class T>
-void check_payload(const fs::path &path, const Record &r, std::uint64_t limit) {
+void check_payload(const std::string &path, const Record &r, std::uint64_t limit) {
   require(fs::is_regular_file(path) && fs::file_size(path) == r.length,
           "file length mismatch " + r.path);
   require(file_hash(path) == r.hash, "checksum mismatch " + r.path);
@@ -223,24 +237,18 @@ void check_payload(const fs::path &path, const Record &r, std::uint64_t limit) {
 } // namespace portable_detail
 
 struct PortableCheckpoint {
-  std::filesystem::path directory;
+  std::string directory;
   std::vector<int> sites;
   std::vector<std::pair<int, int>> edges;
   std::map<std::string, portable_detail::Record> records;
-  // Optional namespaced application fields. Unknown fields are retained, not
-  // interpreted.
-  std::map<std::string, std::string> application;
   std::string codec, state_digest;
-  int writer_count = 0;
 };
 namespace portable_detail {
 inline std::string state_text(const PortableCheckpoint &d) {
   std::ostringstream o;
-  o << "TNBP_PORTABLE_TPS 1\n"
-    << std::quoted(d.codec) << '\n'
-    << std::quoted(BPAlgorithm) << ' ' << std::quoted(BPGauge) << ' '
-    << std::quoted(BPResidual) << '\n'
-    << "AXES incident-edge-order physical-last ket-bra\nSITES "
+  o << "TNBP_PORTABLE_TPS 3\n"
+    << std::quoted(d.codec) << '\n';
+  o << "AXES incident-edge-order physical-last ket-bra\nSITES "
     << d.sites.size() << '\n';
   for (auto s : d.sites)
     o << s << '\n';
@@ -254,39 +262,36 @@ inline std::string state_text(const PortableCheckpoint &d) {
 }
 inline std::string manifest(const PortableCheckpoint &d) {
   std::ostringstream o;
-  o << state_text(d) << "WRITERS " << d.writer_count << "\nAPPLICATION "
-    << d.application.size() << '\n';
-  for (auto &[k, v] : d.application)
-    o << std::quoted(k) << ' ' << std::quoted(v) << '\n';
+  o << state_text(d);
   o << "END\n";
   return o.str();
 }
 inline void validate(const PortableCheckpoint &d) {
+  const auto vw=site_name_width(d.sites),ew=edge_name_width(d.edges.size());
   require(!d.sites.empty() && std::is_sorted(d.sites.begin(), d.sites.end()) &&
               std::adjacent_find(d.sites.begin(), d.sites.end()) ==
                   d.sites.end(),
           "invalid site list");
-  require(d.sites.size() <= 1000000 && d.edges.size() <= 1000000 &&
-              d.application.size() <= 10000,
+  require(d.sites.size() <= 1000000 && d.edges.size() <= 1000000,
           "graph exceeds index range");
   std::set<std::pair<int, int>> seen;
   std::set<std::string> paths;
   for (auto s : d.sites)
-    paths.insert(vertex(s));
+    paths.insert(vertex(s,vw));
   for (std::size_t e = 0; e < d.edges.size(); ++e) {
     auto [a, b] = d.edges[e];
     require(a != b && std::binary_search(d.sites.begin(), d.sites.end(), a) &&
                 std::binary_search(d.sites.begin(), d.sites.end(), b) &&
                 seen.insert(std::minmax(a, b)).second,
             "invalid simple graph");
-    paths.insert(message(e, 0));
-    paths.insert(message(e, 1));
+    paths.insert(message(e,0,ew));
+    paths.insert(message(e,1,ew));
   }
   require(paths.size() == d.records.size(), "record count mismatch");
   for (auto &p : paths)
     require(d.records.count(p), "missing record " + p);
   for (auto s : d.sites) {
-    const auto &r = d.records.at(vertex(s));
+    const auto &r = d.records.at(vertex(s,vw));
     auto incident = GetSurroundingBondIndex(s, d.edges);
     require(r.shape.size() <= 64 && r.shape.size() == incident.size() + 1,
             "V axis count mismatch");
@@ -296,34 +301,29 @@ inline void validate(const PortableCheckpoint &d) {
     auto dim = [&](int s) {
       auto inc = GetSurroundingBondIndex(s, d.edges);
       auto j = std::find(inc.begin(), inc.end(), int(e)) - inc.begin();
-      return d.records.at(vertex(s)).shape.at(j);
+      return d.records.at(vertex(s,vw)).shape.at(j);
     };
     auto n = dim(a);
     require(n == dim(b), "bond dimensions disagree");
     for (int direction = 0; direction < 2; ++direction)
-      require(d.records.at(message(e, direction)).shape ==
+      require(d.records.at(message(e,direction,ew)).shape ==
                   std::vector<std::uint64_t>{n, n},
               "E axis/shape mismatch");
   }
 }
 } // namespace portable_detail
 
-inline PortableCheckpoint ReadTPSCheckpoint(const std::filesystem::path &path) {
+inline PortableCheckpoint ReadTPSCheckpoint(const std::string &path) {
   using namespace portable_detail;
   PortableCheckpoint d;
   d.directory = path;
-  auto m = text(path / "manifest.txt"), c = text(path / "COMMITTED");
+  auto m = text(fs::join(path,"manifest.txt")), c = text(fs::join(path,"COMMITTED"));
   require(c == "TNBP_COMMITTED_V1 " + sha256(m) + "\n",
           "uncommitted or corrupt manifest");
   std::istringstream in(m);
   tag(in, "TNBP_PORTABLE_TPS");
-  require(number(in) == 1, "unsupported schema");
+  require(number(in)==3, "unsupported schema");
   require(bool(in >> std::quoted(d.codec)), "missing codec");
-  std::string alg, gauge, res;
-  require(
-      bool(in >> std::quoted(alg) >> std::quoted(gauge) >> std::quoted(res)) &&
-          alg == BPAlgorithm && gauge == BPGauge && res == BPResidual,
-      "unsupported BP conventions");
   tag(in, "AXES");
   tag(in, "incident-edge-order");
   tag(in, "physical-last");
@@ -348,19 +348,6 @@ inline PortableCheckpoint ReadTPSCheckpoint(const std::filesystem::path &path) {
     auto r = read_record(in);
     require(d.records.emplace(r.path, r).second, "duplicate record");
   }
-  tag(in, "WRITERS");
-  n = number(in);
-  require(n > 0 && n <= INT_MAX, "invalid writer count");
-  d.writer_count = int(n);
-  tag(in, "APPLICATION");
-  n = number(in);
-  require(n <= 10000, "application count limit");
-  for (std::uint64_t i = 0; i < n; ++i) {
-    std::string k, v;
-    require(bool(in >> std::quoted(k) >> std::quoted(v)) &&
-                d.application.emplace(k, v).second,
-            "invalid application field");
-  }
   tag(in, "END");
   end(in);
   validate(d);
@@ -373,10 +360,7 @@ PortableContiguousOwners(const std::vector<int> &sites, MPI_Comm comm) {
   MPI_Comm_size(comm, &n);
   portable_detail::require(sites.size() >= std::size_t(n),
                            "empty ranks are unsupported");
-  std::map<int, int> owners;
-  for (std::size_t i = 0; i < sites.size(); ++i)
-    owners.emplace(sites[i], static_cast<int>(i * n / sites.size()));
-  return owners;
+  return ContiguousSiteOwners(sites,comm);
 }
 namespace portable_detail {
 inline void owners_valid(const PortableCheckpoint &d,
@@ -414,7 +398,7 @@ template <class T> struct PortableLocalState {
 };
 template <class T>
 PortableLocalState<T>
-LoadTPSPortable(context_handle_t<T> &ctx, const std::filesystem::path &path,
+LoadTPSPortable(context_handle_t<T> &ctx, const std::string &path,
                 const std::map<int, int> &owners, MPI_Comm comm,
                 std::uint64_t max_record_bytes = std::uint64_t(64) * 1024 *
                                                  1024 * 1024,
@@ -437,6 +421,7 @@ LoadTPSPortable(context_handle_t<T> &ctx, const std::filesystem::path &path,
   state.owners = owners;
   phase(comm, [&] {
     auto &d = state.checkpoint;
+    const auto vw=site_name_width(d.sites),ew=edge_name_width(d.edges.size());
     for (auto s : d.sites)
       if (owners.at(s) == rank)
         state.SiteIdx.push_back(s);
@@ -446,22 +431,22 @@ LoadTPSPortable(context_handle_t<T> &ctx, const std::filesystem::path &path,
         state.EdgeIdx.push_back(int(e));
     auto load = [&](const std::string &p) {
       const auto &r = d.records.at(p);
-      check_payload<T>(path / p, r, max_record_bytes);
+      check_payload<T>(fs::join(path,p), r, max_record_bytes);
       require(state.payload_bytes <= UINT64_MAX - r.length,
               "read byte count overflow");
       state.payload_bytes += r.length;
       state.read_records.push_back(p);
-      auto t = tcapi::load<T>(ctx, (path / p).string());
+      auto t = tcapi::load<T>(ctx, fs::join(path,p));
       require(portable_detail::shape(ctx, t) == r.shape,
               "decoded shape mismatch");
       return t;
     };
     for (auto s : state.SiteIdx)
-      state.V.push_back(load(vertex(s)));
+      state.V.push_back(load(vertex(s,vw)));
     if (mode == PortableLoadMode::VerticesAndMessages) {
       for (int direction = 0; direction < 2; ++direction)
         for (auto e : state.EdgeIdx)
-          state.E.push_back(load(message(e, direction)));
+          state.E.push_back(load(message(e,direction,ew)));
       state.communication_order =
           MakeBPCommunicationOrder(d.edges, owners, rank);
     }
@@ -475,7 +460,7 @@ LoadTPSPortable(context_handle_t<T> &ctx, const std::filesystem::path &path,
 // Convenience overload without changing the existing allocation-limit argument.
 template <class T>
 PortableLocalState<T> LoadTPSPortable(context_handle_t<T> &ctx,
-                                      const std::filesystem::path &path,
+                                      const std::string &path,
                                       const std::map<int, int> &owners,
                                       MPI_Comm comm, PortableLoadMode mode) {
   return LoadTPSPortable<T>(ctx, path, owners, comm,
@@ -487,24 +472,24 @@ PortableLocalState<T> LoadTPSPortable(context_handle_t<T> &ctx,
 // it.
 template <class T>
 PortableCheckpoint SaveTPSPortable(
-    context_handle_t<T> &ctx, const std::filesystem::path &destination,
+    context_handle_t<T> &ctx, const std::string &destination,
     const std::vector<std::pair<int, int>> &edges, const std::vector<T> &V,
     const std::vector<int> &sites, const std::map<int, int> &owners,
     const std::vector<T> &E, const std::vector<int> &edge_idx,
-    const std::map<std::string, std::string> &application, MPI_Comm comm) {
+    MPI_Comm comm) {
   using namespace portable_detail;
   PortableCheckpoint d;
-  d.directory = destination;
+  const auto target=fs::directory(destination);
+  d.directory = target;
   d.edges = edges;
   d.codec = codec<T>();
-  d.application = application;
   int rank, n;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &n);
-  d.writer_count = n;
   for (auto &[s, r] : owners)
     d.sites.push_back(s);
-  agree(destination.lexically_normal().string(), comm);
+  const auto vw=site_name_width(d.sites),ew=edge_name_width(d.edges.size());
+  agree(target, comm);
   agree(sha256(manifest(d)), comm);
   owners_valid(d, owners, comm);
   phase(comm, [&] {
@@ -527,13 +512,13 @@ PortableCheckpoint SaveTPSPortable(
                 edge_idx.size() == ee.size() && E.size() == 2 * ee.size(),
             "local E coverage mismatch");
   });
-  const fs::path pending = destination.string() + ".pending";
+  const std::string pending = target + ".pending";
   phase(comm, [&] {
     if (rank == 0) {
-      require(!fs::exists(destination), "destination already exists");
+      require(!fs::exists(target), "destination already exists");
       require(fs::create_directory(pending), "pending destination exists");
-      fs::create_directory(pending / "vertices");
-      fs::create_directory(pending / "messages");
+      fs::create_directory(fs::join(pending,"vertices"));
+      fs::create_directory(fs::join(pending,"messages"));
     }
   });
   std::string local;
@@ -544,10 +529,9 @@ PortableCheckpoint SaveTPSPortable(
       r.shape = portable_detail::shape(ctx, t);
       // Nonwriters use a private temporary file only to check boundary
       // equality.
-      auto target = writer ? pending / p
-                           : pending / ("check-" + std::to_string(rank) + "-" +
-                                        fs::path(p).filename().string());
-      tcapi::save(ctx, t, target.string());
+      auto target = writer ? fs::join(pending,p)
+                           : fs::join(pending,"check-" + std::to_string(rank) + "-" + fs::filename(p));
+      tcapi::save(ctx, t, target);
       r.length = fs::file_size(target);
       r.hash = file_hash(target);
       if (!writer)
@@ -555,12 +539,12 @@ PortableCheckpoint SaveTPSPortable(
       local += r.line();
     };
     for (std::size_t i = 0; i < V.size(); ++i)
-      save(V[i], vertex(sites[i]), true);
+      save(V[i], vertex(sites[i],vw), true);
     for (int direction = 0; direction < 2; ++direction)
       for (std::size_t j = 0; j < edge_idx.size(); ++j) {
         int e = edge_idx[j];
         int source = direction ? edges[e].second : edges[e].first;
-        save(E[j + direction * edge_idx.size()], message(e, direction),
+        save(E[j + direction * edge_idx.size()], message(e,direction,ew),
              owners.at(source) == rank);
       }
   });
@@ -586,10 +570,10 @@ PortableCheckpoint SaveTPSPortable(
   phase(comm, [&] {
     validate(d);
     for (auto s : d.sites)
-      require(copies.at(vertex(s)) == 1, "duplicate V");
+      require(copies.at(vertex(s,vw)) == 1, "duplicate V");
     for (std::size_t e = 0; e < edges.size(); ++e)
       for (int dir = 0; dir < 2; ++dir)
-        require(copies.at(message(e, dir)) ==
+        require(copies.at(message(e,dir,ew)) ==
                     (owners.at(edges[e].first) == owners.at(edges[e].second)
                          ? 1
                          : 2),
@@ -597,10 +581,10 @@ PortableCheckpoint SaveTPSPortable(
     if (rank == 0) {
       auto m = manifest(d);
       require(m.size() <= 64 * 1024 * 1024, "metadata size limit");
-      write_text(pending / "manifest.txt", m);
-      write_text(pending / "COMMITTED",
+      write_text(fs::join(pending,"manifest.txt"), m);
+      write_text(fs::join(pending,"COMMITTED"),
                  "TNBP_COMMITTED_V1 " + sha256(m) + "\n");
-      fs::rename(pending, destination);
+      fs::rename(pending, target);
     }
   });
   d.state_digest = sha256(state_text(d));

@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <iterator>
 #include <map>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -23,7 +24,8 @@ namespace tnbp {
 
   /**
      Standard initializer to setup labels and tensors
-     for real-space parallelized tensor product state from bond labels
+     for real-space parallelized tensor product state from bond labels.
+     The caller supplies the complete owner map; this function never partitions sites.
    */
   template <typename TenT>
   void InitTensorProductState(context_handle_t<TenT> & ctx,
@@ -31,7 +33,7 @@ namespace tnbp {
 		 const std::vector<int> & PhysicalBondDim,
 		 std::vector<TenT> & V,
 		 std::vector<int> & SiteIdx,
-		 std::map<int,int> & Site_To_MpiRank,
+		 const std::map<int,int> & Site_To_MpiRank,
 		 std::vector<TenT> & E,
 		 std::vector<int> & EdgeIdx,
 		 MPI_Comm comm) {
@@ -45,16 +47,11 @@ namespace tnbp {
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
 
     auto Site = GetSiteIndexFromBond(I);
-    int NumSites = static_cast<int>(Site.size());
-    int SiteIdxStart = 0;
-    int SiteIdxEnd   = NumSites;
-    get_range(mpi_size,mpi_rank,SiteIdxStart,SiteIdxEnd);
-    SiteIdx.resize(SiteIdxEnd-SiteIdxStart);
-    std::copy(Site.begin() + SiteIdxStart,
-	      Site.begin() + SiteIdxEnd,
-	      SiteIdx.begin());
-    EdgeIdx.resize(0);
-    V.resize(SiteIdxEnd-SiteIdxStart);
+    ValidateSiteOwners(Site,Site_To_MpiRank,comm);
+    SiteIdx.clear();
+    for(auto site:Site) if(Site_To_MpiRank.at(site)==mpi_rank) SiteIdx.push_back(site);
+    EdgeIdx.clear();
+    V.resize(SiteIdx.size());
 
     auto itV = V.begin();
     for(auto const & i : SiteIdx) {
@@ -88,22 +85,7 @@ namespace tnbp {
     for(auto & Em : E) {
       Em = tcapi::copy(ctx,Eorig);
     }
-    std::vector<int> Site_To_MpiRank_Vector(NumSites,0);
-    std::vector<int> Site_To_MpiRank_Send(NumSites,0);
-    for(const auto & i : SiteIdx) {
-      auto it_site_address = std::find(Site.begin(),Site.end(),i);
-      auto site_address = std::distance(Site.begin(),it_site_address);
-      Site_To_MpiRank_Send[site_address] = mpi_rank;
-    }
-    MPI_Allreduce(Site_To_MpiRank_Send.data(),
-		  Site_To_MpiRank_Vector.data(),
-		  NumSites,
-		  MPI_INT,
-		  MPI_SUM,
-		  comm);
-    for(std::size_t i=0; i < NumSites; i++) {
-      Site_To_MpiRank[Site[i]] = Site_To_MpiRank_Vector[i];
-    }
+
   }
 
   /**
@@ -113,10 +95,12 @@ namespace tnbp {
   void Init(context_handle_t<TenT> & ctx,
 	    const std::vector<int> & pdim,
 	    const std::vector<std::pair<int,int>> & I,
+            const std::map<int,int> & owners,
 	    MPI_Comm comm,
 	    TensorProductState<TenT> & W,
 	    std::vector<TenT> & E,
 	    std::vector<int> & EdgeIdx) {
+    W.Site_To_MpiRank_ = owners;
     W.I_ = I;
     W.comm_ = comm;
     InitTensorProductState(ctx,I,pdim,W.V_,W.SiteIdx_,

@@ -79,6 +79,7 @@ namespace tnbp {
     friend void Init(context_handle_t<TenT_> & ctx,
 		     const std::vector<int> & pdim,
 		     const std::vector<std::pair<int,int>> & I,
+                     const std::map<int,int> & owners,
 		     MPI_Comm comm,
 		     TensorProductState<TenT_> & W,
 		     std::vector<TenT_> & E,

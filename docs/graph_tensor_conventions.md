@@ -52,11 +52,24 @@ order. Local storage is determined only by the parallel vectors `site_idx` and
 `tensors`; every supplied local site must belong to the calling rank.
 Rank values refer to the supplied communicator `comm`.
 
+Site labels need not be consecutive or start at zero. Generic graph operations
+and portable checkpoints use signed integer labels; a label is not a dense
+array index. Portable/app interfaces here use `int` labels. Rank values are
+separate and must be nonnegative communicator ranks. The QASM apps use `q[i]`
+indices as labels, so their circuit operands must be nonnegative even though
+the graph/checkpoint representation can hold negative labels.
+
+
 All participating ranks must agree on graph order, operation arguments and
 ownership metadata. Tensor data are stored on their owners. A graph can include
 sites whose tensors are absent from the supplied vectors, provided the operation
 does not need to contract or reshape those tensors. Required owner entries must
 be present; missing ownership is not a default to rank zero.
+
+The main estimator and sampling apps accept an optional ownership file and
+print the selected map with `#`-prefixed lines. Initialization consumes that
+map directly; it does not choose a partition internally. See
+[application site ownership](site_ownership.md).
 
 ## Ownership for each operation
 

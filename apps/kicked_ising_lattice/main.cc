@@ -72,6 +72,7 @@ int main(int argc, char * argv[]) {
   if( mpi_rank == 0 ) {
     std::cout << " " << tnbp::make_timestamp() << " start construction of Initial TPS " << std::endl;
   }
+  Site_To_MpiRank=tnbp::ContiguousSiteOwners(qubit,comm);
   tnbp::InitTensorProductState(ctx,edges,pdim,
 			       V,SiteIdx,Site_To_MpiRank,
 			       E,EdgeIdx,comm);

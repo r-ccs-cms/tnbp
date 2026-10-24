@@ -139,8 +139,34 @@ void qasm_bp(Context& ctx,MPI_Comm comm) {
     auto grouped=tnbp::QasmToTPO<Tensor>(ctx,p,edges,std::vector<int>{2});
     check(op.size()==1 && grouped.size()==1,"QASM TPO layers");
     std::vector<Tensor> v,e; std::vector<int> sites,edgeids; std::map<int,int> owners;
+    owners=tnbp::ContiguousSiteOwners(tnbp::GetSiteIndexFromBond(edges),comm);
     tnbp::InitTensorProductState(ctx,edges,{2,2},v,sites,owners,e,edgeids,comm);
     check_messages(e);
+    // State-owned initialization consumes the same explicit map, including
+    // a reversed placement; invalid maps fail collectively before allocation.
+    int owner_size=0,owner_rank=0;
+    MPI_Comm_size(comm,&owner_size); MPI_Comm_rank(comm,&owner_rank);
+    auto reversed=owners;
+    for(auto& [site,owner]:reversed) owner=owner_size-1-owner;
+    tnbp::TensorProductState<Tensor> initial;
+    std::vector<Tensor> initial_messages; std::vector<int> initial_edges;
+    tnbp::Init(ctx,{2,2},edges,reversed,comm,initial,initial_messages,initial_edges);
+    std::size_t local_count=0;
+    for(auto [site,owner]:reversed) if(owner==owner_rank) ++local_count;
+    check(initial.NumV()==local_count,"state-owned explicit placement");
+    check_messages(initial_messages);
+    bool rejected=false;
+    try { tnbp::ValidateSiteOwners({0,1},{},comm); }
+    catch(const std::invalid_argument&) { rejected=true; }
+    check(rejected,"missing initialization owners rejected");
+    if(owner_size>1) {
+      auto disagree=owners;
+      if(owner_rank==0) disagree.at(0)=(disagree.at(0)+1)%owner_size;
+      rejected=false;
+      try { tnbp::ValidateSiteOwners({0,1},disagree,comm); }
+      catch(const std::invalid_argument&) { rejected=true; }
+      check(rejected,"inconsistent initialization owners rejected");
+    }
     tnbp::AbsorbTPO(ctx,op[0],edges,v,sites,owners,e,edgeids,comm);
     check_messages(e);
     // Dimension > 1: initializer must produce I/sqrt(d), not raw I.
@@ -160,6 +186,7 @@ void qasm_bp(Context& ctx,MPI_Comm comm) {
     for(std::size_t i=0;i<4;++i)near(before[i],expected[i],"QASM Bell amplitudes");
     // The explicit gate-count overload must produce the same physical operator.
     std::vector<Tensor> v2,e2; std::vector<int> s2,ei2; std::map<int,int> o2;
+    o2=tnbp::ContiguousSiteOwners(tnbp::GetSiteIndexFromBond(edges),comm);
     tnbp::InitTensorProductState(ctx,edges,{2,2},v2,s2,o2,e2,ei2,comm);
     tnbp::OptTPObySVD(ctx,edges,grouped[0],1e-12);
     std::vector<Tensor> local_op;
@@ -208,6 +235,7 @@ void qasm_bp(Context& ctx,MPI_Comm comm) {
 void known_truncation(Context& ctx,MPI_Comm comm) {
     const std::vector<std::pair<int,int>> edges{{0,1}};
     std::vector<Tensor> v,e; std::vector<int> sites,edgeids; std::map<int,int> owners;
+    owners=tnbp::ContiguousSiteOwners(tnbp::GetSiteIndexFromBond(edges),comm);
     tnbp::InitTensorProductState(ctx,edges,{2,2},v,sites,owners,e,edgeids,comm);
     // A real, nondegenerate Schmidt spectrum inside complex tensors. Its
     // rank-one discarded weight is 0.2; the surviving state is |00>.

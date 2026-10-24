@@ -150,3 +150,11 @@ prediction from the updated state. Iteration counts and final values can
 therefore differ at the same tolerance. The library keeps
 `BeliefPropagationCondition` for that legacy check; these app loops use
 `BeliefPropagationDifference`. No site-sized prefix cache is retained.
+
+## Site ownership
+
+Use `--ownerfile FILE` for `site_id mpi_rank` rows; omitted selects the
+automatic contiguous partition. The selected assignment is printed once as
+`# site ownership: ...` and `# MPI rank N: ...` without timestamps. See
+[site ownership](../../docs/site_ownership.md) for input validation, direct
+initialization/loading and legacy checkpoint restrictions.

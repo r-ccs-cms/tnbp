@@ -7,6 +7,7 @@ template<class E> void integration(MPI_Comm comm) {
     tcapi::gqten_handle ctx;tcapi::create_context(ctx);
     const std::vector<std::pair<int,int>> edges{{0,1}};
     std::vector<T> V,Emsg;std::vector<int> sites,edgeids;std::map<int,int> owners;
+    owners=tnbp::ContiguousSiteOwners(tnbp::GetSiteIndexFromBond(edges),comm);
     tnbp::InitTensorProductState(ctx,edges,{2,2},V,sites,owners,Emsg,edgeids,comm);
     // A diagonal messenger with two known Schmidt weights exercises both
     // local and cross-rank paths of the retained-spectrum transfer.

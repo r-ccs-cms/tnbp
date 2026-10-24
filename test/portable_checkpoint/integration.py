@@ -35,6 +35,12 @@ with tempfile.TemporaryDirectory(prefix="tnbp-portable-") as tmp:
         path.write_text(transform(path.read_text()))
         (directory / "COMMITTED").write_text("TNBP_COMMITTED_V1 " + hashlib.sha256(path.read_bytes()).hexdigest() + "\n")
 
+    def change_resume(directory, transform):
+        path = directory / "estimator.resume"
+        body = path.read_text().split("SHA256 ")[0]
+        body = transform(body)
+        path.write_text(body + "SHA256 " + hashlib.sha256(body.encode()).hexdigest() + "\n")
+
     for writers in (1, 4):
         original = root / f"fixture{writers}"
         run(writers, fixture, "save", original)
@@ -49,18 +55,18 @@ with tempfile.TemporaryDirectory(prefix="tnbp-portable-") as tmp:
     for kind in ("corrupt", "missing", "pending", "shape", "duplicate", "codec", "manifest"):
         directory = root / kind
         shutil.copytree(root / "fixture1", directory)
-        payload = directory / "vertices/site--4.ten"
+        payload = directory / "vertices/site--00004.ten"
         if kind == "manifest": (directory / "manifest.txt").write_text("invalid")
         elif kind == "corrupt":
             data = bytearray(payload.read_bytes()); data[-1] ^= 1; payload.write_bytes(data)
         elif kind == "missing": payload.unlink()
         elif kind == "pending": (directory / "COMMITTED").unlink()
         elif kind == "shape":
-            change_manifest(directory, lambda s: s.replace('"vertices/site--4.ten" 104', '"vertices/site--4.ten" 103'))
+            change_manifest(directory, lambda s: s.replace('"vertices/site--00004.ten" 104', '"vertices/site--00004.ten" 103'))
             # Always invalidate an indexed shape, independently of codec byte sizes.
-            change_manifest(directory, lambda s: re.sub(r'("vertices/site--4.ten" \d+ [a-f0-9]{64} 2) 2 2', r'\1 3 2', s))
+            change_manifest(directory, lambda s: re.sub(r'("vertices/site--00004.ten" \d+ [a-f0-9]{64} 2) 2 2', r'\1 3 2', s))
         elif kind == "duplicate":
-            change_manifest(directory, lambda s: s.replace('"vertices/site-2.ten"', '"vertices/site--4.ten"'))
+            change_manifest(directory, lambda s: s.replace('"vertices/site-000002.ten"', '"vertices/site--00004.ten"'))
         elif kind == "codec": change_manifest(directory, lambda s: s.replace("gqten-native-v1", "unsupported"))
         run(2, fixture, "load", directory, ok=False)
 
@@ -120,21 +126,90 @@ with tempfile.TemporaryDirectory(prefix="tnbp-portable-") as tmp:
     run(2, sampler, "--portable_input", saved, "--inputedge", external, "--linefile", lines, ok=False, contains="external graph differs")
     run(2, estimator, *common, "--portable_load", saved, "--step_end", "2", "--sv_min", "1e-7", ok=False, contains="resume conditions differ")
     unknown_app = root / "unknown-app"; shutil.copytree(saved, unknown_app)
-    change_manifest(unknown_app, lambda s: s.replace('"estimator.version" "1"', '"estimator.version" "999"'))
+    change_resume(unknown_app, lambda s: s.replace("TNBP_ESTIMATOR_RESUME 1", "TNBP_ESTIMATOR_RESUME 999"))
     run(2, sampler, "--portable_input", unknown_app, "--linefile", lines, "--num_samples", "4", "--sampling_method", "1", "--bmps_bond_dim", "16")
-    run(2, estimator, *common, "--portable_load", unknown_app, "--step_end", "2", ok=False, contains="resume conditions differ")
+    run(2, estimator, *common, "--portable_load", unknown_app, "--step_end", "2", ok=False, contains="unsupported or malformed resume file")
     run(2, estimator, *common, "--portable_load", saved, "--step_start", "0", "--step_end", "2", ok=False, contains="step_start conflicts")
     no_app = root / "no-app"; shutil.copytree(saved, no_app)
-    change_manifest(no_app, lambda s: s[:s.index("APPLICATION ")] + "APPLICATION 0\nEND\n")
+    (no_app / "estimator.resume").unlink()
     run(2, sampler, "--portable_input", no_app, "--linefile", lines, "--num_samples", "4", "--sampling_method", "1", "--bmps_bond_dim", "16")
-    run(2, estimator, *common, "--portable_load", no_app, "--step_end", "2", ok=False)
+    run(2, estimator, *common, "--portable_load", no_app, "--step_end", "1",
+        contains="PORTABLE_RESTART circuit=unspecified step_start=0")
     # Genuine next-cycle evolution; input is immutable and its manifest remains valid.
-    run(2, estimator, *common, "--portable_load", saved, "--step_end", "2", "--portable_save", root / "evolved")
+    run(2, estimator, *common, "--portable_load", saved, "--step_end", "2", "--portable_save", root / "evolved",
+        contains="PORTABLE_RESTART circuit=same step_start=1")
+    # Changed circuit starts a new step sequence on the saved graph and state.
+    inverse = root / "inverse.qasm"
+    inverse.write_text('OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[4];\nsdg q[3];\ncz q[2],q[3];\ncz q[1],q[2];\ncz q[0],q[1];\nh q[3];\nh q[2];\nh q[1];\nh q[0];\nbarrier q;\n')
+    reset = root / "inverse-state"
+    output = run(4, estimator, "--circuit", inverse, "--sparse_pauli", pauli,
+                 "--portable_load", saved, "--step_start", "0", "--step_end", "1",
+                 "--measurement_barrier", "0", "--portable_save", reset,
+                 contains="PORTABLE_RESTART circuit=changed step_start=0")
+    # U^-1 U |0000> must be zero: check actual state, not just successful loading.
+    output = run(2, sampler, "--portable_input", reset, "--linefile", lines,
+                 "--num_samples", "32", "--sampling_method", "1", "--bmps_bond_dim", "16")
+    assert re.findall(r"^ sample \d+\.0: (\d+)$", output, re.M) == ["0000"] * 32
+    assert "NEXT_STEP 1\n" in (reset / "estimator.resume").read_text()
+    assert 'CIRCUIT "' + hashlib.sha256(inverse.read_bytes()).hexdigest() + '"' in (reset / "estimator.resume").read_text()
+    run(2, estimator, "--circuit", inverse, "--sparse_pauli", pauli,
+        "--portable_load", saved, "--step_start", "1", "--step_end", "2",
+        ok=False, contains="step_start conflicts")
+    run(2, estimator, "--circuit", inverse, "--sparse_pauli", pauli,
+        "--portable_load", reset, "--step_end", "1", contains="PORTABLE_RESTART circuit=same step_start=1")
+    # A circuit with no two-site gates must still use all saved edges and tensors.
+    flip = root / "flip.qasm"
+    flip.write_text('OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[4];\nx q[0];\nbarrier q;\n')
+    flipped = root / "flipped"
+    run(2, estimator, "--circuit", flip, "--sparse_pauli", pauli,
+        "--portable_load", reset, "--step_end", "1", "--portable_save", flipped,
+        contains="PORTABLE_RESTART circuit=changed step_start=0")
+    output = run(4, sampler, "--portable_input", flipped, "--linefile", lines,
+                 "--num_samples", "32", "--sampling_method", "1", "--bmps_bond_dim", "16")
+    assert re.findall(r"^ sample \d+\.0: (\d+)$", output, re.M) == ["1000"] * 32
+    bad = root / "outside.qasm"
+    bad.write_text(flip.read_text().replace("q[4]", "q[5]").replace("x q[0]", "x q[4]"))
+    run(2, estimator, "--circuit", bad, "--sparse_pauli", pauli,
+        "--portable_load", saved, "--step_end", "1", ok=False,
+        contains="circuit references site outside checkpoint graph")
+    assert "NEXT_STEP 2\n" in (root / "evolved/estimator.resume").read_text()
+    # Library-created state has no estimator metadata, and can initialize either app.
+    for directory in (root / "fixture1", saved):
+        manifest = (directory / "manifest.txt").read_text()
+        assert manifest.startswith("TNBP_PORTABLE_TPS 3\n")
+        assert "APPLICATION" not in manifest and "estimator" not in manifest and "WRITERS" not in manifest
+    assert not (root / "fixture1/estimator.resume").exists()
+    bare = root / "bare-state"
+    run(2, fixture, "load", saved, bare, contains="VERIFIED_BYTES")
+    assert not (bare / "estimator.resume").exists()
+    run(4, estimator, *common, "--portable_load", bare, "--step_end", "1",
+        contains="PORTABLE_RESTART circuit=unspecified step_start=0")
+    # Sampler ignores damaged, mismatched or future estimator-only files.
+    corrupt_resume = root / "corrupt-resume"; shutil.copytree(saved, corrupt_resume)
+    (corrupt_resume / "estimator.resume").write_text("broken")
+    output = run(2, sampler, "--portable_input", corrupt_resume, "--linefile", lines,
+                 "--num_samples", "256", "--sampling_method", "1", "--bmps_bond_dim", "16")
+    assert "estimator_next_step" not in output
+    assert re.findall(r"^ sample \d+\.0: (\d+)$", output, re.M) == sampler_reference[2]
+    run(2, estimator, *common, "--portable_load", corrupt_resume, "--step_end", "2",
+        ok=False, contains="resume checksum mismatch")
+    mismatch_resume = root / "mismatch-resume"; shutil.copytree(saved, mismatch_resume)
+    change_resume(mismatch_resume, lambda s: re.sub(r'STATE "[a-f0-9]+"', 'STATE "wrong-state"', s))
+    run(2, estimator, *common, "--portable_load", mismatch_resume, "--step_end", "2",
+        ok=False, contains="resume state digest mismatch")
+    # Width is derived from IDs, not the number of MPI ranks or a six-digit cap.
+    wide = root / "wide-labels"
+    run(2, fixture, "wide-save", wide)
+    assert sorted(p.name for p in (wide / "vertices").iterdir()) == [
+        "site-0000000.ten", "site-0000001.ten", "site-0000009.ten", "site-1000000.ten"]
+    assert sorted(p.name for p in (wide / "messages").iterdir()) == [
+        f"edge-{i:06d}-{direction}.ten" for i in range(3) for direction in ("forward", "reverse")]
+    run(4, fixture, "load", wide, root / "wide-roundtrip", contains="VERIFIED_BYTES")
     if len(sys.argv) > 6:
         base = Path(sys.argv[6]); base.mkdir(parents=True, exist_ok=True)
         evidence = Path(tempfile.mkdtemp(prefix="accepted-", dir=base))
         for writers in (1, 2, 4): shutil.copytree(root / f"estimator{writers}", evidence / f"checkpoint-{writers}rank")
-        for name in ("cluster.qasm", "pauli.txt", "lines.txt"): shutil.copy2(root / name, evidence / name)
+        for name in ("cluster.qasm", "inverse.qasm", "flip.qasm", "pauli.txt", "lines.txt"): shutil.copy2(root / name, evidence / name)
         for case, command, output in transcripts:
             (evidence / f"case-{case:02d}.log").write_text("COMMAND " + " ".join(command) + "\n" + output)
         print(f"EVIDENCE {evidence}")
