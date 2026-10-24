@@ -19,6 +19,7 @@
 #include "tnbp/framework/timestamp.h"
 #include "option.h"
 #include "gcutils.h"
+#include "../site_ownership.h"
 
 int main(int argc, char * argv[]) {
 
@@ -35,6 +36,7 @@ int main(int argc, char * argv[]) {
     MPI_Finalize();
     return 0;
   }
+  if(mpi_rank==0) cout_options(options);
   std::cout << " " << tnbp::make_timestamp()
             << " start program " << std::endl;
   initialize_tensor_device(comm);
@@ -55,7 +57,6 @@ int main(int argc, char * argv[]) {
     }
   } else {
   if( mpi_rank == 0 ) {
-    cout_options(options);
     if( options.inputedge.empty() ) {
       std::cerr << " input file is not specified " << std::endl;
       MPI_Abort(comm,1);
@@ -94,17 +95,16 @@ int main(int argc, char * argv[]) {
   }
 
   if(!options.portable_input.empty()) {
-    auto owners=tnbp::PortableContiguousOwners(portable_descriptor.sites,comm);
+    auto owners=app_ownership::select(portable_descriptor.sites,options.ownerfile,comm,true);
     auto loaded=tnbp::LoadTPSPortable<Tensor>(ctx,options.portable_input,owners,comm,
         tnbp::PortableLoadMode::VerticesOnly);
     W=std::move(loaded.V);site_idx=std::move(loaded.SiteIdx);site_to_mpi_rank=std::move(loaded.owners);
     if(mpi_rank==0) {
       std::cout<<"PORTABLE_INPUT digest="<<loaded.checkpoint.state_digest;
-      const auto step=loaded.checkpoint.application.find("estimator.next_step");
-      if(step!=loaded.checkpoint.application.end())std::cout<<" estimator_next_step="<<step->second;
       std::cout<<std::endl;
     }
   } else if( options.inputname.empty() ) {
+    site_to_mpi_rank=app_ownership::select(tnbp::GetSiteIndexFromBond(edges),options.ownerfile,comm);
     init_random_tensor_state(ctx,edges,
 		options.p_bond_dim,
 		options.v_bond_dim,
@@ -123,6 +123,13 @@ int main(int argc, char * argv[]) {
       std::cout << " " << tnbp::make_timestamp()
                 << " loaded wavefunction data" << std::endl;
   }
+
+  if(!options.inputname.empty() && !options.ownerfile.empty()) {
+    auto requested=app_ownership::select(tnbp::GetSiteIndexFromBond(edges),options.ownerfile,comm);
+    app_ownership::check_legacy(site_to_mpi_rank,requested,comm);
+  }
+  app_ownership::print(site_to_mpi_rank,options.ownerfile.empty() ?
+    (options.inputname.empty() ? "automatic" : "checkpoint") : options.ownerfile,comm);
 
   // Physical dimensions are local and may vary by site. An empty rank needs
   // no representative tensor and simply keeps these arrays empty.

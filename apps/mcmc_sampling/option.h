@@ -14,6 +14,7 @@ struct Option {
   bool help = false;
 
   // inputs for problem settings
+  std::string ownerfile;
   std::string portable_input;
   std::string inputname;
   std::string inputedge;
@@ -52,6 +53,8 @@ Options (defaults in brackets):
       Show this help and exit successfully; no input files are required.
   --inputedge FILE             [required]
       Undirected graph edge file, one pair of site IDs per row.
+  --ownerfile FILE             [none]
+      Ownership rows: site_id mpi_rank; omitted uses the automatic partition.
   --portable_input DIRECTORY   [none]
       Load a portable TPS on a new MPI partition, including its graph.
   --inputname PREFIX           [none]
@@ -142,7 +145,8 @@ Option generate_options(int argc, char *argv[]) {
       throw std::invalid_argument(flag+" requires a value");
     const std::string value(argv[++i]);
     if(value.empty()) throw std::invalid_argument(flag+" requires a nonempty value");
-    if(flag=="--portable_input") option.portable_input=value;
+    if(flag=="--ownerfile") option.ownerfile=value;
+    else if(flag=="--portable_input") option.portable_input=value;
     else if(flag=="--inputname") option.inputname=value;
     else if(flag=="--inputedge") option.inputedge=value;
     else if(flag=="--outputname") option.outputname=value;

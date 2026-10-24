@@ -11,6 +11,7 @@
 struct Option {
 
   // inputs for problem settings
+  std::string ownerfile;
   std::string backend = "default";
   std::string circuit = "circuit.qasm";
   std::string sparsepauli = "sparsepauliop.txt";
@@ -57,7 +58,9 @@ Option generate_options(int argc, char *argv[]) {
     const std::string value = argv[++i];
     if (value.empty())
       throw std::invalid_argument(flag + " requires a nonempty value");
-    if (flag == "--backend")
+    if (flag == "--ownerfile")
+      option.ownerfile=value;
+    else if (flag == "--backend")
       option.backend = value;
     else if (flag == "--circuit")
       option.circuit = value;

@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -6,6 +7,7 @@
 struct Option {
 
   // inputs for problem settings
+  std::string ownerfile;
   std::string backend = "default";
   std::string circuit = "circuit.qasm";
   std::string sparsepauli = "sparsepauliop.txt";
@@ -28,6 +30,12 @@ Option generate_options(int argc, char *argv[]) {
 
   Option option;
   for(int i=0; i < argc; i++) {
+    if (std::string(argv[i]) == "--ownerfile") {
+      if(i+1>=argc || std::string(argv[i+1]).empty() || std::string(argv[i+1]).rfind("--",0)==0)
+        throw std::invalid_argument("--ownerfile requires a value");
+      option.ownerfile=argv[++i];
+      continue;
+    }
     if ( std::string(argv[i]) == "--backend" ) {
       option.backend = std::string(argv[++i]);
     }

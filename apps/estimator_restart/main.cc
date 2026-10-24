@@ -1,4 +1,5 @@
 // main.cc
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -13,6 +14,8 @@
 #include "../cuda_device.h"
 #include "tnbp/framework/timestamp.h"
 #include "option.h"
+#include "checkpoint.h"
+#include "../site_ownership.h"
 
 int main(int argc, char * argv[]) {
 
@@ -26,6 +29,7 @@ int main(int argc, char * argv[]) {
   initialize_tensor_device(comm);
 
   Option options =generate_options(argc,argv);
+  if(mpi_rank==0) cout_options(options);
 
   if(!options.portable_save.empty() && !options.loadname.empty())
     throw std::invalid_argument("legacy import requires a separate converter");
@@ -46,6 +50,21 @@ int main(int argc, char * argv[]) {
     edges = tnbp::bond_ibm_kobe();
   } else if ( options.backend == std::string("default") ) {
     edges = tnbp::EdgesFromQasm(qasm_program);
+  }
+
+  // The saved tensor axes define the graph, independently of the new circuit.
+  tnbp::PortableCheckpoint descriptor;
+  if(!options.portable_load.empty()) {
+    tnbp::portable_detail::phase(comm,[&] {
+      descriptor=tnbp::ReadTPSCheckpoint(options.portable_load);
+      if(options.backend!="default" && descriptor.edges!=edges)
+        throw std::runtime_error("portable graph differs from requested backend graph/order");
+      edges=descriptor.edges;
+      for(const auto& instruction:qasm_program.instructions)
+        for(const auto& q:instruction.qubits)
+          if(std::find(descriptor.sites.begin(),descriptor.sites.end(),q.index)==descriptor.sites.end())
+            throw std::runtime_error("circuit references site outside checkpoint graph");
+    });
   }
 
   if( mpi_rank == mpi_master ) {
@@ -87,23 +106,22 @@ int main(int argc, char * argv[]) {
   };
   std::size_t portable_next_step=0;
   if(!options.portable_load.empty()) {
-    tnbp::PortableCheckpoint descriptor;
     tnbp::portable_detail::phase(comm,[&] {
-      descriptor=tnbp::ReadTPSCheckpoint(options.portable_load);
-      if(descriptor.edges!=edges) throw std::runtime_error("portable graph differs from circuit graph/order");
-      const auto& app=descriptor.application;
-      if(app.at("estimator.version")!="1" || app.at("estimator.phase")!="cycle-complete" ||
-         app.at("estimator.circuit_sha256")!=tnbp::portable_detail::sha256(qasm_source) ||
-         app.at("estimator.settings")!=estimator_settings())
-        throw std::runtime_error("estimator resume conditions differ");
-      std::istringstream next(app.at("estimator.next_step"));
-      auto n=tnbp::portable_detail::number(next);tnbp::portable_detail::end(next);
-      if(n>SIZE_MAX) throw std::runtime_error("next step exceeds range");
-      portable_next_step=static_cast<std::size_t>(n);
+      auto resume=estimator_checkpoint::read(options.portable_load,descriptor.state_digest);
+      bool same_circuit=false;
+      if(resume) {
+        same_circuit=resume->circuit_sha256==tnbp::portable_detail::sha256(qasm_source);
+        if(same_circuit && resume->settings!=estimator_settings())
+          throw std::runtime_error("estimator resume conditions differ");
+        portable_next_step=same_circuit ? resume->next_step : 0;
+      }
       if(options.step_start_set && options.step_start!=portable_next_step)
-        throw std::runtime_error("step_start conflicts with checkpoint next step");
+        throw std::runtime_error("step_start conflicts with inferred start step");
+      if(mpi_rank==0)
+        std::cout<<"PORTABLE_RESTART circuit="<<(resume ? (same_circuit ? "same" : "changed") : "unspecified")
+                 <<" step_start="<<portable_next_step<<std::endl;
     });
-    auto owners=tnbp::PortableContiguousOwners(descriptor.sites,comm);
+    auto owners=app_ownership::select(descriptor.sites,options.ownerfile,comm,true);
     auto loaded=tnbp::LoadTPSPortable<Tensor>(ctx,options.portable_load,owners,comm);
     V=std::move(loaded.V); E=std::move(loaded.E); SiteIdx=std::move(loaded.SiteIdx);
     EdgeIdx=std::move(loaded.EdgeIdx); Site_To_MpiRank=std::move(loaded.owners);
@@ -117,11 +135,19 @@ int main(int argc, char * argv[]) {
     std::cout << " " << tnbp::make_timestamp()
 	      << " Load TPS data at rank " << mpi_rank << std::endl;
   } else {
+    Site_To_MpiRank=app_ownership::select(qubit,options.ownerfile,comm);
     tnbp::InitTensorProductState(ctx,edges,pdim,
 				 V,SiteIdx,Site_To_MpiRank,
 				 E,EdgeIdx,comm);
   }
   
+
+  if(!options.loadname.empty() && !options.ownerfile.empty()) {
+    auto requested=app_ownership::select(qubit,options.ownerfile,comm);
+    app_ownership::check_legacy(Site_To_MpiRank,requested,comm);
+  }
+  app_ownership::print(Site_To_MpiRank,options.ownerfile.empty() ?
+    (options.loadname.empty() ? "automatic" : "checkpoint") : options.ownerfile,comm);
 
   Real tolerance;
   std::vector<BondDim> res_bond_dim;
@@ -279,15 +305,11 @@ int main(int argc, char * argv[]) {
   }
 
   if(!options.portable_save.empty()) {
-    const auto next=step_end;
-    std::map<std::string,std::string> app{
-      {"estimator.version","1"},{"estimator.phase","cycle-complete"},
-      {"estimator.next_step",std::to_string(next)},
-      {"estimator.completed_cycles",std::to_string(next)},
-      {"estimator.circuit_sha256",tnbp::portable_detail::sha256(qasm_source)},
-      {"estimator.settings",estimator_settings()}};
-    auto checkpoint=tnbp::SaveTPSPortable(ctx,options.portable_save,edges,V,SiteIdx,
-        Site_To_MpiRank,E,EdgeIdx,app,comm);
+    auto checkpoint=estimator_checkpoint::save(options.portable_save,
+      {"",tnbp::portable_detail::sha256(qasm_source),estimator_settings(),step_end},comm,
+      [&](const std::string& state) {
+        return tnbp::SaveTPSPortable(ctx,state,edges,V,SiteIdx,Site_To_MpiRank,E,EdgeIdx,comm);
+      });
     if(mpi_rank==0) std::cout<<"PORTABLE_SAVED digest="<<checkpoint.state_digest<<std::endl;
   }
   } catch(const std::exception& error) {

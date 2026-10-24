@@ -13,6 +13,7 @@
 #include "../cuda_device.h"
 #include "tnbp/framework/timestamp.h"
 #include "option.h"
+#include "../site_ownership.h"
 
 int main(int argc, char * argv[]) {
 
@@ -22,6 +23,7 @@ int main(int argc, char * argv[]) {
   int mpi_size; MPI_Comm_size(comm,&mpi_size);
   int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
   
+  try {
   initialize_tensor_device(comm);
 
   Option options =generate_options(argc,argv);
@@ -92,10 +94,13 @@ int main(int argc, char * argv[]) {
   std::vector<int> pdim(qubit.size(),2);
   std::vector<Tensor> F;
 
+  Site_To_MpiRank=app_ownership::select(qubit,options.ownerfile,comm);
   tnbp::InitTensorProductState(ctx,edges,pdim,
 			       V,SiteIdx,Site_To_MpiRank,
 			       E,EdgeIdx,comm);
   
+
+  app_ownership::print(Site_To_MpiRank,options.ownerfile.empty() ? "automatic" : options.ownerfile,comm);
 
   Real tolerance;
   std::vector<BondDim> res_bond_dim;
@@ -220,6 +225,9 @@ int main(int argc, char * argv[]) {
     }
   }
 
+  } catch(const std::exception& error) {
+    std::cerr<<"estimator: "<<error.what()<<std::endl; MPI_Abort(comm,1);
+  }
   MPI_Finalize();
   
   return 0;

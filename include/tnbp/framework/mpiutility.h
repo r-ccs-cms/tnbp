@@ -12,6 +12,10 @@
 #include <complex>
 #include <cstddef>
 #include <cstdint>
+#include <algorithm>
+#include <limits>
+#include <map>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -61,6 +65,38 @@ namespace tnbp {
     if (size > 0) {
       MPI_Bcast(str.data(), size, MPI_CHAR, root, comm);
     }
+  }
+
+  // Choose a balanced contiguous partition before tensor initialization/loading.
+  inline std::map<int,int> ContiguousSiteOwners(const std::vector<int>& sites, MPI_Comm comm) {
+    if(sites.size()>static_cast<std::size_t>(std::numeric_limits<int>::max()))
+      throw std::invalid_argument("too many sites for ownership partition");
+    int size; MPI_Comm_size(comm,&size);
+    std::map<int,int> owners;
+    for(int r=0;r<size;++r) {
+      int first=0,last=static_cast<int>(sites.size()); get_range(size,r,first,last);
+      for(int i=first;i<last;++i) owners.emplace(sites[i],r);
+    }
+    return owners;
+  }
+
+  inline void ValidateSiteOwners(const std::vector<int>& sites,
+                                  const std::map<int,int>& owners, MPI_Comm comm) {
+    int size; MPI_Comm_size(comm,&size);
+    bool valid=owners.size()==sites.size();
+    std::string signature;
+    for(auto site:sites) {
+      auto it=owners.find(site);
+      valid=valid && it!=owners.end() && it->second>=0 && it->second<size;
+      if(it!=owners.end()) signature+=std::to_string(site)+":"+std::to_string(it->second)+";";
+    }
+    int invalid=!valid,any=0;
+    MPI_Allreduce(&invalid,&any,1,MPI_INT,MPI_MAX,comm);
+    if(any) throw std::invalid_argument("invalid site owner map");
+    auto shared=signature; MpiBcast(shared,0,comm);
+    invalid=signature!=shared;
+    MPI_Allreduce(&invalid,&any,1,MPI_INT,MPI_MAX,comm);
+    if(any) throw std::invalid_argument("site owner maps differ across ranks");
   }
 
   template <typename T> MPI_Datatype GetMpiType();

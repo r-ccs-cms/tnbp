@@ -37,8 +37,13 @@ expectation values are printed.
 
 `--step_start` is inclusive and `--step_end` is exclusive. With both options
 omitted (or zero), the effective range is `[0, 1)`, so the circuit is applied
-once. These are repetition indices, not QASM instruction offsets. Loading a
-checkpoint does not infer the next step number: specify it explicitly.
+once. These are repetition indices, not QASM instruction offsets. Legacy rank-local loading requires an explicit next step. Portable loading
+uses the app-owned optional `estimator.resume` file to infer the saved next step
+for identical QASM contents, or starts at zero for a different circuit while
+retaining the saved state and graph. Without that file, state-only input starts
+at zero. The library manifest contains no circuit or step metadata. An explicit
+`--step_start` must match the inferred start. See the portable checkpoint guide
+for state preparation followed by a different evolution circuit.
 
 Unlike the ordinary estimator, this application does not implement
 `--num_gates`, `--do_opt_tpo` or `--eps_opt_tpo`.
@@ -133,3 +138,29 @@ prediction from the updated state. Iteration counts and final values can
 therefore differ at the same tolerance. The library keeps
 `BeliefPropagationCondition` for that legacy check; these app loops use
 `BeliefPropagationDifference`. No site-sized prefix cache is retained.
+
+## Site ownership
+
+Use `--ownerfile FILE` for `site_id mpi_rank` rows; omitted selects the
+automatic contiguous partition. The selected assignment is printed once as
+`# site ownership: ...` and `# MPI rank N: ...` without timestamps. See
+[site ownership](../../docs/site_ownership.md) for input validation, direct
+initialization/loading and legacy checkpoint restrictions.
+
+## Portable publication and gate topology
+
+The estimator app stages the state and its resume file together under
+`<destination>.estimator.pending/state` and publishes the complete directory
+with one rename. A failure before publication leaves no new final checkpoint; its staging
+files remain for inspection. A legacy leftover `estimator.resume.pending`
+is an error for estimator input. Library-only state input remains supported.
+TPO construction rejects a gate whose operands cannot be connected on the saved
+graph; disconnected graphs themselves and gates within their components remain
+valid. See [portable checkpoints](../../docs/portable_checkpoints.md).
+
+This publication path and unrepresentable-gate handling passed 19 dedicated
+regression cases on CPU and on each of ROQUO's shared-one-GPU and two-GPU
+configurations. Tests observe a save between state completion and app metadata
+creation, and inject failures before metadata, during metadata writing and
+before final publication. Valid component-local gates and connected-graph
+routing remain supported.
