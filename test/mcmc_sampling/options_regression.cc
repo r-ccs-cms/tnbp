@@ -17,7 +17,7 @@ int main() {
   for(const char* flag:{"--portable_input","--inputname","--inputedge","--outputname","--seed",
       "--p_bond_dim","--v_bond_dim","--bmps_bond_dim","--bmps_bp_tolerance",
       "--bmps_max_bp_steps","--bmps_tg_err","--bmps_sv_min","--init_line",
-      "--groupfile","--linefile","--num_samples","--num_batches","--sampling_method"}) {
+      "--groupfile","--linefile","--num_samples","--num_batches","--sampling_method","--update_sites"}) {
     rejects({flag});rejects({flag,"--seed","1"});rejects({flag,""});
   }
   for(const char* flag:{"--p_bond_dim","--v_bond_dim","--bmps_bond_dim","--num_batches"})
@@ -27,7 +27,12 @@ int main() {
   for(const char* flag:{"--bmps_bp_tolerance","--bmps_tg_err","--bmps_sv_min"})
     for(const char* value:{"-1","nan","inf","abc","1e-8junk","1e9999"}) rejects({flag,value});
   for(const char* value:{"0,","0,,1",",0","x","2147483648"}) rejects({"--init_line",value});
-  rejects({"--sampling_method","2"});rejects({"--unknown","1"});
+  rejects({"--sampling_method","3"});
+  rejects({"--update_sites","0"}); rejects({"--update_sites","3"});
+  rejects({"--update_sites","2","--sampling_method","1"});
+  if(parse({}).sampling_method!=2 || parse({}).update_sites!=1 ||
+     parse({"--update_sites","2"}).update_sites!=2) throw std::runtime_error("full heat bath defaults");
+  rejects({"--unknown","1"});
   const auto result=parse({"--seed","4294967295","--num_samples","0","--bmps_max_bp_steps","0",
       "--num_batches","2","--init_line","-2,0,4","--bmps_sv_min","0","--sampling_method","1"});
   if(result.seed!=4294967295u || result.num_samples!=0 || result.bmps_max_bp_steps!=0 ||

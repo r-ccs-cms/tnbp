@@ -146,3 +146,80 @@ if(TNBP_TEST_BACKEND STREQUAL "cuda")
         endif()
     endforeach()
 endif()
+
+add_executable(mcmc_full_heat_bath full_heat_bath.cc)
+target_link_libraries(mcmc_full_heat_bath PRIVATE tnbp_test_backend)
+if(BUILD_TESTING AND TNBP_TEST_BACKEND STREQUAL "cpu")
+    foreach(ranks IN ITEMS 1 2)
+        foreach(mode IN ITEMS kernel integration)
+            if(mode STREQUAL "kernel")
+                set(command_args $<TARGET_FILE:mcmc_full_heat_bath>)
+            else()
+                set(command_args $<TARGET_FILE:mcmc_regression> full-heat-bath)
+            endif()
+            add_test(NAME mcmc_full_heat_bath_${mode}_${ranks}_rank COMMAND ${MPIEXEC_EXECUTABLE}
+                ${MPIEXEC_NUMPROC_FLAG} ${ranks} ${MPIEXEC_PREFLAGS} ${command_args})
+            set_tests_properties(mcmc_full_heat_bath_${mode}_${ranks}_rank PROPERTIES
+                TIMEOUT 180 PROCESSORS ${ranks} ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+            if(mode STREQUAL "integration")
+                # Eight 4096-sample distribution cases; accuracy thresholds stay unchanged.
+                set_tests_properties(mcmc_full_heat_bath_${mode}_${ranks}_rank PROPERTIES TIMEOUT 300)
+            endif()
+        endforeach()
+        foreach(width IN ITEMS 1 2)
+            add_test(NAME mcmc_cli_full_heat_bath_${width}_sites_${ranks}_rank COMMAND ${MPIEXEC_EXECUTABLE}
+                ${MPIEXEC_NUMPROC_FLAG} ${ranks} ${MPIEXEC_PREFLAGS}
+                $<TARGET_FILE:mcmc_sampling_complex> --inputedge "${CMAKE_CURRENT_SOURCE_DIR}/data/diagonal03.edges"
+                --linefile "${CMAKE_CURRENT_SOURCE_DIR}/data/two.lines"
+                --p_bond_dim 3 --v_bond_dim 2 --bmps_bond_dim 16 --num_samples 16 --num_batches 2
+                --update_sites ${width})
+            set_tests_properties(mcmc_cli_full_heat_bath_${width}_sites_${ranks}_rank PROPERTIES
+                TIMEOUT 30 PROCESSORS ${ranks} PASS_REGULAR_EXPRESSION "sample 15.1: [012][012][012][012]"
+                ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+        endforeach()
+    endforeach()
+endif()
+
+if(BUILD_TESTING AND TNBP_TEST_BACKEND STREQUAL "cpu")
+    add_test(NAME mcmc_full_heat_bath_kernel_3_rank COMMAND ${MPIEXEC_EXECUTABLE}
+        ${MPIEXEC_NUMPROC_FLAG} 3 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:mcmc_full_heat_bath>)
+    set_tests_properties(mcmc_full_heat_bath_kernel_3_rank PROPERTIES TIMEOUT 180 PROCESSORS 3
+        ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+endif()
+
+
+if(BUILD_TESTING AND TNBP_TEST_BACKEND STREQUAL "cpu")
+    foreach(ranks IN ITEMS 1 2 3)
+        add_test(NAME mcmc_honeycomb_kernel_${ranks}_rank COMMAND ${MPIEXEC_EXECUTABLE}
+            ${MPIEXEC_NUMPROC_FLAG} ${ranks} ${MPIEXEC_PREFLAGS} $<TARGET_FILE:mcmc_full_heat_bath> honeycomb)
+        set_tests_properties(mcmc_honeycomb_kernel_${ranks}_rank PROPERTIES TIMEOUT 180 PROCESSORS ${ranks}
+            ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+    endforeach()
+    foreach(ranks IN ITEMS 1 2)
+        add_test(NAME mcmc_honeycomb_integration_${ranks}_rank COMMAND ${MPIEXEC_EXECUTABLE}
+            ${MPIEXEC_NUMPROC_FLAG} ${ranks} ${MPIEXEC_PREFLAGS} $<TARGET_FILE:mcmc_regression> honeycomb)
+        set_tests_properties(mcmc_honeycomb_integration_${ranks}_rank PROPERTIES TIMEOUT 300 PROCESSORS ${ranks}
+            ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+    endforeach()
+endif()
+
+if(BUILD_TESTING AND TNBP_TEST_BACKEND STREQUAL "cpu")
+    foreach(ranks IN ITEMS 1 2 3)
+        add_test(NAME mcmc_honeycomb_zigzag_${ranks}_rank COMMAND ${MPIEXEC_EXECUTABLE}
+            ${MPIEXEC_NUMPROC_FLAG} ${ranks} ${MPIEXEC_PREFLAGS} $<TARGET_FILE:mcmc_full_heat_bath> zigzag)
+        set_tests_properties(mcmc_honeycomb_zigzag_${ranks}_rank PROPERTIES TIMEOUT 180 PROCESSORS ${ranks}
+            ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+    endforeach()
+    foreach(ranks IN ITEMS 1 2)
+        foreach(layout IN ITEMS automatic paired)
+            foreach(width IN ITEMS 1 2)
+                add_test(NAME mcmc_zigzag_distribution_${layout}_${width}_sites_${ranks}_rank
+                    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${ranks} ${MPIEXEC_PREFLAGS}
+                    $<TARGET_FILE:mcmc_regression> zigzag-distribution ${layout} ${width})
+                set_tests_properties(mcmc_zigzag_distribution_${layout}_${width}_sites_${ranks}_rank
+                    PROPERTIES TIMEOUT 300 PROCESSORS ${ranks}
+                    ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+            endforeach()
+        endforeach()
+    endforeach()
+endif()

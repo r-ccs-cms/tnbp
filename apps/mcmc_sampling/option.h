@@ -40,7 +40,8 @@ struct Option {
   // parameters for sampling
   int num_samples = 1;
   int num_batches = 1;
-  int sampling_method = 0;
+  int sampling_method = 2;
+  int update_sites = 1;
 
 };
 
@@ -87,8 +88,10 @@ Options (defaults in brackets):
       Saved samples per batch; one sample follows a full forward/backward sweep.
   --num_batches N              [1]
       Number of chains initialized and sampled.
-  --sampling_method N          [0]
-      0: Metropolis; 1: pairwise heat bath (Barker).
+  --sampling_method N          [2]
+      0: Metropolis; 1: pairwise Barker; 2: full-state roulette heat bath.
+  --update_sites N             [1]
+      1 or 2 consecutive line sites; 2 requires method 2. Singleton lines are skipped.
 
 Both line modes require at least two nonempty lines covering all graph sites.
 --inputname ignores the random-tensor dimensions; checkpoint backend, scalar type
@@ -98,12 +101,13 @@ Dimensions/batches must be positive; samples/BP steps may be zero. Tolerances
 must be finite and nonnegative; malformed values and unknown options are rejected.
 Samples are printed to stdout in site-label order.
 No burn-in or thinning is performed automatically. For uniform binary states,
-use method 1 to avoid the always-flipping Metropolis round-trip periodicity.
-Method 1 is full heat bath for dimension 2, pairwise Barker for larger dimensions.
+use the default method 2 to avoid Metropolis round-trip periodicity.
+Method 2 enumerates every local state (all d_i*d_j pairs for two sites), without
+charge filtering. The current state is included in the roulette draw.
 
 Example:
   mpirun -np 1 mcmc_sampling --inputedge chain.txt --init_line 0 \
-    --p_bond_dim 2 --v_bond_dim 1 --num_samples 100 --sampling_method 1
+    --p_bond_dim 2 --v_bond_dim 1 --num_samples 100
 )HELP";
 }
 
@@ -163,7 +167,8 @@ Option generate_options(int argc, char *argv[]) {
     else if(flag=="--bmps_max_bp_steps") option.bmps_max_bp_steps=integer(flag,value,0,int_max);
     else if(flag=="--num_samples") option.num_samples=integer(flag,value,0,int_max);
     else if(flag=="--num_batches") option.num_batches=integer(flag,value,1,int_max);
-    else if(flag=="--sampling_method") option.sampling_method=integer(flag,value,0,1);
+    else if(flag=="--sampling_method") option.sampling_method=integer(flag,value,0,2);
+    else if(flag=="--update_sites") option.update_sites=integer(flag,value,1,2);
     else if(flag=="--init_line") {
       if(value.back()==',') throw std::invalid_argument(flag+" contains an empty site ID");
       std::stringstream stream(value);
@@ -173,6 +178,8 @@ Option generate_options(int argc, char *argv[]) {
             std::numeric_limits<int>::min(),int_max)));
     } else throw std::invalid_argument("unknown option: "+flag);
   }
+  if(option.update_sites==2 && option.sampling_method!=2)
+    throw std::invalid_argument("--update_sites 2 requires --sampling_method 2");
   return option;
 }
 
@@ -216,6 +223,7 @@ void cout_options(const Option & option) {
   if(!option.groupfile.empty()) std::cout << "# grouping file: " << option.groupfile << std::endl;
   std::cout << "# number of samples: " << option.num_samples << std::endl;
   std::cout << "# number of batches: " << option.num_batches << std::endl;
+  std::cout << "# update sites: " << option.update_sites << std::endl;
   std::cout << "# sampling method: " << option.sampling_method << std::endl;
 #ifdef USE_COMPLEX
   std::cout << "# complex version " << std::endl;
