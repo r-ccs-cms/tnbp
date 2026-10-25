@@ -32,7 +32,7 @@ Create `chain.txt` containing `0 1`, `1 2`, `2 3` on separate lines, then run:
 ```sh
 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 mpirun -np 1 <build-dir>/mcmc_sampling \
   --inputedge chain.txt --init_line 0 --p_bond_dim 2 --v_bond_dim 1 \
-  --num_samples 100 --num_batches 1 --sampling_method 0
+  --num_samples 100 --num_batches 1
 ```
 
 `--inputedge` supplies undirected edges. `--init_line` supplies comma-separated
@@ -67,7 +67,8 @@ The real and complex executables accept the same options.
 | `--bmps_sv_min X` | `1e-8` | Singular-value cutoff for boundary truncation. |
 | `--num_samples N` | `1` | Saved samples per batch; one sample follows a full forward/backward sweep. |
 | `--num_batches N` | `1` | Number of chains initialized and sampled. |
-| `--sampling_method N` | `0` | 0: Metropolis; 1: pairwise heat bath (Barker). |
+| `--sampling_method N` | `2` | 0: Metropolis; 1: pairwise Barker; 2: full-state roulette heat bath. |
+| `--update_sites N` | `1` | One or two consecutive line sites; two requires method 2. |
 
 Supply `--inputedge` and either `--init_line` or `--linefile` for sampling.
 If both line options are present, `--linefile` takes precedence. The physical and
@@ -80,18 +81,28 @@ rejected with an error. `--help` takes precedence over other arguments.
 
 ## Sampling methods and output
 
-`--sampling_method 0` (default) uses Metropolis acceptance. Method `1` uses
-pairwise heat-bath acceptance: propose a uniformly selected different local
-state, then accept with `p_new / (p_current + p_new)`, where `p = |amplitude|^2`.
-For physical dimension two this is the usual heat-bath update; for larger
-dimensions it is a two-state (Barker) update, not a full categorical Gibbs draw.
-During sampling, dimension-one sites stay fixed at state zero without drawing
-proposal or acceptance random numbers. With either method, a pair of zero-weight
-states remains unchanged. Unknown method values are rejected.
+`--sampling_method 2` (default) uses full-state roulette heat-bath updates.
+The default `--update_sites 1` considers every state of one site. Set
+`--update_sites 2` to consider all state pairs of consecutive sites in the line,
+without charge filtering. The current state is included, and candidates are
+selected with probability proportional to their Born weight.
 
-For a uniform binary state, Metropolis always flips each visited site. Saving
-after a forward/backward sweep can therefore save the same configuration
-forever. Method `1` allows staying in place and avoids this periodicity.
+Two-site windows overlap: `(0,1), (1,2), ...`, with the order reversed on the
+return pass. Singleton lines are skipped in two-site mode. To enable it, add:
+
+```sh
+--update_sites 2
+```
+
+Methods `0` (Metropolis) and `1` (two-state Barker) remain available explicitly
+and require `--update_sites 1`. Method 1 is full heat bath for binary physical
+dimensions. Full-state heat bath allows staying in place and avoids the
+always-flipping Metropolis periodicity for uniform binary states.
+
+Boundary-MPS truncation remains approximate. All-zero or nonfinite candidate
+weights are errors. Two-site updates alone do not guarantee access to the full
+support; in particular, fixed-total-charge states cannot transfer charge between
+lines with a fixed line layout. `--update_sites` does not change that layout.
 
 Samples are written to standard output; redirect it to a file to save them.
 `--outputname` does not create a file. Each saved sample follows one full

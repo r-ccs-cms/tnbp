@@ -13,6 +13,7 @@ Sampling reuses the grouping fixed during initialization in both sweep direction
 #define TNBP_PTNS_FUNCTION_MCMC_SAMPLING_H
 
 #include "tnbp/ptns/function/mcmc_plan.h"
+#include "tnbp/ptns/function/mcmc_heat_bath.h"
 #include <algorithm>
 #include <cmath>
 #include <complex>
@@ -37,14 +38,14 @@ Sampling reuses the grouping fixed during initialization in both sweep direction
 namespace tnbp {
 
   /**
-   * @brief Validate the requested single-site update method.
-   * @param[in] method 0 for Metropolis or 1 for pairwise heat bath.
+   * @brief Validate the requested update method.
+   * @param[in] method 0 for Metropolis, 1 for Barker, 2 for full-state heat bath.
    *
-   * @throws std::invalid_argument If method is neither 0 nor 1.
+   * @throws std::invalid_argument If method is not 0, 1 or 2.
    */
   inline void validate_mcmc_sampling_method(int method) {
-    if(method!=0 && method!=1)
-      throw std::invalid_argument("sampling_method must be 0 (Metropolis) or 1 (pairwise heat bath)");
+    if(method!=0 && method!=1 && method!=2)
+      throw std::invalid_argument("sampling_method must be 0 (Metropolis), 1 (Barker), or 2 (full-state heat bath)");
   }
 
   /**
@@ -811,7 +812,7 @@ namespace tnbp {
 
 
   /**
-   * @brief Update each site on one line using boundary and side environments.
+   * @brief Update one-/two-site windows on a line using boundary and side environments.
    * @tparam TenT TCAPI tensor type.
    * @tparam IntT Signed integer type for site labels, states and indices.
    * @tparam RNG Uniform random bit generator type.
@@ -832,11 +833,13 @@ namespace tnbp {
    * @param[in] site_line_sets Saved groups corresponding to line_target; never regrouped here.
    * @param[in,out] site_states Current physical states in rank-local site_idx order.
    * @param[in] comm MPI communicator; all ranks must participate in the same call order.
-   * @param[in,out] rng Rank-local random generator used by site owners for proposals and acceptance.
-   * @param[in] sampling_method 0 for Metropolis; 1 for pairwise heat bath (Barker).
+   * @param[in,out] rng Rank-local generator; method 2 draws on the leading target owner; methods 0/1 on site owners.
+   * @param[in] sampling_method 0 for Metropolis; 1 for Barker; 2 for full-state heat bath.
+   * @param[in] update_sites Window size 1 or 2; size 2 requires method 2.
    * @param[in] sampling_direction 0 visits left to right; nonzero visits right to left.
    *
-   * First build opposite-side environments, then advance the current-side environment
+   * Method 2 delegates full-state windows to mcmc_update_line_heat_bath.
+   * Methods 0/1 first build opposite-side environments, then advance the current-side environment
    * using each accepted or retained state. Propose a different state symmetrically
    * and evaluate current/proposed amplitudes through the same contraction path.
    * Physical dimension one is fixed and consumes no proposal or acceptance random
@@ -867,8 +870,16 @@ namespace tnbp {
 			std::vector<IntT> & site_states,
 			MPI_Comm comm,
 			RNG & rng,
-			int sampling_method = 0,
-			int sampling_direction = 0) {
+			int sampling_method = 2,
+			int sampling_direction = 0, int update_sites = 1) {
+    if(update_sites!=1 && update_sites!=2) throw std::invalid_argument("update_sites must be 1 or 2");
+    if(sampling_method==2) {
+      mcmc_update_line_heat_bath(ctx,edges,W,site_idx,site_to_mpi_rank,
+        T_upper,site_idx_upper,T_target,site_idx_target,T_lower,site_idx_lower,
+        line_target,site_line_sets,site_states,comm,rng,sampling_direction,update_sites);
+      return;
+    }
+    if(update_sites!=1) throw std::invalid_argument("two-site updates require full-state heat bath (method 2)");
 
     using ElemT = typename tcapi::tensor_traits<TenT>::elem_t;
     using RealT = typename tcapi::tensor_traits<TenT>::real_t;
@@ -1581,8 +1592,9 @@ namespace tnbp {
    * @param[in,out] E_lower BP messages indexed [batch][line][local message].
    * @param[in,out] edge_idx_lower BP edge indices indexed [line][local message], refreshed during initialization of messages.
    * @param[in] site_line_sets Grouping saved at initialization; validated and reused unchanged.
-   * @param[in] sampling_method 0 for Metropolis; 1 for pairwise heat bath (Barker).
-   * @param[in,out] rng Rank-local random generator used by site owners for proposals and acceptance.
+   * @param[in] sampling_method 0 for Metropolis; 1 for Barker; 2 for full-state heat bath.
+   * @param[in] update_sites Window size 1 or 2; size 2 requires method 2.
+   * @param[in,out] rng Rank-local generator; method 2 draws on the leading target owner; methods 0/1 on site owners.
    * @param[in] max_bp_steps Maximum BP iterations per boundary truncation.
    * @param[in] bp_tolerance BP residual stopping tolerance.
    * @param[in] max_bond_dim Maximum retained boundary bond dimension.
@@ -1625,9 +1637,11 @@ namespace tnbp {
        IntT max_bp_steps, real_t<TenT> bp_tolerance,
        bond_dim_t<TenT> max_bond_dim, real_t<TenT> sv_min, real_t<TenT> tg_err,
        MPI_Comm comm,
-       const MCMCGrouping<IntT>* grouping=nullptr) {
+       const MCMCGrouping<IntT>* grouping=nullptr, int update_sites=1) {
 
     validate_mcmc_sampling_method(sampling_method);
+    if(update_sites!=1 && update_sites!=2) throw std::invalid_argument("update_sites must be 1 or 2");
+    if(update_sites==2 && sampling_method!=2) throw std::invalid_argument("two-site updates require method 2");
     // Reuse the initialized plan, including in automatic mode. Never regroup
     // from a contracted graph or independently for the opposite sweep direction.
     if(grouping && site_line_sets!=*grouping)
@@ -1682,7 +1696,7 @@ namespace tnbp {
 			     lines[line_idx],T_target,site_idx_target,
 			     line_dammy,T_dammy,site_idx_dammy,
 			     site_line_sets[line_idx],sampling_states[sample][batch],
-			     comm,rng,sampling_method,0);
+			     comm,rng,sampling_method,0,update_sites);
 	  } else if ( line_idx == max_line_idx ) {
 	    mcmc_update_line(ctx,line_edges[line_idx],
 			     W,site_idx,site_to_mpi_rank,
@@ -1690,7 +1704,7 @@ namespace tnbp {
 			     lines[line_idx],T_target,site_idx_target,
 			     lines[line_idx-1],T_lower[batch][line_idx-1],site_idx_lower[line_idx-1],
 			     site_line_sets[line_idx],sampling_states[sample][batch],
-			     comm,rng,sampling_method,0);
+			     comm,rng,sampling_method,0,update_sites);
 	  } else {
 	    mcmc_update_line(ctx,line_edges[line_idx],
 			     W,site_idx,site_to_mpi_rank,
@@ -1698,7 +1712,7 @@ namespace tnbp {
 			     lines[line_idx],T_target,site_idx_target,
 			     lines[line_idx-1],T_lower[batch][line_idx-1],site_idx_lower[line_idx-1],
 			     site_line_sets[line_idx],sampling_states[sample][batch],
-			     comm,rng,sampling_method,0);
+			     comm,rng,sampling_method,0,update_sites);
 	  }
 	  // retrieve V and lower
 	  for(std::size_t site_adrs=0;
@@ -1846,7 +1860,7 @@ namespace tnbp {
 			     lines[line_idx],T_target,site_idx_target,
 			     line_dammy,T_dammy,site_idx_dammy,
 			     site_line_sets[line_idx],sampling_states[sample][batch],
-			     comm,rng,sampling_method,1);
+			     comm,rng,sampling_method,1,update_sites);
 	  } else if ( line_idx == max_line_idx ) {
 	    mcmc_update_line(ctx,line_edges[line_idx],
 			     W,site_idx,site_to_mpi_rank,
@@ -1854,7 +1868,7 @@ namespace tnbp {
 			     lines[line_idx],T_target,site_idx_target,
 			     lines[line_idx-1],T_lower[batch][line_idx-1],site_idx_lower[line_idx-1],
 			     site_line_sets[line_idx],sampling_states[sample][batch],
-			     comm,rng,sampling_method,1);
+			     comm,rng,sampling_method,1,update_sites);
 	  } else {
 	    mcmc_update_line(ctx,line_edges[line_idx],
 			     W,site_idx,site_to_mpi_rank,
@@ -1862,7 +1876,7 @@ namespace tnbp {
 			     lines[line_idx],T_target,site_idx_target,
 			     lines[line_idx-1],T_lower[batch][line_idx-1],site_idx_lower[line_idx-1],
 			     site_line_sets[line_idx],sampling_states[sample][batch],
-			     comm,rng,sampling_method,1);
+			     comm,rng,sampling_method,1,update_sites);
 	  }
 	  // retrieve V
 	  for(std::size_t site_adrs=0; site_adrs < lines[line_idx].size(); site_adrs++) {
@@ -2091,8 +2105,9 @@ namespace tnbp {
    * @param[in] site_idx Site labels in the same local order as the tensor/state arrays.
    * @param[in] site_to_mpi_rank Global site-to-owner-rank map; original ownership is unchanged.
    * @param[in,out] sampling_states Preallocated [sample][batch][local site] states. Entry [0][batch] must match the initialized chain; each output sample is after a full round trip.
-   * @param[in] sampling_method 0 for Metropolis; 1 for pairwise heat bath (Barker).
-   * @param[in,out] rng Rank-local random generator used by site owners for proposals and acceptance.
+   * @param[in] sampling_method 0 for Metropolis; 1 for Barker; 2 for full-state heat bath.
+   * @param[in] update_sites Window size 1 or 2; size 2 requires method 2.
+   * @param[in,out] rng Rank-local generator; method 2 draws on the leading target owner; methods 0/1 on site owners.
    * @param[in] max_bp_steps Maximum BP iterations per boundary truncation.
    * @param[in] bp_tolerance BP residual stopping tolerance.
    * @param[in] max_bond_dim Maximum retained boundary bond dimension.
@@ -2126,7 +2141,7 @@ namespace tnbp {
        IntT max_bp_steps, real_t<TenT> bp_tolerance,
        bond_dim_t<TenT> max_bond_dim, real_t<TenT> sv_min, real_t<TenT> tg_err,
        MCMCWorkspace<TenT,IntT> & work,
-       MPI_Comm comm) {
+       MPI_Comm comm, int update_sites=1) {
     mcmc_sampling(ctx,edges,W,site_idx,site_to_mpi_rank,work.lines,
 		  sampling_states,work.line_edges,work.V,
 		  work.T_upper,work.site_idx_upper,
@@ -2136,7 +2151,25 @@ namespace tnbp {
 		  work.site_line_sets,
 		  sampling_method,rng,max_bp_steps,bp_tolerance,
 		  max_bond_dim,sv_min,tg_err,comm,
-                  work.manual_grouping.empty() ? nullptr : &work.manual_grouping);
+                  work.manual_grouping.empty() ? nullptr : &work.manual_grouping,update_sites);
+  }
+
+
+  /** @brief Sample with full-state roulette heat bath by default.
+   * Window size is 1 unless update_sites=2; all local states are enumerated.
+   * Other methods remain available through the explicit-method overload.
+   */
+  template <typename TenT, typename IntT, typename RNG>
+  void mcmc_sampling(context_handle_t<TenT>& ctx,
+       const std::vector<std::pair<IntT,IntT>>& edges,
+       const std::vector<TenT>& W, const std::vector<IntT>& site_idx,
+       const std::map<IntT,IntT>& site_to_mpi_rank,
+       std::vector<std::vector<std::vector<IntT>>>& sampling_states,
+       RNG& rng, IntT max_bp_steps, real_t<TenT> bp_tolerance,
+       bond_dim_t<TenT> max_bond_dim, real_t<TenT> sv_min, real_t<TenT> tg_err,
+       MCMCWorkspace<TenT,IntT>& work, MPI_Comm comm, int update_sites=1) {
+    mcmc_sampling(ctx,edges,W,site_idx,site_to_mpi_rank,sampling_states,IntT(2),rng,
+                  max_bp_steps,bp_tolerance,max_bond_dim,sv_min,tg_err,work,comm,update_sites);
   }
 
 

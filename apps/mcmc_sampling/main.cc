@@ -267,7 +267,7 @@ int main(int argc, char * argv[]) {
                       sampling_states,options.sampling_method,rng,
                       options.bmps_max_bp_steps,options.bmps_bp_tolerance,
                       options.bmps_bond_dim,options.bmps_sv_min,options.bmps_tg_err,
-                      work,comm);
+                      work,comm,options.update_sites);
 
   if( mpi_rank == 0 ) {
     std::cout << " # sample sample_id.batch : bitstring " << std::endl;

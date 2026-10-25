@@ -64,7 +64,7 @@ void check_bmps(Context& ctx,const Edges& edges,const std::vector<Tensor>& attac
     }
 }
 std::vector<int> run(Context& ctx, const Edges& edges, const std::vector<std::vector<int>>& lines,
-         const std::string& name, MPI_Comm comm, const tnbp::MCMCGrouping<int>* grouping=nullptr, int fixed_mask=0, bool force_workspace=false, int method=0) {
+         const std::string& name, MPI_Comm comm, const tnbp::MCMCGrouping<int>* grouping=nullptr, int fixed_mask=0, bool force_workspace=false, int method=0, int update_sites=1) {
     int rank, size; MPI_Comm_rank(comm,&rank); MPI_Comm_size(comm,&size);
     const auto nsites=tnbp::GetSiteIndexFromBond(edges).size();
     const int nstates=1<<nsites;
@@ -182,11 +182,13 @@ std::vector<int> run(Context& ctx, const Edges& edges, const std::vector<std::ve
     samples[0][0]=initial;
     std::mt19937 rng(1729+rank);
     if(workspace_mode) {
-        tnbp::mcmc_sampling(ctx,edges,W,ids,owners,samples,method,rng,
-            30,1.e-12,tcapi::bond_dim_t<Tensor>(16),1.e-14,1.e-14,workspace,comm);
+        if(method==2) tnbp::mcmc_sampling(ctx,edges,W,ids,owners,samples,rng,
+            30,1.e-12,tcapi::bond_dim_t<Tensor>(16),1.e-14,1.e-14,workspace,comm,update_sites);
+        else tnbp::mcmc_sampling(ctx,edges,W,ids,owners,samples,method,rng,
+            30,1.e-12,tcapi::bond_dim_t<Tensor>(16),1.e-14,1.e-14,workspace,comm,update_sites);
     } else tnbp::mcmc_sampling(ctx,edges,W,ids,owners,lines,samples,line_edges,V,
         upper,iu,eu,ie_u,lower,il,el,ie_l,sets,method,rng,
-        30,1.e-12,tcapi::bond_dim_t<Tensor>(16),1.e-14,1.e-14,comm,grouping);
+        30,1.e-12,tcapi::bond_dim_t<Tensor>(16),1.e-14,1.e-14,comm,grouping,update_sites);
     std::vector<int> local(samples.size()),global(samples.size());
     for(std::size_t n=0;n<samples.size();++n) {
         if(samples[n][0].size()!=ids.size()) throw std::runtime_error("sample size");
@@ -371,7 +373,57 @@ int main(int argc,char**argv) {
         Context ctx; tcapi::create_context(ctx);
         invalid_line_checks(ctx,MPI_COMM_WORLD);
         if(argc>1) {
-            if(std::string(argv[1])=="heat-bath") {
+            if(std::string(argv[1])=="zigzag-distribution") {
+                if(argc!=4 || (std::string(argv[2])!="automatic" && std::string(argv[2])!="paired") ||
+                   (std::string(argv[3])!="1" && std::string(argv[3])!="2"))
+                    throw std::invalid_argument("zigzag-distribution requires automatic|paired and width 1|2");
+                Edges graph;
+                for(int row=0;row<2;++row) for(int cell=0;cell<3;++cell) {
+                    const int a=6*row+2*cell;graph.emplace_back(a,a+1);
+                    if(cell) graph.emplace_back(a,a-1);
+                    if(row) graph.emplace_back(a,a-5);
+                }
+                std::vector<std::vector<int>> lines;
+                tnbp::bmps_setup_lines(graph,std::vector<int>{0,2,4},lines);
+                if(lines!=std::vector<std::vector<int>>{{0,2,4},{1,3,5},{6,8,10},{7,9,11}})
+                    throw std::runtime_error("unexpected automatic zigzag layers");
+                if(std::string(argv[2])=="paired") lines={{0,1,2,3,4,5},{6,7,8,9,10,11}};
+                int fixed_boundary=0;
+                for(int site:{0,2,4,7,9,11}) fixed_boundary|=1<<site;
+                const int width=std::stoi(argv[3]);
+                run(ctx,graph,lines,"zigzag "+std::string(argv[2])+" width "+argv[3],
+                    MPI_COMM_WORLD,nullptr,fixed_boundary,true,2,width);
+                tcapi::destroy_context(ctx);MPI_Finalize();return 0;
+            } else if(std::string(argv[1])=="honeycomb") {
+                Edges graph;
+                for(int row=0;row<3;++row) for(int j=0;j<3;++j) graph.emplace_back(4*row+j,4*row+j+1);
+                for(int j=0;j<4;++j) graph.emplace_back(j,(j%2 ? 8:4)+j);
+                const std::vector<std::vector<int>> lines{{4,5,6,7},{0,1,2,3},{8,9,10,11}};
+                const auto plan=tnbp::make_mcmc_grouping(graph,lines);
+                // Boundary rows have physical dimension one; all 16 states of
+                // the four degree-three/edge targets remain free to fluctuate.
+                constexpr int fixed_boundary=0xff0;
+                for(int width:{1,2}) {
+                    const auto a=run(ctx,graph,lines,"honeycomb automatic",MPI_COMM_WORLD,nullptr,fixed_boundary,true,2,width);
+                    const auto b=run(ctx,graph,lines,"honeycomb manual",MPI_COMM_WORLD,&plan,fixed_boundary,true,2,width);
+                    if(a!=b) throw std::runtime_error("honeycomb automatic/manual samples differ");
+                }
+                tcapi::destroy_context(ctx);MPI_Finalize();return 0;
+            } else if(std::string(argv[1])=="full-heat-bath") {
+                for(int width:{1,2}) {
+                    Edges chain{{0,1},{1,2},{2,3}};
+                    std::vector<std::vector<int>> lines{{0,1},{2,3}};
+                    auto plan=tnbp::make_mcmc_grouping(chain,lines);
+                    auto a=run(ctx,chain,lines,"full heat bath chain",MPI_COMM_WORLD,nullptr,0,false,2,width);
+                    auto b=run(ctx,chain,lines,"full heat bath chain manual",MPI_COMM_WORLD,&plan,0,false,2,width);
+                    if(a!=b) throw std::runtime_error("full heat bath automatic/manual differ");
+                    Edges square{{0,1},{2,3},{0,2},{1,3}};
+                    run(ctx,square,lines,"full heat bath square",MPI_COMM_WORLD,nullptr,0,true,2,width);
+                    auto k4=square;k4.emplace_back(0,3);k4.emplace_back(1,2);
+                    run(ctx,k4,lines,"full heat bath K4",MPI_COMM_WORLD,nullptr,0,true,2,width);
+                }
+                tcapi::destroy_context(ctx);MPI_Finalize();return 0;
+            } else if(std::string(argv[1])=="heat-bath") {
                 for(double scale : {1.e-200,1.,1.e200}) {
                     if(tnbp::mcmc_pair_metropolis_probability(scale,2*scale)!=1. ||
                        tnbp::mcmc_pair_metropolis_probability(2*scale,scale)!=.25 ||
@@ -391,7 +443,7 @@ int main(int argc,char**argv) {
                    tnbp::mcmc_pair_heat_bath_probability(0.,0.)!=0. ||
                    tnbp::mcmc_pair_heat_bath_probability(1.,1.)!=.5)
                     throw std::runtime_error("heat bath zero/equal weights");
-                for(int method:{-1,2}) {
+                for(int method:{-1,3}) {
                     bool caught=false;
                     try {tnbp::validate_mcmc_sampling_method(method);}
                     catch(const std::invalid_argument&) {caught=true;}

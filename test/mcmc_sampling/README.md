@@ -142,7 +142,7 @@ a uniform binary product distribution (periodicity regression),
 a three-state product distribution (including a zero-weight initial state),
 zero/equal/extremely scaled amplitudes and rejection of unknown method IDs.
 CTest runs it and the method-1 CLI smoke test with one and two MPI ranks.
-Method 0 is the default Metropolis kernel.
+Method 0 remains available explicitly; method 2 (full-state roulette) is now the default.
 
 ## Directory and targets
 
@@ -190,3 +190,163 @@ Metropolis proposals can almost undo each other on the return sweep, so retained
 samples can be strongly correlated even after burn-in. These cases keep the
 same sample counts and distribution tolerances; Metropolis remains covered by
 the default, manual, automatic-group, bond-shift and singleton regressions.
+
+
+## Full-state roulette heat bath
+
+`mcmc_full_heat_bath` enumerates all virtual indices independently for complex
+D=2 K4 tensors (including reversed edge orientations), with physical dimensions
+2/2/2/2 and 2/3/2/1. Every initial configuration, both directions and every
+one-/two-site window are tested collectively using the distributed graph API.
+All candidate absolute amplitudes and conditional probabilities must match
+within 1e-11 relative/absolute tolerance. Every candidate prefix must stay on
+the leading target owner and numerical caches must be rank-local. Move reuse
+of actual candidate storage and element-wise exact immutability of all opposite-side
+caches are checked. Candidate evaluation accepts no raw exterior network.
+
+An exact roulette oracle uses a separate random stream for each owner and
+checks repeated sweeps, overlapping pairs, both boundary sides, heterogeneous
+dimensions and an empty rank zero. A fixed-charge 01/10 state must freeze under
+one-site updates and visit both supported states under two-site updates. All
+256 p16 pair candidates are checked without charge filtering, including when
+rank zero owns no tensors. Scalar weight tests cover extreme scales, invalid
+weights and roulette frequencies. Numerical failure on a nonzero owner must
+propagate collectively. Kernel tests run with CPU MPI 1/2/3 ranks.
+
+`mcmc_regression full-heat-bath` checks chain/square/K4 distributions at both
+window sizes using 128 burn-in round trips and 4096 retained samples per case.
+Automatic and manual chain sequences must agree. It covers explicit-method and
+default-method workspace APIs and the individual-container API. The existing
+frequency thresholds (max error 0.04, TV 0.10) are statistical smoke tests.
+Integration/CLI tests run on CPU MPI 1/2 ranks; CLI runs use ternary
+states and two batches with the default method. Legacy Metropolis/Barker tests
+remain registered. GPU, large-line performance and deliberately truncated-boundary
+accuracy are not validated by this addition. Candidate contraction is restricted to window groups and cached sides; no
+remaining-line snapshots or candidate-dependent exterior reconstruction are used.
+
+An eight-group chain audit compares physical dimensions 1 and 3, window widths
+1/2 and both directions. Opposite-side construction makes six cached graph
+joins for one-site and five for two-site updates, once per sweep and independent
+of candidate count; group preparation is called exactly eight times. Unused
+pair suffix slot 1 must remain empty. Window joins are 14/42 for one-site
+and 19/99 for two-site updates (d=1/3), each with exactly two cached region
+inputs. Each selected leading intermediate is moved once. This checks cache
+reuse work counts in addition to numerical correctness.
+
+
+## Review-fix checks
+
+Single shared legs are tested at chi=1/7/64 with no identity buffer, exactly one
+binary graph contraction and two immutable-input clones at the cache-join entry.
+A nonclosing join checks a shared leg following different external legs on both
+operands, with all result components compared to an independent sum. Existing
+K4 cases exercise multiple shared legs fused into a single composite bond. Source cache values remain
+unchanged. An empty rank zero and distributed owners are included.
+
+The eight-group audit also requires zero identities on its single-cut chain,
+one binary contraction per cached join, two join-input clones per call, and
+only the necessary private boundary candidates (d for one-site, 2d for two-site).
+No preliminary candidate slice copies are made. These counts concern the cache
+layer, excluding copies performed internally by the existing graph API/backend.
+
+Physical leaf IDs must have neither numerical tensors nor owners in the
+prepared graph. Invalid initial states and mismatched virtual bond dimensions
+must still be rejected collectively after removing numerical physical leaves.
+
+
+## Square-lattice contraction order
+
+The kernel includes a three-column strip with separate target, upper and lower
+rows, D=2 and chi=3. Independent enumeration of all 20736 original virtual-index
+assignments gives the eight exact state amplitudes. Every candidate in every
+one-/two-site window, all eight initial configurations and both directions are
+compared with these sums (tolerance 1e-11 * (1 + reference)). Repeated production
+sweeps are compared with independent owner-specific roulette streams. Both upper-
+and lower-first member orders, split owners and an empty rank zero are covered.
+
+An explicit trace from the production candidate helper checks first boundary
+once, then target/other boundary for each state. Dense MAC counts are 108/144/108;
+actual output element counts are 36/36/18. Joins share 1/2/2 original legs, each
+using exactly one binary distributed graph contraction and no identity buffer.
+The pre-target intermediate belongs to the first boundary owner, target entry
+moves it to the target owner, and the final absorption retains that owner. Both
+side orientations are checked. Selected candidate storage is moved into the
+next proper environment. These checks verify the local contraction order and
+sizes, not large-system wall-clock speed or a globally optimal arbitrary-graph
+schedule.
+
+
+## Honeycomb layouts
+
+`mcmc_honeycomb_kernel_{1,2,3}_rank` checks a three-row/four-column brick-wall
+patch with two hexagonal cycles, D=2 and boundary chi=3. Both alternating-rung
+parities, reversed edges, indirect group members, all 16 target configurations,
+widths 1/2 and both directions are covered. Independent sums enumerate all
+93312 original virtual-index assignments. Owner-local candidates, immutable
+opposite caches, storage moves, no identity buffers and exact roulette streams
+are checked, including an empty rank zero. Traces exercise boundary-first and
+target-first entry according to actual connectivity. This particular line
+layout can create a chi^3 D intermediate; it is not a generic complexity result
+for every honeycomb orientation.
+
+`mcmc_honeycomb_integration_{1,2}_rank` uses D=2 on the full patch with fixed
+physical dimension-one boundary rows, leaving all 16 middle-row configurations.
+Actual initialization and round trips, automatic/manual groups and both update
+widths are tested with the existing 4096-sample thresholds (max error 0.04,
+TV 0.10). Automatic/manual sample sequences must agree.
+
+`mcmc_honeycomb_zigzag_{1,2,3}_rank` uses explicit unit-cell connectivity
+A(m,n)--B(m,n), A(m,n)--B(m-1,n), A(m,n)--B(m,n-1), with three cells in each
+of two rows. BFS from A(0..2,0) must return A0/B0/A1/B1 layers. It tests these
+four automatic half-layers and two explicitly paired zigzag chains; the
+production layer generator is unchanged and does not merge the pairs.
+Six exterior physical sites have dimension one; every configuration of the
+remaining six sites (64 states) is checked. Actual BMPS initialization with cap
+16 is performed for every initial state, alternating automatic and explicit
+grouping. All lines/windows, both widths and directions, 19456 candidate
+amplitudes per MPI run and whole-line roulette results are compared with sums
+on the original graph. BMPS normalization introduces a common exterior factor;
+one scale per line is fixed once and required to match all candidates, windows,
+widths and directions (tolerance 1e-10). Storage moves, split owners and an empty
+rank zero are included. Adjacent positions in a separate A/B layer need not be
+joined by an original bond; adjacent sites in the paired zigzag chains are.
+
+These are finite-patch CPU checks, not GPU, large-scale performance or general
+finite-chi accuracy tests. A trivalent graph obtained by tensor factorization
+need not have honeycomb topology; ancilla transformations are not implemented
+or verified by these fixtures.
+
+`mcmc_regression zigzag-distribution automatic|paired 1|2` adds distribution
+checks on the same 12-site unit-cell patch, with six fixed physical dimension-one
+sites and six binary sites (64 allowed configurations). Both automatic A/B
+layers and paired zigzag lines are tested at both update widths on CPU MPI 1/2
+ranks. Each case discards 128 round trips and compares 4096 retained samples
+with normalized Born probabilities from independent enumeration of the original
+virtual indices. The existing thresholds remain max absolute error 0.04 and
+total variation 0.10. Boundary-MPS bond cap is 16. These are statistical
+regressions, not mixing-time measurements or new GPU distribution checks.
+
+
+## Move-only cache and commit fixes
+
+Numerical boundary caches are reset with clear/resize, without requiring Tensor
+copy construction (CUDA Tensor is move-only). Commit takes prepared raw target
+slices and moves the selected slice into its original owner-local site slot;
+it accepts neither a tensor context nor W and performs no physical projection.
+
+The actual commit template is instantiated with std::unique_ptr<int> in every
+kernel mode. Pointer identity, consumed selected slices, preserved unselected
+slices, off-line states, permuted local site/target orders and an empty rank
+zero are checked. This also rejects a regression to copying move-only values.
+Existing numerical tests check original-axis tensor values after the same
+production commit for both widths and directions, including mixed physical
+dimensions, scalar singleton tensors and overlapping pairs. Separate cached-join
+checks cover unequal virtual-leg dimensions and axis order.
+
+
+With no side environment, the first boundary member is borrowed directly from
+its immutable owner-local cache. Only an actual pre-target contraction creates
+an owned common intermediate. The graph join still clones each immutable input
+once internally. The source boundary remains alive through all candidate states;
+no separate numerical seed copy is needed. This preserves absorption order,
+owner placement, opposite environments and raw-slice commit.
