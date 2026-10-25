@@ -43,3 +43,19 @@ Both real and complex tensors are exercised. The executable supports the
 CPU/CUDA backend selection. CUDA execution has also passed on one GPU and
 same-node two GPUs, with one visible GPU per MPI process. The three-rank CTest
 coverage is CPU-only; CUDA executables are launched explicitly in a GPU allocation.
+
+## Shape-only cost evaluation
+
+`graph_contraction_cost_shapes` tests dense MACs and output sizes against
+analytic chain/triangle/K4/square cases, all 720 K4 edge-schedule permutations,
+common-neighbor shapes, priority/label rules, partial/empty schedules, and
+validation/overflow without input mutation. This target has no backend or MPI
+link dependency and can also be compiled directly with a C++17 compiler and
+`-I ../../include` from this directory.
+
+`graph_contraction_cost_tensor` compares every predicted graph and site shape
+with actual binary tensor contractions, then independently runs the numerical
+network executor. It covers triangle/K4/square/honeycomb, reversed edges,
+priorities/fresh labels, split owners and an empty rank zero. CTest runs it on
+CPU MPI 1/2/3 ranks. CUDA execution is not part of this addition's validation.
+See [the cost API](../../docs/graph_contraction_cost.md) for inputs and reports.

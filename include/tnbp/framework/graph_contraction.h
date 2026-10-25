@@ -6,7 +6,7 @@
 #ifndef TNBP_FRAMEWORK_GRAPH_CONTRACTION_H
 #define TNBP_FRAMEWORK_GRAPH_CONTRACTION_H
 
-#include "tnbp/framework/graph.h"
+#include "tnbp/framework/graph_contraction_plan.h"
 #include "tnbp/framework/mpiutility.h"
 #include "tnbp/framework/typedef.h"
 #include <cstddef>
@@ -30,57 +30,6 @@ namespace detail {
 // neighbors are permitted only in this internal mode; their tensors are reformed
 // separately by the sampling caller before they are combined.
 enum class GraphContractionMode { complete, partial_environment };
-
-// Immutable graph plan. Edge indices refer to the original edge vector;
-// fusions are ordered by the removed operand's incident-edge order.
-template<class IntT>
-struct GraphContractionPlan {
-    struct Fusion { IntT neighbor; std::size_t kept_edge, removed_edge; };
-    std::vector<std::size_t> bonds_a, bonds_b, result_bonds;
-    std::vector<Fusion> fusions;
-    std::vector<std::pair<IntT,IntT>> edges;
-};
-
-template<class IntT>
-GraphContractionPlan<IntT> make_graph_contraction_plan(
-    const std::vector<std::pair<IntT,IntT>>& edges, IntT a, IntT b, IntT c) {
-    if(a==b || c==b || find_edge(edges,a,b)==edges.end())
-        throw std::invalid_argument("graph contraction: invalid operands or result label");
-    GraphContractionPlan<IntT> plan;
-    std::map<IntT,std::size_t> neighbors_a;
-    std::set<std::pair<IntT,IntT>> unique;
-    for(std::size_t e=0;e<edges.size();++e) {
-        const auto [x,y]=edges[e];
-        if(x==y || !unique.insert(make_edge(x,y)).second ||
-           (c!=a && (x==c || y==c)))
-            throw std::invalid_argument("graph contraction: invalid graph or result collision");
-        const bool at_a=x==a || y==a, at_b=x==b || y==b;
-        if(at_a) {plan.bonds_a.push_back(e);neighbors_a.emplace(x==a ? y : x,e);}
-        if(at_b) plan.bonds_b.push_back(e);
-        if(at_a!=at_b) plan.result_bonds.push_back(e);
-    }
-    std::set<std::size_t> removed;
-    for(auto e:plan.bonds_b) {
-        const auto [x,y]=edges[e];const auto other=x==b ? y : x;
-        if(other==a) {removed.insert(e);continue;}
-        const auto kept=neighbors_a.find(other);
-        if(kept!=neighbors_a.end()) {
-            plan.fusions.push_back({other,kept->second,e});removed.insert(e);
-        }
-    }
-    // Keep original vector positions relative to surviving edges. Shared bonds
-    // keep A's edge; B-only bonds are relabeled in place, never appended/sorted.
-    for(std::size_t e=0;e<edges.size();++e) {
-        if(removed.count(e)) continue;
-        auto [x,y]=edges[e];
-        if(x==a || x==b || y==a || y==b) {
-            if(x==a || x==b) x=c;
-            if(y==a || y==b) y=c;
-            plan.edges.push_back(make_edge(x,y));
-        } else plan.edges.push_back(edges[e]);
-    }
-    return plan;
-}
 
 // The temporary factor graph used by both tensor and graph-only bond shifts.
 template<class IntT>
@@ -575,22 +524,6 @@ void graph_shift_bond_to_neighbor(context_handle_t<TenT>& ctx,
                                  source,destination,std::vector<IntT>{other},comm);
 }
 
-  /**
-   * @brief Edge update function same with graph_tensor_contraction without tensor contraction
-   * @tparam IntT type of site label
-   * @param[in/out] edges Edges to define the graph of current system
-   * @param[in/out] site_a a label of a site which will be contracted
-   * @param[in/out] site_b a label of another site which will be contracted
-   * @param[in/out] site_c a label for updated tensor site
-   *
-   */
-
-  template <typename IntT>
-  void graph_tensor_contraction_for_edges(std::vector<std::pair<IntT,IntT>> & edges,
-					  IntT site_a, IntT site_b, IntT site_c) {
-    edges=detail::make_graph_contraction_plan(edges,site_a,site_b,site_c).edges;
-  }
-
 /** Graph-only counterpart of graph_shift_bonds_to_neighbor.
  * Preserves the exact edge-vector order of the tensor operation, including
  * replacement of the old source--destination edge by an appended SVD edge.
@@ -654,36 +587,14 @@ namespace detail {
 
     std::size_t num_cont_edges = edges_schedule.size();
     auto edges_schedule_copy = edges_schedule;
-    auto site_priority_copy = site_priority;
-    auto sites = GetSiteIndexFromBond(edges_schedule_copy);
-    for(const auto & site : sites) {
-      if( site_priority_copy.find(site) != site_priority_copy.end() ) {
-	if( label_map.find(site) != label_map.end() ) {
-	  site_priority_copy[label_map.at(site)] = site_priority_copy.at(site);
-	}
-      } else {
-	if( label_map.find(site) != label_map.end() ) {
-	  site_priority_copy[site] = 0;
-	  site_priority_copy[label_map.at(site)] = 0;
-	} else {
-	  site_priority_copy[site] = 0;
-	}
-      }
-    }
+    auto site_priority_copy=graph_contraction_priorities(edges_schedule_copy,site_priority,label_map);
 
 #ifdef GCHELPER_DEBUG
     std::size_t step=0;
 #endif
     while( !edges_schedule_copy.empty() ) {
-      auto target_edge = edges_schedule_copy.front();
-      auto site_x = target_edge.first;
-      auto site_y = target_edge.second;
-      auto site_a = (site_priority_copy.at(site_y) <= site_priority_copy.at(site_x)) ?
-	site_x : site_y;
-      auto site_b = (site_priority_copy.at(site_y) <= site_priority_copy.at(site_x)) ?
-	site_y : site_x;
-      auto site_c = (label_map.find(site_a) != label_map.end()) ?
-	label_map.at(site_a) : site_a;
+      const auto sites=graph_contraction_sites(edges_schedule_copy.front(),site_priority_copy,label_map);
+      const auto site_a=sites[0],site_b=sites[1],site_c=sites[2];
 #ifdef GCHELPER_DEBUG
       if( mpi_rank == 0 ) {
 	std::cout << " graph_tensor_network_contraction: start contraction, site_a, site_b, site_c = "
