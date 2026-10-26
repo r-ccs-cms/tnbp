@@ -72,10 +72,10 @@ void contraction_checks(MPI_Comm comm) {
     if(rank==0) std::cout<<"direct contraction fusion/edge order/partial owners PASS"<<std::endl;
 }
 
-void invalid_contraction_checks(MPI_Comm comm) {
+void invalid_contraction_checks(MPI_Comm comm,int kind) {
     using T=TensorOf<double>;tcapi::context_handle_t<T> ctx;tcapi::create_context(ctx);
     int rank,size;MPI_Comm_rank(comm,&rank);MPI_Comm_size(comm,&size);
-    for(int kind=0;kind<15;++kind) {
+    {
         Edges edges{{0,1},{0,2},{1,2},{0,10}};
         std::map<int,int> owners{{0,0},{1,1%size},{2,2%size}};
         std::vector<int> ids;std::vector<T> ts;
@@ -109,25 +109,9 @@ void invalid_contraction_checks(MPI_Comm comm) {
         if(kind==12) owners[0]=-1; // public API does not silently skip operands
         if(kind==13) owners[2]=-1; // or missing affected boundary tensors
         if(kind==14) {owners[8]=0;c=8;} // isolated owned label collision
-        const auto original_edges=edges;const auto original_ids=ids;const auto original_owners=owners;
-        std::vector<tcapi::shape_t<T>> shapes;std::vector<std::vector<double>> values;
-        for(const auto& t:ts) {
-            auto shape=tcapi::shape(ctx,t);shapes.push_back(shape);
-            values.emplace_back(tcapi::size(ctx,t));
-            tcapi::to_range(ctx,t,values.back().begin(),[shape](const auto& co){return tnbp::address_from_coor(shape,co);});
-        }
-        bool threw=false;
-        try {tnbp::graph_tensor_contraction(ctx,edges,ts,ids,owners,a,b,c,comm);}
-        catch(const std::invalid_argument&) {threw=true;}
-        if(!threw || edges!=original_edges || ids!=original_ids || owners!=original_owners || ts.size()!=values.size())
-            throw std::runtime_error("contraction preflight failed to reject before mutation");
-        for(std::size_t i=0;i<ts.size();++i) {
-            const auto shape=tcapi::shape(ctx,ts[i]);std::vector<double> data(tcapi::size(ctx,ts[i]));
-            tcapi::to_range(ctx,ts[i],data.begin(),[shape](const auto& co){return tnbp::address_from_coor(shape,co);});
-            if(shape!=shapes[i] || data!=values[i]) throw std::runtime_error("invalid contraction mutated tensors");
-        }
+        tnbp::graph_tensor_contraction(ctx,edges,ts,ids,owners,a,b,c,comm);
     }
-    if(rank==0) std::cout<<"collective contraction preflight: 15 invalid cases PASS"<<std::endl;
+
 }
 
 void invalid_checks(MPI_Comm comm) {
@@ -148,13 +132,37 @@ void invalid_checks(MPI_Comm comm) {
     }
 }
 
+// Rank 2 waits outside the contraction until the operand owners have finished.
+// Any communicator-wide collective inside the contraction would deadlock here.
+void local_progress_check(MPI_Comm comm) {
+    int rank,size;MPI_Comm_rank(comm,&rank);MPI_Comm_size(comm,&size);if(size<3)return;
+    using T=TensorOf<double>;tcapi::context_handle_t<T> ctx;tcapi::create_context(ctx);
+    Edges edges{{0,1}};std::map<int,int> owners{{0,0},{1,1}};
+    std::vector<T> tensors;std::vector<int> ids;
+    if(rank<2) {ids.push_back(rank);tensors.push_back(tcapi::zeros<T>(ctx,{1}));
+        tcapi::set_elem(ctx,tensors[0],tcapi::elem_coors_t<T>{0},double(rank+2));}
+    int ready=1;
+    if(rank==2)MPI_Recv(&ready,1,MPI_INT,0,91,comm,MPI_STATUS_IGNORE);
+    tnbp::graph_tensor_contraction(ctx,edges,tensors,ids,owners,0,1,0,comm);
+    if(rank==0) {
+        if(std::abs(tcapi::get_elem(ctx,tensors[0],tcapi::elem_coors_t<T>{})-6.)>1.e-12)
+            throw std::runtime_error("local contraction result");
+        MPI_Send(&ready,1,MPI_INT,2,91,comm);
+        std::cout<<"local contraction progress without rank 2 PASS"<<std::endl;
+    }
+    tcapi::destroy_context(ctx);
+}
+
 int main(int argc,char** argv) {
     MPI_Init(&argc,&argv);
     initialize_tensor_device(MPI_COMM_WORLD);
     try {
         graph_plan_checks();
         invalid_checks(MPI_COMM_WORLD);
-        invalid_contraction_checks(MPI_COMM_WORLD);
+        if(argc>2 && std::string(argv[1])=="fatal") {
+            invalid_contraction_checks(MPI_COMM_WORLD,std::stoi(argv[2]));MPI_Finalize();return 0;
+        }
+        local_progress_check(MPI_COMM_WORLD);
         auto cases=[&](auto scalar) {
             using S=decltype(scalar);
             tcapi::context_handle_t<TensorOf<S>> ctx;tcapi::create_context(ctx);

@@ -223,3 +223,14 @@ if(BUILD_TESTING AND TNBP_TEST_BACKEND STREQUAL "cpu")
         endforeach()
     endforeach()
 endif()
+
+if(BUILD_TESTING AND TNBP_TEST_BACKEND STREQUAL "cpu")
+    foreach(ranks IN ITEMS 1 2 3)
+        add_test(NAME mcmc_heat_bath_fatal_${ranks}_rank COMMAND ${CMAKE_COMMAND}
+            -DMPIEXEC=${MPIEXEC_EXECUTABLE} -DNUMPROC_FLAG=${MPIEXEC_NUMPROC_FLAG} -DRANKS=${ranks}
+            -DEXECUTABLE=$<TARGET_FILE:mcmc_full_heat_bath> -DCASES=0,1,2,3,4,5,6,7,8,9
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/run_fatal_cases.cmake)
+        set_tests_properties(mcmc_heat_bath_fatal_${ranks}_rank PROPERTIES TIMEOUT 90
+            ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+    endforeach()
+endif()

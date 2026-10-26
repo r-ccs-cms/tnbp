@@ -871,12 +871,14 @@ namespace tnbp {
 			MPI_Comm comm,
 			RNG & rng,
 			int sampling_method = 2,
-			int sampling_direction = 0, int update_sites = 1) {
+			int sampling_direction = 0, int update_sites = 1,
+                        const std::map<std::vector<int>,MPI_Comm>* region_communicators=nullptr,
+                        const mcmc_edge_line_plan<IntT>* edge_plan=nullptr) {
     if(update_sites!=1 && update_sites!=2) throw std::invalid_argument("update_sites must be 1 or 2");
     if(sampling_method==2) {
       mcmc_update_line_heat_bath(ctx,edges,W,site_idx,site_to_mpi_rank,
         T_upper,site_idx_upper,T_target,site_idx_target,T_lower,site_idx_lower,
-        line_target,site_line_sets,site_states,comm,rng,sampling_direction,update_sites);
+        line_target,site_line_sets,site_states,comm,rng,sampling_direction,update_sites,nullptr,region_communicators,edge_plan);
       return;
     }
     if(update_sites!=1) throw std::invalid_argument("two-site updates require full-state heat bath (method 2)");
@@ -1664,6 +1666,39 @@ namespace tnbp {
     std::vector<TenT> T_dammy;
     std::vector<IntT> site_idx_dammy;
     std::vector<IntT> line_dammy;
+    // Sampling-call lifetime: each owner set is created once, including both
+    // sweep directions, and released after the final sample/batch.
+    std::map<std::vector<int>,MPI_Comm> region_communicators;
+    std::vector<std::array<mcmc_edge_line_plan<IntT>,2>> edge_plans(sampling_method==2?lines.size():0);
+    try {
+    if(sampling_method==2 && num_samples && num_batches) {
+      // Initial input metadata only. Numerical boundary shapes are never shared
+      // globally, and plan selection is independent of subsequent truncations.
+      std::vector<unsigned long long> model(site_to_mpi_rank.size()+1,0);
+      std::size_t k=0;
+      for(const auto& entry:site_to_mpi_rank) {
+        if(entry.second==mpi_rank) {
+          const auto i=std::find(site_idx.begin(),site_idx.end(),entry.first)-site_idx.begin();
+          const auto shape=tcapi::shape(ctx,W.at(i));
+          if(shape.empty() || shape.back()<1 || shape.back()>std::numeric_limits<int>::max())
+            throw std::invalid_argument("sampling model physical dimension");
+          model[k]=shape.back();
+          for(std::size_t axis=0;axis+1<shape.size();++axis)model.back()=std::max(model.back(),static_cast<unsigned long long>(shape[axis]));
+        }
+        ++k;
+      }
+      MPI_Allreduce(MPI_IN_PLACE,model.data(),static_cast<int>(model.size()),MPI_UNSIGNED_LONG_LONG,MPI_MAX,comm);
+      std::map<IntT,int> counts;k=0;for(const auto& entry:site_to_mpi_rank)counts[entry.first]=static_cast<int>(model[k++]);
+      std::set<std::vector<int>> owner_sets;
+      for(std::size_t j=0;j<lines.size();++j)for(int direction=0;direction<2;++direction) {
+        edge_plans[j][direction]=mcmc_build_edge_line_plan(line_edges[j],lines[j],site_line_sets[j],site_to_mpi_rank,
+            direction,update_sites,model.back(),static_cast<std::uint64_t>(max_bond_dim),counts,
+            mcmc_boundary_edge_model(line_edges[j],lines,j));
+        const auto& sets=std::get<3>(edge_plans[j][direction]);owner_sets.insert(sets.begin(),sets.end());
+      }
+      mcmc_acquire_region_communicators(comm,0,
+        std::vector<std::vector<int>>(owner_sets.begin(),owner_sets.end()),region_communicators);
+    }
     // forward update
     for(std::size_t sample=0; sample < num_samples; sample++) {
       for(std::size_t batch=0; batch < num_batches; batch++) {
@@ -1696,7 +1731,7 @@ namespace tnbp {
 			     lines[line_idx],T_target,site_idx_target,
 			     line_dammy,T_dammy,site_idx_dammy,
 			     site_line_sets[line_idx],sampling_states[sample][batch],
-			     comm,rng,sampling_method,0,update_sites);
+			     comm,rng,sampling_method,0,update_sites,&region_communicators,sampling_method==2?&edge_plans[line_idx][0]:nullptr);
 	  } else if ( line_idx == max_line_idx ) {
 	    mcmc_update_line(ctx,line_edges[line_idx],
 			     W,site_idx,site_to_mpi_rank,
@@ -1704,7 +1739,7 @@ namespace tnbp {
 			     lines[line_idx],T_target,site_idx_target,
 			     lines[line_idx-1],T_lower[batch][line_idx-1],site_idx_lower[line_idx-1],
 			     site_line_sets[line_idx],sampling_states[sample][batch],
-			     comm,rng,sampling_method,0,update_sites);
+			     comm,rng,sampling_method,0,update_sites,&region_communicators,sampling_method==2?&edge_plans[line_idx][0]:nullptr);
 	  } else {
 	    mcmc_update_line(ctx,line_edges[line_idx],
 			     W,site_idx,site_to_mpi_rank,
@@ -1712,7 +1747,7 @@ namespace tnbp {
 			     lines[line_idx],T_target,site_idx_target,
 			     lines[line_idx-1],T_lower[batch][line_idx-1],site_idx_lower[line_idx-1],
 			     site_line_sets[line_idx],sampling_states[sample][batch],
-			     comm,rng,sampling_method,0,update_sites);
+			     comm,rng,sampling_method,0,update_sites,&region_communicators,sampling_method==2?&edge_plans[line_idx][0]:nullptr);
 	  }
 	  // retrieve V and lower
 	  for(std::size_t site_adrs=0;
@@ -1860,7 +1895,7 @@ namespace tnbp {
 			     lines[line_idx],T_target,site_idx_target,
 			     line_dammy,T_dammy,site_idx_dammy,
 			     site_line_sets[line_idx],sampling_states[sample][batch],
-			     comm,rng,sampling_method,1,update_sites);
+			     comm,rng,sampling_method,1,update_sites,&region_communicators,sampling_method==2?&edge_plans[line_idx][1]:nullptr);
 	  } else if ( line_idx == max_line_idx ) {
 	    mcmc_update_line(ctx,line_edges[line_idx],
 			     W,site_idx,site_to_mpi_rank,
@@ -1868,7 +1903,7 @@ namespace tnbp {
 			     lines[line_idx],T_target,site_idx_target,
 			     lines[line_idx-1],T_lower[batch][line_idx-1],site_idx_lower[line_idx-1],
 			     site_line_sets[line_idx],sampling_states[sample][batch],
-			     comm,rng,sampling_method,1,update_sites);
+			     comm,rng,sampling_method,1,update_sites,&region_communicators,sampling_method==2?&edge_plans[line_idx][1]:nullptr);
 	  } else {
 	    mcmc_update_line(ctx,line_edges[line_idx],
 			     W,site_idx,site_to_mpi_rank,
@@ -1876,7 +1911,7 @@ namespace tnbp {
 			     lines[line_idx],T_target,site_idx_target,
 			     lines[line_idx-1],T_lower[batch][line_idx-1],site_idx_lower[line_idx-1],
 			     site_line_sets[line_idx],sampling_states[sample][batch],
-			     comm,rng,sampling_method,1,update_sites);
+			     comm,rng,sampling_method,1,update_sites,&region_communicators,sampling_method==2?&edge_plans[line_idx][1]:nullptr);
 	  }
 	  // retrieve V
 	  for(std::size_t site_adrs=0; site_adrs < lines[line_idx].size(); site_adrs++) {
@@ -1984,6 +2019,14 @@ namespace tnbp {
 
       } // end for(batch)
     } // end for(sample)
+    mcmc_release_region_communicators(region_communicators);
+    } catch(const std::exception& e) {
+      if(sampling_method==2) detail::abort_tensor_operation(comm,e.what());
+      throw;
+    } catch(...) {
+      if(sampling_method==2) detail::abort_tensor_operation(comm,"unknown sampling failure");
+      throw;
+    }
   }
 
   /**
