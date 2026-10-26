@@ -15,6 +15,7 @@ Sampling reuses the grouping fixed during initialization in both sweep direction
 #include "tnbp/ptns/function/mcmc_plan.h"
 #include "tnbp/ptns/function/mcmc_heat_bath.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <complex>
 #include <cstddef>
@@ -2216,6 +2217,73 @@ namespace tnbp {
   }
 
 
+
+  /** @brief Alternate two line layouts using full-state two-site heat bath.
+   * initial_states is [batch][local site], indexed by site_idx in both layouts.
+   * sampling_states.size() specifies the number of output cycles; its entries
+   * are replaced with the states after A round_trips[0] and B round_trips[1]
+   * full forward/backward sweeps. Both counts and the batch count must be positive.
+   * Empty grouping entries select automatic grouping. Both layouts are validated
+   * before numerical initialization, including for zero output cycles.
+   * Each phase initializes fresh boundaries from the current states and uses one
+   * batched sampling call, reusing its plans/communicators for all phase sweeps.
+   * The rank-local RNG continues unchanged across phase boundaries (no reseeding).
+   * Collective on comm in the same order on all ranks; errors terminate the job.
+   * Original tensors, site order and ownership are unchanged. No new class/cache
+   * is required; numerical caches do not survive a layout switch.
+   */
+  template <typename TenT, typename IntT, typename RNG>
+  void mcmc_sampling_alternating(context_handle_t<TenT>& ctx,
+       const std::vector<std::pair<IntT,IntT>>& edges,
+       const std::vector<TenT>& W, const std::vector<IntT>& site_idx,
+       const std::map<IntT,IntT>& site_to_mpi_rank,
+       const std::vector<std::vector<IntT>>& initial_states,
+       const std::array<std::vector<std::vector<IntT>>,2>& layouts,
+       const std::array<MCMCGrouping<IntT>,2>& grouping,
+       const std::array<int,2>& round_trips,
+       std::vector<std::vector<std::vector<IntT>>>& sampling_states,
+       RNG& rng, IntT max_bp_steps, real_t<TenT> bp_tolerance,
+       bond_dim_t<TenT> max_bond_dim, real_t<TenT> sv_min, real_t<TenT> tg_err,
+       MPI_Comm comm) {
+    try {
+      if(round_trips[0]<1 || round_trips[1]<1)
+        throw std::invalid_argument("alternating round trips must be positive");
+      if(initial_states.empty() || W.size()!=site_idx.size())
+        throw std::invalid_argument("alternating initial batch/tensor sizes");
+      for(const auto& states:initial_states) {
+        if(states.size()!=site_idx.size())
+          throw std::invalid_argument("alternating initial state size");
+      }
+      std::array<MCMCGrouping<IntT>,2> groups;
+      for(std::size_t phase=0;phase<2;++phase) {
+        groups[phase]=grouping[phase].empty()
+          ? make_mcmc_grouping(edges,layouts[phase]) : grouping[phase];
+        if(!grouping[phase].empty()) validate_mcmc_grouping(edges,layouts[phase],groups[phase]);
+      }
+      if(sampling_states.empty()) return;
+      auto current=initial_states;
+      for(auto& output:sampling_states) {
+        for(std::size_t phase=0;phase<2;++phase) {
+          MCMCWorkspace<TenT,IntT> work;
+          work.lines=layouts[phase];
+          work.manual_grouping=groups[phase];
+          mcmc_initialize(ctx,edges,W,site_idx,site_to_mpi_rank,current,
+              max_bp_steps,bp_tolerance,max_bond_dim,sv_min,tg_err,work,comm);
+          std::vector<std::vector<std::vector<IntT>>> states(
+              round_trips[phase],std::vector<std::vector<IntT>>(current.size()));
+          states.front()=std::move(current);
+          mcmc_sampling(ctx,edges,W,site_idx,site_to_mpi_rank,states,IntT(2),rng,
+              max_bp_steps,bp_tolerance,max_bond_dim,sv_min,tg_err,work,comm,2);
+          current=std::move(states.back());
+        }
+        output=current;
+      }
+    } catch(const std::exception& e) {
+      detail::abort_tensor_operation(comm,e.what());
+    } catch(...) {
+      detail::abort_tensor_operation(comm,"unknown alternating sampling failure");
+    }
+  }
 
 }
 

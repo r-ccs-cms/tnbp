@@ -234,3 +234,62 @@ if(BUILD_TESTING AND TNBP_TEST_BACKEND STREQUAL "cpu")
             ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
     endforeach()
 endif()
+
+add_executable(mcmc_alternating alternating.cc)
+target_link_libraries(mcmc_alternating PRIVATE tnbp_test_backend)
+if(BUILD_TESTING AND TNBP_TEST_BACKEND STREQUAL "cpu")
+    foreach(ranks IN ITEMS 1 2 3)
+        add_test(NAME mcmc_alternating_${ranks}_rank COMMAND ${MPIEXEC_EXECUTABLE}
+            ${MPIEXEC_NUMPROC_FLAG} ${ranks} ${MPIEXEC_PREFLAGS} $<TARGET_FILE:mcmc_alternating>)
+        set_tests_properties(mcmc_alternating_${ranks}_rank PROPERTIES TIMEOUT 300 PROCESSORS ${ranks}
+            ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+    endforeach()
+    foreach(ranks IN ITEMS 1 2)
+        add_test(NAME mcmc_cli_alternating_${ranks}_rank COMMAND ${MPIEXEC_EXECUTABLE}
+            ${MPIEXEC_NUMPROC_FLAG} ${ranks} ${MPIEXEC_PREFLAGS} $<TARGET_FILE:mcmc_sampling_complex>
+            --inputedge "${CMAKE_CURRENT_SOURCE_DIR}/data/diagonal03.edges"
+            --linefile "${CMAKE_CURRENT_SOURCE_DIR}/data/two.lines"
+            --groupfile "${CMAKE_CURRENT_SOURCE_DIR}/data/paired.groups"
+            --line_mode alternating --second_linefile "${CMAKE_CURRENT_SOURCE_DIR}/data/vertical.lines"
+            --update_sites 2 --first_round_trips 2 --second_round_trips 3
+            --p_bond_dim 2 --v_bond_dim 2 --bmps_bond_dim 16 --num_samples 4 --num_batches 2)
+        set_tests_properties(mcmc_cli_alternating_${ranks}_rank PROPERTIES TIMEOUT 60 PROCESSORS ${ranks}
+            PASS_REGULAR_EXPRESSION "sample 3.1: [01][01][01][01]"
+            FAIL_REGULAR_EXPRESSION "sample 4."
+            ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+    endforeach()
+endif()
+
+if(BUILD_TESTING AND TNBP_TEST_BACKEND STREQUAL "cpu")
+    foreach(ranks IN ITEMS 1 2)
+        add_test(NAME mcmc_alternating_fatal_${ranks}_rank COMMAND ${CMAKE_COMMAND}
+            -DMPIEXEC=${MPIEXEC_EXECUTABLE} -DNUMPROC_FLAG=${MPIEXEC_NUMPROC_FLAG} -DRANKS=${ranks}
+            -DEXECUTABLE=$<TARGET_FILE:mcmc_alternating> -DCASES=0,1,2,3
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/run_fatal_cases.cmake)
+        set_tests_properties(mcmc_alternating_fatal_${ranks}_rank PROPERTIES TIMEOUT 90
+            ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+        add_test(NAME mcmc_cli_alternating_zero_${ranks}_rank COMMAND ${MPIEXEC_EXECUTABLE}
+            ${MPIEXEC_NUMPROC_FLAG} ${ranks} ${MPIEXEC_PREFLAGS} $<TARGET_FILE:mcmc_sampling>
+            --inputedge "${CMAKE_CURRENT_SOURCE_DIR}/data/diagonal03.edges"
+            --linefile "${CMAKE_CURRENT_SOURCE_DIR}/data/two.lines"
+            --line_mode alternating --second_linefile "${CMAKE_CURRENT_SOURCE_DIR}/data/vertical.lines"
+            --update_sites 2 --num_samples 0)
+        set_tests_properties(mcmc_cli_alternating_zero_${ranks}_rank PROPERTIES TIMEOUT 30 PROCESSORS ${ranks}
+            FAIL_REGULAR_EXPRESSION "sample 0;sampling:"
+            ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+    endforeach()
+endif()
+
+if(BUILD_TESTING AND TNBP_TEST_BACKEND STREQUAL "cpu")
+    add_executable(mcmc_initial_states initial_states.cc)
+    target_compile_features(mcmc_initial_states PRIVATE cxx_std_17)
+    add_test(NAME mcmc_initial_states COMMAND mcmc_initial_states "${CMAKE_CURRENT_BINARY_DIR}/initial-states-unit.txt")
+    foreach(ranks IN ITEMS 1 2 3)
+        add_test(NAME mcmc_initial_states_cli_${ranks}_rank COMMAND ${CMAKE_COMMAND}
+            -DMPIEXEC=${MPIEXEC_EXECUTABLE} -DNUMPROC_FLAG=${MPIEXEC_NUMPROC_FLAG} -DRANKS=${ranks}
+            -DEXECUTABLE=$<TARGET_FILE:mcmc_sampling_complex> -DDATA=${CMAKE_CURRENT_BINARY_DIR}/initial-states-${ranks}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/initial_states_cli.cmake)
+        set_tests_properties(mcmc_initial_states_cli_${ranks}_rank PROPERTIES TIMEOUT 180 PROCESSORS ${ranks}
+            ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+    endforeach()
+endif()

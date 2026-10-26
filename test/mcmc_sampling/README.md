@@ -417,3 +417,29 @@ The native scalar-join regression prepares one descriptor for six state pairs on
 a three-factor cut (2 x 3 x 4), compares complex scalar values with an independent
 sum, checks immutable A candidates and last-use B moves, and verifies that no
 collective is introduced. It runs with 1/2/3 ranks, including an idle rank.
+
+## Alternating two-site layouts
+
+`mcmc_alternating` checks the batched wrapper against explicit initialization and
+sampling for `{1,1}` and `{2,3}` round trips, including final RNG equality and zero
+outputs. A six-site rectangle checks switching between two and three lines
+with automatic/manual groups and nontrivial boundary construction. A four-site square with exactly one particle tests conservation of total
+charge, row-charge confinement under horizontal-only updates, and transfer between
+rows under alternating updates. After 128 burn-in cycles, 4096 samples are compared
+with the analytic Born probabilities (maximum error < 0.04, TV < 0.10).
+CTest runs on 1/2/3 ranks, with an empty third rank; complex CLI tests run on 1/2
+ranks with manual first-layout and automatic second-layout grouping. Option tests
+cover incompatible modes and invalid phase counts; fatal-input checks cover
+invalid second layouts/groups, including zero-output requests. These tests do not establish
+accuracy at arbitrary boundary truncation or on arbitrary layouts.
+
+## Initial-state files
+
+`mcmc_initial_states` verifies arbitrary file/local site order, batch mapping,
+empty owners and mixed physical dimensions (including dimension-one ancillas).
+`mcmc_initial_states_cli_*` runs on 1/2/3 ranks, including empty rank zero, with
+16 physical states and two batches. Singleton lines with two-site updates keep
+states unchanged so both single and alternating CLI output can be checked exactly.
+Malformed/missing files, missing/duplicate/unknown sites, wrong batch columns,
+negative/noninteger/overflowing/out-of-range states must terminate with diagnostics,
+even with zero requested samples. Charge and nonzero Born support are not inferred.

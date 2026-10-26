@@ -228,8 +228,11 @@ Directory/stat/rename operations use POSIX helpers in
 The on-disk format and atomic-publication protocol are unchanged.
 The implementation still requires the project's existing C++17 features; this
 change does not by itself confirm a build with a specific Fugaku compiler.
-The current CPU/CUDA TCAPI backends retain their own existing filesystem
-dependencies; these are outside this TNBP-layer change.
+The pinned CUDA TCAPI backend also avoids `<filesystem>` for string paths and
+streams. Direct callers passing `std::filesystem::path` to CUDA TCAPI must include
+`<tcapi/input_and_output_filesystem.h>` explicitly; TNBP's string-based calls do
+not need that adapter. The CPU min-TCAPI backend retains its existing filesystem
+dependency.
 
 ## Tensor filenames
 
