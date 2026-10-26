@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <limits>
 #include <set>
+#include <array>
 
 #include "mpi.h"
 
@@ -19,6 +20,7 @@
 #include "tnbp/framework/timestamp.h"
 #include "option.h"
 #include "gcutils.h"
+#include "initial_states.h"
 #include "../site_ownership.h"
 
 int main(int argc, char * argv[]) {
@@ -149,13 +151,23 @@ int main(int argc, char * argv[]) {
   tnbp::MCMCWorkspace<Tensor,int> work;
   auto& lines = work.lines;
   std::vector<std::vector<int>> site_states(num_batches);
-  for(std::size_t batch=0; batch < num_batches; batch++) {
-    site_states[batch].resize(site_idx.size());
-    for(std::size_t i=0;i<site_idx.size();++i) {
-      std::uniform_int_distribution<int> distribution(0,physical_dims[i]-1);
-      site_states[batch][i]=distribution(rng);
+  if(!options.initial_statefile.empty()) {
+    const auto sites=tnbp::GetSiteIndexFromBond(edges);
+    std::vector<std::vector<int>> global_states;
+    if(mpi_rank==0) global_states=read_initial_states(options.initial_statefile,sites,num_batches);
+    bcast_lines(global_states,0,comm,MPI_INT);
+    site_states=local_initial_states(global_states,sites,site_idx,physical_dims,num_batches);
+  } else {
+    for(std::size_t batch=0; batch < num_batches; batch++) {
+      site_states[batch].resize(site_idx.size());
+      for(std::size_t i=0;i<site_idx.size();++i) {
+        std::uniform_int_distribution<int> distribution(0,physical_dims[i]-1);
+        site_states[batch][i]=distribution(rng);
+      }
     }
+  }
 #ifdef DEBUG
+  for(std::size_t batch=0; batch < num_batches; batch++) {
     auto sites = tnbp::GetSiteIndexFromBond(edges);
     std::vector<int> state_send(sites.size());
     std::vector<int> state_recv(sites.size());
@@ -177,8 +189,8 @@ int main(int argc, char * argv[]) {
       }
       std::cout << std::endl;
     }
-#endif
   }
+#endif
 
   if( options.linefile.empty() ) {
     tnbp::bmps_setup_lines(edges,options.init_line,lines);
@@ -190,29 +202,47 @@ int main(int argc, char * argv[]) {
     bcast_lines(lines,0,comm,MPI_INT);
   }
 
-  auto& manual_groups = work.manual_grouping;
-  if(!options.groupfile.empty()) {
-    // Root reads once; flatten with target labels so all ranks use identical groups.
-    std::vector<std::vector<int>> rows;
-    if(mpi_rank==0) {
-      std::ifstream input(options.groupfile);
-      if(!input) throw std::runtime_error("cannot open grouping file: "+options.groupfile);
-      manual_groups=tnbp::read_mcmc_grouping<int>(input,lines);
-      for(const auto& line:manual_groups) for(const auto& group:line) rows.push_back(group);
+  auto load_groups = [&](const std::string& filename,
+                         const std::vector<std::vector<int>>& lines,
+                         tnbp::MCMCGrouping<int>& manual_groups) {
+    if(!filename.empty()) {
+      // Root reads once; flatten with target labels so all ranks use identical groups.
+      std::vector<std::vector<int>> rows;
+      if(mpi_rank==0) {
+        std::ifstream input(filename);
+        if(!input) throw std::runtime_error("cannot open grouping file: "+filename);
+        manual_groups=tnbp::read_mcmc_grouping<int>(input,lines);
+        for(const auto& line:manual_groups) for(const auto& group:line) rows.push_back(group);
+      }
+      bcast_lines(rows,0,comm,MPI_INT);
+      manual_groups.resize(lines.size());
+      std::size_t k=0;
+      for(std::size_t l=0;l<lines.size();++l) {
+        manual_groups[l].resize(lines[l].size());
+        for(auto& group:manual_groups[l]) group=rows.at(k++);
+      }
+      tnbp::validate_mcmc_grouping(edges,lines,manual_groups);
     }
-    bcast_lines(rows,0,comm,MPI_INT);
-    manual_groups.resize(lines.size());
-    std::size_t k=0;
-    for(std::size_t l=0;l<lines.size();++l) {
-      manual_groups[l].resize(lines[l].size());
-      for(auto& group:manual_groups[l]) group=rows.at(k++);
-    }
-    tnbp::validate_mcmc_grouping(edges,lines,manual_groups);
-  }
+  };
+  load_groups(options.groupfile,lines,work.manual_grouping);
+  std::vector<std::vector<std::vector<int>>> sampling_states(options.num_samples);
+  if(options.line_mode=="alternating") {
+    std::array<std::vector<std::vector<int>>,2> layouts;
+    layouts[0]=lines;
+    if(mpi_rank==0) layouts[1]=read_integer_table<int>(options.second_linefile);
+    bcast_lines(layouts[1],0,comm,MPI_INT);
+    std::array<tnbp::MCMCGrouping<int>,2> groups;
+    groups[0]=work.manual_grouping;
+    load_groups(options.second_groupfile,layouts[1],groups[1]);
+    tnbp::mcmc_sampling_alternating(ctx,edges,W,site_idx,site_to_mpi_rank,
+        site_states,layouts,groups,{options.first_round_trips,options.second_round_trips},
+        sampling_states,rng,options.bmps_max_bp_steps,options.bmps_bp_tolerance,
+        options.bmps_bond_dim,options.bmps_sv_min,options.bmps_tg_err,comm);
+  } else {
 
   if( mpi_rank == 0 ) {
     std::cout << " " << tnbp::make_timestamp()
-	      << " end initialization of random site_states " << std::endl;
+	      << " end initialization of site_states " << std::endl;
   }
 
   // Initialize all batches with one shared grouping and workspace.
@@ -258,7 +288,7 @@ int main(int argc, char * argv[]) {
   }
 #endif
 
-  std::vector<std::vector<std::vector<int>>> sampling_states(
+  sampling_states.assign(
       options.num_samples,
       std::vector<std::vector<int>>(num_batches,std::vector<int>(site_idx.size())));
   if(!sampling_states.empty()) sampling_states.front() = site_states;
@@ -268,6 +298,7 @@ int main(int argc, char * argv[]) {
                       options.bmps_max_bp_steps,options.bmps_bp_tolerance,
                       options.bmps_bond_dim,options.bmps_sv_min,options.bmps_tg_err,
                       work,comm,options.update_sites);
+  }
 
   if( mpi_rank == 0 ) {
     std::cout << " # sample sample_id.batch : bitstring " << std::endl;

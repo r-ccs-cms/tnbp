@@ -17,6 +17,7 @@ struct Option {
   std::string ownerfile;
   std::string portable_input;
   std::string inputname;
+  std::string initial_statefile;
   std::string inputedge;
   std::string outputname;
   std::uint32_t seed = 1729;
@@ -36,6 +37,11 @@ struct Option {
   std::vector<int> init_line;
   std::string linefile;
   std::string groupfile;
+  std::string line_mode = "single";
+  std::string second_linefile;
+  std::string second_groupfile;
+  int first_round_trips = 1;
+  int second_round_trips = 1;
 
   // parameters for sampling
   int num_samples = 1;
@@ -60,6 +66,8 @@ Options (defaults in brackets):
       Load a portable TPS on a new MPI partition, including its graph.
   --inputname PREFIX           [none]
       Load rank-specific TPS files; otherwise generate random tensors.
+  --initial_statefile FILE     [none]
+      Initial physical states: site_id followed by one state per batch; otherwise random.
   --outputname NAME            [none]
       Legacy option: displayed only; does not write a file. Redirect stdout.
   --seed N                     [1729]
@@ -74,6 +82,16 @@ Options (defaults in brackets):
       Explicit lines: one row of space-separated site IDs per line. Overrides --init_line.
   --groupfile FILE             [none]
       Manual three-line groups; omitted means automatic grouping on the original graph.
+  --line_mode single|alternating [single]
+      Alternate two layouts; requires method 2, --update_sites 2 and --second_linefile.
+  --second_linefile FILE       [none]
+      Second layout, using the same format as --linefile.
+  --second_groupfile FILE      [none]
+      Second layout's manual groups; omitted selects automatic grouping.
+  --first_round_trips N        [1]
+      Positive number of full sweeps in the first phase (alternating only).
+  --second_round_trips N       [1]
+      Positive number of full sweeps in the second phase (alternating only).
   --bmps_bond_dim N            [1]
       Maximum retained boundary-MPS bond dimension.
   --bmps_bp_tolerance X        [1e-8]
@@ -85,7 +103,7 @@ Options (defaults in brackets):
   --bmps_sv_min X              [1e-8]
       Singular-value cutoff for boundary truncation.
   --num_samples N              [1]
-      Saved samples per batch; one sample follows a full forward/backward sweep.
+      Saved samples per batch: one round trip in single mode, both phases in alternating mode.
   --num_batches N              [1]
       Number of chains initialized and sampled.
   --sampling_method N          [2]
@@ -93,7 +111,7 @@ Options (defaults in brackets):
   --update_sites N             [1]
       1 or 2 consecutive line sites; 2 requires method 2. Singleton lines are skipped.
 
-Both line modes require at least two nonempty lines covering all graph sites.
+Each layout requires at least two nonempty lines covering all graph sites.
 --inputname ignores the random-tensor dimensions; checkpoint backend, scalar type
 and MPI partition must match. Preserve the saved incident-edge order in FILE;
 duplicate edges are rejected. Empty ranks and per-site physical dimensions are supported.
@@ -141,6 +159,7 @@ Option generate_options(int argc, char *argv[]) {
       throw std::invalid_argument(flag+" requires a finite nonnegative number");
     return static_cast<Real>(parsed);
   };
+  bool phase_options=false;
   const auto int_max=std::numeric_limits<int>::max();
   for(int i=1; i<argc; ++i) {
     const std::string flag(argv[i]);
@@ -152,10 +171,16 @@ Option generate_options(int argc, char *argv[]) {
     if(flag=="--ownerfile") option.ownerfile=value;
     else if(flag=="--portable_input") option.portable_input=value;
     else if(flag=="--inputname") option.inputname=value;
+    else if(flag=="--initial_statefile") option.initial_statefile=value;
     else if(flag=="--inputedge") option.inputedge=value;
     else if(flag=="--outputname") option.outputname=value;
     else if(flag=="--linefile") option.linefile=value;
     else if(flag=="--groupfile") option.groupfile=value;
+    else if(flag=="--line_mode") option.line_mode=value;
+    else if(flag=="--second_linefile") {option.second_linefile=value;phase_options=true;}
+    else if(flag=="--second_groupfile") {option.second_groupfile=value;phase_options=true;}
+    else if(flag=="--first_round_trips") {option.first_round_trips=integer(flag,value,1,int_max);phase_options=true;}
+    else if(flag=="--second_round_trips") {option.second_round_trips=integer(flag,value,1,int_max);phase_options=true;}
     else if(flag=="--seed") option.seed=static_cast<std::uint32_t>(
         integer(flag,value,0,std::numeric_limits<std::uint32_t>::max()));
     else if(flag=="--p_bond_dim") option.p_bond_dim=integer(flag,value,1,int_max);
@@ -180,6 +205,12 @@ Option generate_options(int argc, char *argv[]) {
   }
   if(option.update_sites==2 && option.sampling_method!=2)
     throw std::invalid_argument("--update_sites 2 requires --sampling_method 2");
+  if(option.line_mode!="single" && option.line_mode!="alternating")
+    throw std::invalid_argument("--line_mode must be single or alternating");
+  if(option.line_mode=="alternating") {
+    if(option.sampling_method!=2 || option.update_sites!=2 || option.second_linefile.empty())
+      throw std::invalid_argument("alternating requires method 2, --update_sites 2 and --second_linefile");
+  } else if(phase_options) throw std::invalid_argument("phase options require --line_mode alternating");
   return option;
 }
 
@@ -196,6 +227,8 @@ void cout_options(const Option & option) {
     std::cout << "# input tensor network data name: "
 	      << option.inputname << std::endl;
   }
+  if(!option.initial_statefile.empty())
+    std::cout << "# initial state file: " << option.initial_statefile << std::endl;
   std::cout << "# seed for random tensor contraction: "
 	    << option.seed << std::endl;
   std::cout << "# bond dimsion for boundary-mps: "
@@ -221,6 +254,13 @@ void cout_options(const Option & option) {
     std::cout << "# file for lines: " << option.linefile << std::endl;
   }
   if(!option.groupfile.empty()) std::cout << "# grouping file: " << option.groupfile << std::endl;
+  std::cout << "# line mode: " << option.line_mode << std::endl;
+  if(option.line_mode=="alternating") {
+    std::cout << "# second line file: " << option.second_linefile << std::endl;
+    std::cout << "# second grouping file: " << option.second_groupfile << std::endl;
+    std::cout << "# round trips per output cycle: " << option.first_round_trips
+              << " " << option.second_round_trips << std::endl;
+  }
   std::cout << "# number of samples: " << option.num_samples << std::endl;
   std::cout << "# number of batches: " << option.num_batches << std::endl;
   std::cout << "# update sites: " << option.update_sites << std::endl;

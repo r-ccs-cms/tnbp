@@ -52,6 +52,7 @@ The real and complex executables accept the same options.
 | `-h, --help` | `—` | Show this help and exit successfully; no input files are required. |
 | `--inputedge FILE` | `required` | Undirected graph edge file, one pair of site IDs per row. |
 | `--portable_input DIRECTORY` | `none` | Load shared portable TPS and its graph on the current MPI partition. |
+| `--initial_statefile FILE` | `none` | Initial physical basis indices, one column per batch; omitted means random. |
 | `--inputname PREFIX` | `none` | Load rank-specific TPS files; otherwise generate random tensors. |
 | `--outputname NAME` | `none` | Displayed only; does not write a file. Redirect stdout to save samples. |
 | `--seed N` | `1729` | Random seed for tensor generation, initial states and sampling. |
@@ -60,12 +61,17 @@ The real and complex executables accept the same options.
 | `--init_line IDS` | `none` | Comma-separated initial boundary IDs for automatic line construction. |
 | `--linefile FILE` | `none` | Explicit lines: one row of space-separated site IDs per line. Overrides --init_line. |
 | `--groupfile FILE` | `none` | Manual three-line groups; omitted means automatic grouping on the original graph. |
+| `--line_mode single\|alternating` | `single` | Select one layout or alternate two layouts (method 2, update_sites 2). |
+| `--second_linefile FILE` | `none` | Required second layout in alternating mode. |
+| `--second_groupfile FILE` | `none` | Optional second layout groups; otherwise automatic. |
+| `--first_round_trips N` | `1` | Positive number of first-layout round trips per alternating cycle. |
+| `--second_round_trips N` | `1` | Positive number of second-layout round trips per alternating cycle. |
 | `--bmps_bond_dim N` | `1` | Maximum retained boundary-MPS bond dimension. |
 | `--bmps_bp_tolerance X` | `1e-8` | Belief-propagation residual stopping tolerance. |
 | `--bmps_max_bp_steps N` | `10` | Maximum BP iterations per boundary truncation. |
 | `--bmps_tg_err X` | `1e-8` | Target boundary truncation error. |
 | `--bmps_sv_min X` | `1e-8` | Singular-value cutoff for boundary truncation. |
-| `--num_samples N` | `1` | Saved samples per batch; one sample follows a full forward/backward sweep. |
+| `--num_samples N` | `1` | Saved samples per batch; one round trip in single mode, both phases in alternating mode. |
 | `--num_batches N` | `1` | Number of chains initialized and sampled. |
 | `--sampling_method N` | `2` | 0: Metropolis; 1: pairwise Barker; 2: full-state roulette heat bath. |
 | `--update_sites N` | `1` | One or two consecutive line sites; two requires method 2. |
@@ -105,11 +111,59 @@ support; in particular, fixed-total-charge states cannot transfer charge between
 lines with a fixed line layout. `--update_sites` does not change that layout.
 
 Samples are written to standard output; redirect it to a file to save them.
-`--outputname` does not create a file. Each saved sample follows one full
-forward/backward sweep. Burn-in removal and thinning must be done by the caller.
+`--outputname` does not create a file. In single mode each saved sample follows one full
+forward/backward sweep; alternating mode saves after both phases finish. Burn-in removal and thinning must be done by the caller.
 With the default physical dimension of one, all reported states are zero.
 For physical dimensions above two, the output contains state indices rather than
 binary digits; indices are concatenated without separators.
+
+## Alternating line layouts
+
+To exchange along two directions, supply two valid layouts of the same graph:
+
+```sh
+--line_mode alternating --update_sites 2 \
+--linefile horizontal.lines --second_linefile vertical.lines \
+--first_round_trips 2 --second_round_trips 3
+```
+
+One output sample is the state after two full first-layout round trips **and**
+three full second-layout round trips in this example. Intermediate states are
+not output. Both counts default to one. Swap the files to reverse the phase order.
+Each phase continues from the latest state with the same rank-local RNG and
+rebuilds its boundary MPS. Plans are reused across batches and round trips within
+that phase. `--second_groupfile` optionally specifies the second layout's groups.
+Phase-specific options require alternating mode; method 2 and update_sites 2 are
+required. Zero output samples validate the layouts without running the phases.
+
+Alternating layouts can permit charge transfer between rows, but do not guarantee
+access to every state. For fixed-charge tensors, the initial configuration must
+have nonzero weight; use `--initial_statefile` to supply an appropriate configuration.
+
+## Initial physical configurations
+
+Use `--initial_statefile states.txt --num_batches 2`, for example, with:
+
+```text
+# site_id  batch0  batch1
+0          3       12
+1          5        6
+2          0        0
+```
+
+Each row gives a site ID followed by exactly one physical basis index per batch.
+Row order is arbitrary; blank lines and `#` comments are allowed. Every graph site,
+including ancillas, must occur exactly once. Indices must satisfy `0 <= state < d_i`
+for that site's physical dimension (a dimension-one site must be zero).
+Missing/duplicate/unknown sites, malformed integers, incorrect column counts and
+out-of-range states are errors, including when `--num_samples 0`.
+
+This input works with either line mode and with random or checkpoint tensors.
+Indices refer to the tensor's physical basis order; the sampler does not interpret
+blocked-site charges or check that the initial configuration has nonzero Born weight.
+The file is read and shared once at startup, then each owner keeps its local states.
+No random draws are used for file-based physical initialization. Without this option,
+the previous random initialization is retained.
 
 ## Checkpoint input and edge order
 
@@ -120,8 +174,8 @@ edges instead of sorting them. The TPS format does not store the graph, so an
 incorrect edge order cannot in general be detected when dimensions coincide.
 
 Each rank loads its own TPS file, including valid files containing no local
-tensors. Initial physical states are drawn using each local tensor's last-axis
-dimension; physical dimensions may differ between sites. Empty ranks keep empty
+tensors. Without `--initial_statefile`, initial physical states are drawn using each local
+tensor's last-axis dimension; physical dimensions may differ between sites. Empty ranks keep empty
 state arrays and still participate in the collective sampling calls. Backend,
 scalar type and MPI ownership must match the saved data. A missing checkpoint
 file is reported before attempting to deserialize it.
@@ -213,6 +267,11 @@ Set `MCMCWorkspace::lines` and, optionally, `manual_grouping`, then call
 `mcmc_initialize` followed by `mcmc_sampling`. Leave `manual_grouping` empty to
 select automatic grouping. Keep the graph, line order and grouping consistent
 between initialization and sampling; reinitialize after changing them.
+
+`mcmc_sampling_alternating` accepts initial batched states, two layouts/groupings
+and two positive round-trip counts. The output vector's length sets the number
+of complete cycles; its entries are filled by the function. Empty grouping entries
+select automatic grouping. No caller-owned workspace is required.
 
 For the individual-container overloads, pass a `tnbp::MCMCGrouping<IntT>` pointer
 as the final optional argument to initialization and sampling. Its structure is

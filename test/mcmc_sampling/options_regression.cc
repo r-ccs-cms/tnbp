@@ -14,7 +14,7 @@ void rejects(const std::vector<std::string>& args) {
   throw std::runtime_error("invalid option was accepted: "+args.front());
 }
 int main() {
-  for(const char* flag:{"--portable_input","--inputname","--inputedge","--outputname","--seed",
+  for(const char* flag:{"--initial_statefile","--portable_input","--inputname","--inputedge","--outputname","--seed",
       "--p_bond_dim","--v_bond_dim","--bmps_bond_dim","--bmps_bp_tolerance",
       "--bmps_max_bp_steps","--bmps_tg_err","--bmps_sv_min","--init_line",
       "--groupfile","--linefile","--num_samples","--num_batches","--sampling_method","--update_sites"}) {
@@ -32,6 +32,23 @@ int main() {
   rejects({"--update_sites","2","--sampling_method","1"});
   if(parse({}).sampling_method!=2 || parse({}).update_sites!=1 ||
      parse({"--update_sites","2"}).update_sites!=2) throw std::runtime_error("full heat bath defaults");
+  rejects({"--line_mode","other"});
+  rejects({"--line_mode","alternating"});
+  rejects({"--line_mode","alternating","--second_linefile","b","--update_sites","1"});
+  rejects({"--line_mode","alternating","--second_linefile","b","--sampling_method","0"});
+  for(const char* flag:{"--first_round_trips","--second_round_trips"}) {
+    for(const char* value:{"0","-1","x","1.5","2147483648"}) rejects({flag,value});
+    rejects({flag,"1"});
+  }
+  rejects({"--second_linefile","b"});rejects({"--second_groupfile","g"});
+  const auto alternating=parse({"--line_mode","alternating","--second_linefile","b",
+      "--second_groupfile","g","--update_sites","2","--first_round_trips","2","--second_round_trips","3"});
+  if(alternating.first_round_trips!=2 || alternating.second_round_trips!=3 ||
+     alternating.second_groupfile!="g" || alternating.line_mode!="alternating")
+    throw std::runtime_error("alternating options changed");
+  if(parse({}).line_mode!="single") throw std::runtime_error("single layout default changed");
+  if(parse({"--initial_statefile","states.txt"}).initial_statefile!="states.txt")
+    throw std::runtime_error("initial state option changed");
   rejects({"--unknown","1"});
   const auto result=parse({"--seed","4294967295","--num_samples","0","--bmps_max_bp_steps","0",
       "--num_batches","2","--init_line","-2,0,4","--bmps_sv_min","0","--sampling_method","1"});
