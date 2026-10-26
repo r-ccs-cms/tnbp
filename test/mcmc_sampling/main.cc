@@ -6,6 +6,12 @@
 #include <random>
 #include <stdexcept>
 
+std::size_t sampling_comm_creations=0,sampling_comm_frees=0;
+extern "C" int MPI_Comm_create_group(MPI_Comm p,MPI_Group g,int t,MPI_Comm* c) {
+    ++sampling_comm_creations;return PMPI_Comm_create_group(p,g,t,c);
+}
+extern "C" int MPI_Comm_free(MPI_Comm* c) {++sampling_comm_frees;return PMPI_Comm_free(c);}
+
 using Scalar = std::complex<double>;
 #ifdef TNBP_TEST_CUDA
 using Tensor = tcapi::cuda::Tensor<Scalar>;
@@ -181,6 +187,7 @@ std::vector<int> run(Context& ctx, const Edges& edges, const std::vector<std::ve
     for(auto& sample:samples) sample.resize(1);
     samples[0][0]=initial;
     std::mt19937 rng(1729+rank);
+    const auto creates_before=sampling_comm_creations,frees_before=sampling_comm_frees;
     if(workspace_mode) {
         if(method==2) tnbp::mcmc_sampling(ctx,edges,W,ids,owners,samples,rng,
             30,1.e-12,tcapi::bond_dim_t<Tensor>(16),1.e-14,1.e-14,workspace,comm,update_sites);
@@ -189,6 +196,20 @@ std::vector<int> run(Context& ctx, const Edges& edges, const std::vector<std::ve
     } else tnbp::mcmc_sampling(ctx,edges,W,ids,owners,lines,samples,line_edges,V,
         upper,iu,eu,ie_u,lower,il,el,ie_l,sets,method,rng,
         30,1.e-12,tcapi::bond_dim_t<Tensor>(16),1.e-14,1.e-14,comm,grouping,update_sites);
+    if(method==2) {
+        const auto& all_groups=workspace_mode ? workspace.site_line_sets:sets;
+        std::set<std::vector<int>> expected_sets;
+        const auto& graphs=workspace_mode?workspace.line_edges:line_edges;
+        std::map<int,int> counts;for(const auto& item:owners)counts[item.first]=(fixed_mask & (1<<item.first))?1:2;
+        for(std::size_t j=0;j<lines.size();++j)for(int direction=0;direction<2;++direction) {
+            const auto plan=tnbp::mcmc_build_edge_line_plan(graphs[j],lines[j],all_groups[j],owners,direction,update_sites,2,16,counts,
+                tnbp::mcmc_boundary_edge_model(graphs[j],lines,j));
+            for(const auto& members:std::get<3>(plan))if(std::binary_search(members.begin(),members.end(),rank))expected_sets.insert(members);
+        }
+        if(sampling_comm_creations-creates_before!=expected_sets.size() ||
+           sampling_comm_frees-frees_before!=expected_sets.size())
+            throw std::runtime_error("sampling must create/free each owner communicator once across all sweeps");
+    }
     std::vector<int> local(samples.size()),global(samples.size());
     for(std::size_t n=0;n<samples.size();++n) {
         if(samples[n][0].size()!=ids.size()) throw std::runtime_error("sample size");

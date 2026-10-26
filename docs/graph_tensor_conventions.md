@@ -144,15 +144,16 @@ removed axes: the fused dimension has the kept axis followed by the removed
 axis, while every other axis keeps its relative order. This works whether the
 removed edge originally precedes or follows the kept edge.
 
-The public `graph_tensor_contraction` uses the same collective
-`detail::validate_graph_tensors` preflight as bond shifts and BMPS sweeps.
-It rejects nonadjacent/identical operands, result-label collisions (including
-external graph labels or isolated owner entries), self/duplicate edges,
-missing required tensors/owners, invalid ranks, inconsistent local storage,
-wrong required tensor axis counts and incompatible internal bond dimensions.
-Rejection happens on all ranks before point-to-point communication or mutation.
-Graph order, operation arguments and owner metadata must still agree on ranks;
-this preflight does not compare independent rank-local copies of that metadata.
+`graph_tensor_contraction` validates graph/owner metadata and required local
+tensors without a communicator-wide collective. The received operand supplies
+its shape for checking the contracted bond. Shared-neighbor axes are fused on
+their owners as before. Graph order, operation arguments and owner metadata must
+agree across ranks, and input bond dimensions must be consistent; no global
+comparison of every neighboring bond is performed for each binary call.
+Detected validation or backend failures print a diagnostic and abort the MPI job.
+This API does not promise all-rank exception recovery or rollback. Uninvolved
+ranks need not reach the contraction for its operand owners to make progress.
+Bond shifts and BMPS sweeps retain their separate collective preflight.
 
 Sampling also has an explicitly internal **partial environment** path,
 `detail::graph_tensor_network_partial_contraction`. Here owner `-1` denotes a
@@ -165,9 +166,8 @@ It is not an exception to the public contraction contract: public contraction
 and bond shifting reject required owner `-1` entries. Supplied local tensors
 always need valid owners, even in the partial path.
 
-Preflight adds MPI collective operations to each contraction. It does not make
-backend operations transactional or guarantee that a later allocation/SVD/
-contraction failure leaves all tensors unchanged.
+Binary contraction adds no collective. This does not remove communication
+needed by bond shifts, BMPS sweeps or a sampling window's final weight sharing.
 
 ## One edge-update rule for contraction
 
@@ -190,7 +190,7 @@ no TCAPI operation or MPI communication. Its rules are:
 
 The plan rejects invalid/simple-graph violations, absent or identical operands,
 C==B and result-label collisions in the graph before returning. The tensor path
-also validates owner-map collisions and tensor requirements collectively.
+also validates owner-map collisions and local tensor requirements.
 The graph-only function leaves its input unchanged when planning fails.
 
 Bond shifting shares `detail::make_graph_shift_edges` for temporary-factor edge

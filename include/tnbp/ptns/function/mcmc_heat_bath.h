@@ -5,6 +5,8 @@
 #ifndef TNBP_PTNS_FUNCTION_MCMC_HEAT_BATH_H
 #define TNBP_PTNS_FUNCTION_MCMC_HEAT_BATH_H
 #include "tnbp/framework/graph_contraction.h"
+#include "tnbp/ptns/function/mcmc_region_communicators.h"
+#include "tnbp/framework/graph_region_contraction_plan.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -113,7 +115,7 @@ void mcmc_prepare_heat_bath_graph(context_handle_t<TenT>& ctx,
     const std::vector<IntT>& states,MPI_Comm comm,
     std::vector<std::pair<IntT,IntT>>& graph,std::vector<TenT>& tensors,
     std::vector<IntT>& ids,std::map<IntT,IntT>& ranks,
-    std::vector<IntT>& leaves,std::vector<int>& dimensions) {
+    std::vector<IntT>& leaves,std::vector<int>& dimensions) try {
     int rank,size;MPI_Comm_rank(comm,&rank);MPI_Comm_size(comm,&size);
     std::set<IntT> members;
     if(groups.size()!=line.size()) throw std::invalid_argument("heat-bath group count");
@@ -151,8 +153,7 @@ void mcmc_prepare_heat_bath_graph(context_handle_t<TenT>& ctx,
         tensors.push_back(tcapi::copy(ctx,source->at(index)));ids.push_back(site);
     }
     for(auto e:edges) if(!members.count(e.first) || !members.count(e.second)) bad=1;
-    int failed=0;MPI_Allreduce(&bad,&failed,1,MPI_INT,MPI_MAX,comm);
-    if(failed) throw std::invalid_argument("heat-bath graph/tensor/state/owner mismatch");
+    if(bad) throw std::invalid_argument("heat-bath graph/tensor/state/owner mismatch");
     MPI_Allreduce(MPI_IN_PLACE,dimensions.data(),static_cast<int>(dimensions.size()),MPI_INT,MPI_MAX,comm);
     std::set<IntT> occupied;for(auto entry:owners) occupied.insert(entry.first);
     IntT next=std::numeric_limits<IntT>::max();
@@ -164,7 +165,8 @@ void mcmc_prepare_heat_bath_graph(context_handle_t<TenT>& ctx,
         const auto leaf=next;occupied.insert(leaf);leaves.push_back(leaf);
         graph.emplace_back(line[j],leaf);
     }
-}
+} catch(const std::exception& e) {detail::abort_tensor_operation(comm,e.what());}
+  catch(...) {detail::abort_tensor_operation(comm,"unknown heat-bath failure");}
 
 
 /** @brief Put cache axes in original edge-token order, without fusing cut legs. */
@@ -182,19 +184,75 @@ void mcmc_canonicalize_cache(context_handle_t<TenT>& ctx,std::vector<TenT>& loca
     axes=std::move(sorted);
 }
 
-/** @brief Join two owner-local cached regions with the existing graph API.
- * Each external leg has a separate graph leaf, so common-neighbor bond fusion
- * cannot alter an independent cache. Shared legs are fused into one
- * composite bond on private operands; no numerical identity tensors are used.
- * The result stays on owner_a. Only copies of these two cached tensors and the
- * composite bond enter the contraction, never distant raw groups.
- * audit[0/1] counts real graph calls in environment construction/window evaluation;
- * audit[2] counts group preparation, [3] maximum region inputs per join,
- * [4] intermediate moves, [5] opposite-environment builds, [6] identity buffers,
- * [7] input clones in joins, [8] private boundary candidates, [9] binary graph
- * contractions. Counts are global logical operations. No hidden state.
- * Optional trace records {result owner, other owner, shared legs, dense MACs,
- * actual output elements}; it is populated only for explicit diagnostic calls.
+// Local failure is fatal; successful preparation/publication has no collective.
+inline void mcmc_plan_check(MPI_Comm comm,int bad,const char* message) {
+    if(bad) detail::abort_tensor_operation(comm,message);
+}
+
+/** Execute a prepared region join; only private operand copies are mutated.
+ * External graph leaves have metadata but no numerical tensors or owners.
+ */
+template<class TenT,class TokenT>
+void mcmc_contract_cached_tensors_prepared(context_handle_t<TenT>& ctx,
+    const TenT* a,int owner_a,const TenT* b,int owner_b,
+    const std::vector<std::pair<int,int>>& join_edges,
+    const std::map<int,std::vector<tcapi::bond_dim_t<TenT>>>& join_shapes,
+    const std::vector<std::pair<std::size_t,std::size_t>>& fuse_a,
+    const std::vector<std::pair<std::size_t,std::size_t>>& fuse_b,
+    const std::vector<TokenT>& result_axes,MPI_Comm comm,std::vector<TenT>& result,
+    int phase=1,std::vector<std::size_t>* audit=nullptr,
+    std::vector<std::vector<std::size_t>>* trace=nullptr) {
+    int rank,size;MPI_Comm_rank(comm,&rank);MPI_Comm_size(comm,&size);int bad=0;
+    std::vector<std::pair<int,int>> graph;std::vector<TenT> tensors,out;
+    std::vector<int> ids;std::map<int,int> owners;
+    std::uint64_t macs=0,elements=0;
+    try {
+        if(owner_a<0 || owner_a>=size || owner_b<0 || owner_b>=size ||
+           (a!=nullptr)!=(rank==owner_a) || (b!=nullptr)!=(rank==owner_b))
+            throw std::invalid_argument("cached region is not owner-local");
+        graph=join_edges;owners={{0,owner_a},{1,owner_b}};tensors.reserve(2);ids.reserve(2);out.reserve(1);
+        auto append=[&](const TenT* input,int id,const auto& fusions) {
+            if(!input) return;
+            auto t=tcapi::copy(ctx,*input);
+            for(auto axes:fusions) detail::fuse_graph_bond_axes(ctx,t,axes.first,axes.second);
+            auto shape=tcapi::shape(ctx,t);
+            if(std::vector<tcapi::bond_dim_t<TenT>>(shape.begin(),shape.end())!=join_shapes.at(id))
+                throw std::invalid_argument("prepared region shape mismatch");
+            tensors.push_back(std::move(t));ids.push_back(id);
+        };
+        append(a,0,fuse_a);append(b,1,fuse_b);
+        if(trace) {
+            auto e=join_edges;auto sh=join_shapes;
+            macs=graph_tensor_contraction_cost(e,sh,0,1,0);elements=detail::graph_cost_elements(sh.at(0));
+        }
+    } catch(const std::exception&) {bad=1;}
+    mcmc_plan_check(comm,bad,"cached join preparation failed");
+    graph_tensor_contraction(ctx,graph,tensors,ids,owners,0,1,0,comm);
+    try {
+        if(rank==owner_a) {
+            const auto index=std::find(ids.begin(),ids.end(),0)-ids.begin();
+            if(static_cast<std::size_t>(index)>=tensors.size()) throw std::runtime_error("missing join result");
+            const auto shape=tcapi::shape(ctx,tensors[index]);
+            if(shape.size()!=result_axes.size()) throw std::runtime_error("join result rank");
+            std::size_t axis=0;
+            for(const auto& edge:join_edges) {
+                if(edge.first==0 && edge.second==1) continue;
+                if(shape.at(axis++)!=join_shapes.at(edge.second).at(0)) throw std::runtime_error("join result dimension");
+            }
+            if(trace && detail::graph_cost_elements(shape)!=elements)
+                throw std::runtime_error("join element estimate mismatch");
+            out.push_back(std::move(tensors[index]));
+        }
+        if(audit) {audit->at(phase)++;audit->at(3)=std::max(audit->at(3),std::size_t(2));audit->at(7)+=2;audit->at(9)++;}
+        if(trace) trace->push_back({static_cast<std::size_t>(owner_a),static_cast<std::size_t>(owner_b),
+            fuse_a.size()+1,static_cast<std::size_t>(macs),static_cast<std::size_t>(elements)});
+    } catch(const std::exception&) {bad=1;}
+    mcmc_plan_check(comm,bad,"cached join result preparation failed");
+    result.swap(out);
+}
+
+/** Compatibility entry: prepare metadata once for this binary call. Group and
+ * scalar candidate loops use the prepared entry directly to reuse metadata.
  */
 template<class TenT,class IntT>
 void mcmc_contract_cached_tensors(context_handle_t<TenT>& ctx,
@@ -204,78 +262,14 @@ void mcmc_contract_cached_tensors(context_handle_t<TenT>& ctx,
     std::vector<TenT>& result,std::vector<IntT>& axes_result,
     int phase=1,std::vector<std::size_t>* audit=nullptr,bool invalid_input=false,
     std::vector<std::vector<std::size_t>>* trace=nullptr) {
-    int rank;MPI_Comm_rank(comm,&rank);
-    int invalid=(invalid_input || (a!=nullptr)!=(rank==owner_a) || (b!=nullptr)!=(rank==owner_b)) ? 1:0;
-    int failed=0;MPI_Allreduce(&invalid,&failed,1,MPI_INT,MPI_MAX,comm);
-    if(failed) throw std::invalid_argument("cached region is not owner-local");
-    std::set<IntT> shared;
-    for(auto token:axes_a) if(std::find(axes_b.begin(),axes_b.end(),token)!=axes_b.end()) shared.insert(token);
-    if(shared.empty()) throw std::invalid_argument("cached regions have no connecting edge");
-    // Collapse all shared legs into one composite graph bond on private copies.
-    // Both ends use the same token order; external cache axes stay independent.
-    using Dim=tcapi::bond_dim_t<TenT>;
-    Dim fused=1;
-    for(auto token:shared) {
-        const auto d=dimensions.at(static_cast<std::size_t>(token));
-        if(d<1 || fused>std::numeric_limits<Dim>::max()/d)
-            throw std::overflow_error("heat-bath composite bond dimension");
-        fused*=d;
-    }
-    const IntT left=0,right=1;IntT next=2;
-    std::map<IntT,IntT> port_token;
-    std::vector<std::pair<IntT,IntT>> graph;
-    std::vector<TenT> tensors;std::vector<IntT> ids;
-    std::map<IntT,IntT> owners{{left,static_cast<IntT>(owner_a)},{right,static_cast<IntT>(owner_b)}};
-    auto append=[&](const TenT* source,const std::vector<IntT>& axes,IntT id) {
-        if(!source) return;
-        tensors.push_back(tcapi::copy(ctx,*source));ids.push_back(id);
-        auto remaining=axes;
-        for(auto token:shared) if(token!=*shared.begin()) {
-            const auto kept=std::find(remaining.begin(),remaining.end(),*shared.begin())-remaining.begin();
-            const auto removed=std::find(remaining.begin(),remaining.end(),token)-remaining.begin();
-            detail::fuse_graph_bond_axes(ctx,tensors.back(),kept,removed);
-            remaining.erase(remaining.begin()+removed);
-        }
-    };
-    append(a,axes_a,left);append(b,axes_b,right);
-    std::set<IntT> tokens(axes_a.begin(),axes_a.end());tokens.insert(axes_b.begin(),axes_b.end());
-    for(auto token:tokens) {
-        if(shared.count(token)) {
-            if(token==*shared.begin()) graph.emplace_back(left,right);
-        } else {
-            const auto port=next++;port_token[port]=token;
-            graph.emplace_back(std::find(axes_a.begin(),axes_a.end(),token)!=axes_a.end() ? left:right,port);
-        }
-    }
-    std::vector<IntT> internal{left,right};
-    auto schedule=extract_induced_edges(graph,internal);
-    if(audit) {
-        audit->at(static_cast<std::size_t>(phase))++;audit->at(3)=std::max(audit->at(3),std::size_t(2));
-        audit->at(7)+=2; // one input clone per immutable operand
-        audit->at(9)+=internal.size()-1; // connected internal vertices contracted away
-    }
-    graph_tensor_network_contraction(ctx,graph,tensors,ids,owners,schedule,
-        std::map<IntT,int>{{left,1}},std::map<IntT,IntT>{},comm);
-    axes_result.clear();
-    for(auto edge:graph) {
-        if(edge.first!=left && edge.second!=left) throw std::runtime_error("cached join left an internal edge");
-        axes_result.push_back(port_token.at(edge.first==left ? edge.second:edge.first));
-    }
-    result.clear();
-    if(rank==owner_a) {
-        auto index=std::find(ids.begin(),ids.end(),left)-ids.begin();
-        result.push_back(std::move(tensors.at(index)));
-    }
-    mcmc_canonicalize_cache(ctx,result,axes_result);
-    if(trace) {
-        std::size_t work=1,elements=1;
-        for(auto token:tokens) work*=static_cast<std::size_t>(dimensions.at(token));
-        unsigned long long actual_elements=1;
-        if(rank==owner_a) for(auto d:tcapi::shape(ctx,result.at(0))) actual_elements*=d;
-        MPI_Bcast(&actual_elements,1,MPI_UNSIGNED_LONG_LONG,owner_a,comm);
-        elements=static_cast<std::size_t>(actual_elements);
-        trace->push_back({static_cast<std::size_t>(owner_a),static_cast<std::size_t>(owner_b),shared.size(),work,elements});
-    }
+    std::vector<std::pair<int,int>> graph;std::map<int,std::vector<tcapi::bond_dim_t<TenT>>> shapes;
+    std::vector<std::pair<std::size_t,std::size_t>> fa,fb;std::vector<IntT> axes;int bad=invalid_input;
+    try {make_region_join_metadata(axes_a,axes_b,dimensions,graph,shapes,fa,fb,axes);}
+    catch(const std::exception&) {bad=1;}
+    mcmc_plan_check(comm,bad,"cached join metadata failed");
+    std::vector<TenT> out;
+    mcmc_contract_cached_tensors_prepared(ctx,a,owner_a,b,owner_b,graph,shapes,fa,fb,axes,comm,out,phase,audit,trace);
+    result.swap(out);axes_result.swap(axes);
 }
 
 /** @brief Borrow owner-local region tensors; clone each only inside the graph join. */
@@ -309,7 +303,7 @@ void mcmc_prepare_heat_bath_cache(context_handle_t<TenT>& ctx,
     std::vector<std::size_t>* audit=nullptr,
     std::vector<std::vector<std::vector<TenT>>>* boundary=nullptr,
     std::vector<std::vector<std::vector<IntT>>>* boundary_axes=nullptr,
-    std::vector<std::vector<int>>* boundary_owners=nullptr) {
+    std::vector<std::vector<int>>* boundary_owners=nullptr) try {
     int rank;MPI_Comm_rank(comm,&rank);
     std::vector<std::pair<IntT,IntT>> graph;std::vector<TenT> raw;
     std::vector<IntT> ids,leaves;std::map<IntT,IntT> ranks;
@@ -317,13 +311,23 @@ void mcmc_prepare_heat_bath_cache(context_handle_t<TenT>& ctx,
         line,groups,states,comm,graph,raw,ids,ranks,leaves,physical_dimensions);
     std::vector<IntT> required;
     for(const auto& group:groups) required.insert(required.end(),group.begin(),group.end());
-    detail::validate_graph_tensors(ctx,required,graph,raw,ids,ranks,comm);
+    detail::validate_graph_tensors(ctx,required,graph,raw,ids,ranks,comm,false,false);
     std::vector<unsigned long long> dimensions(graph.size(),0);
     for(std::size_t j=0;j<ids.size();++j) {
         auto bonds=GetSurroundingBondIndex(ids[j],graph);auto shape=tcapi::shape(ctx,raw[j]);
         for(std::size_t k=0;k<bonds.size();++k) dimensions[bonds[k]]=static_cast<unsigned long long>(shape[k]);
     }
     MPI_Allreduce(MPI_IN_PLACE,dimensions.data(),static_cast<int>(dimensions.size()),MPI_UNSIGNED_LONG_LONG,MPI_MAX,comm);
+    // Reuse the shape sharing required by the cache. Every endpoint must equal
+    // the shared maximum; a smaller local dimension detects disagreement without
+    // another reduction, including when the two endpoints have different owners.
+    for(std::size_t j=0;j<ids.size();++j) {
+        const auto bonds=GetSurroundingBondIndex(ids[j],graph);
+        const auto shape=tcapi::shape(ctx,raw[j]);
+        for(std::size_t k=0;k<bonds.size();++k)
+            if(static_cast<unsigned long long>(shape[k])!=dimensions[bonds[k]])
+                throw std::invalid_argument("heat-bath bond dimensions disagree with shared shape");
+    }
     bond_dimensions.assign(dimensions.begin(),dimensions.end());
     if(boundary) {boundary->clear();boundary->resize(line.size());}
     if(boundary_axes) boundary_axes->assign(line.size(),{});
@@ -358,14 +362,154 @@ void mcmc_prepare_heat_bath_cache(context_handle_t<TenT>& ctx,
             }
         }
     }
+} catch(const std::exception& e) {detail::abort_tensor_operation(comm,e.what());}
+  catch(...) {detail::abort_tensor_operation(comm,"unknown heat-bath failure");}
+
+/** Build the old connected absorption tree without touching tensor values. */
+template<class TokenT>
+std::vector<std::array<std::size_t,3>> mcmc_group_fallback(
+    const std::vector<std::vector<TokenT>>& leaves,bool has_side) {
+    auto axes=leaves;const auto n=leaves.size();std::vector<std::array<std::size_t,3>> ops;
+    const auto begin=std::size_t(1)+has_side;std::vector<bool> used(n,false);
+    bool have=has_side;std::size_t current=has_side?1:0;
+    auto join=[&](std::size_t a,std::size_t b) {
+        std::vector<TokenT> out;
+        std::set_symmetric_difference(axes[a].begin(),axes[a].end(),axes[b].begin(),axes[b].end(),std::back_inserter(out));
+        const auto c=axes.size();ops.push_back({a,b,c});axes.push_back(std::move(out));return c;
+    };
+    auto attach=[&](std::size_t k) {current=have?join(k,current):k;have=true;used[k]=true;};
+    for(std::size_t k=begin;k<n;++k)
+        if(detail::regions_connected(leaves[has_side?1:0],leaves[k])) {attach(k);break;}
+    while(have && !detail::regions_connected(axes[current],axes[0])) {
+        std::size_t k=begin;for(;k<n;++k) if(!used[k] && detail::regions_connected(axes[current],axes[k])) break;
+        if(k==n) throw std::invalid_argument("group cannot reach target");attach(k);
+    }
+    current=have?join(0,current):0;
+    for(std::size_t remaining=std::count(used.begin()+begin,used.end(),false);remaining;--remaining) {
+        std::size_t k=begin;for(;k<n;++k) if(!used[k] && detail::regions_connected(axes[current],axes[k])) break;
+        if(k==n) throw std::invalid_argument("disconnected group");used[k]=true;current=join(current,k);
+    }
+    return ops;
 }
 
-/** @brief Attach one boundary before the target, then the remaining boundary.
- * The pre-target intermediate is common to all physical states. On a square
- * lattice this is L B, (L B) T(s), ((L B) T(s)) U (or its mirror).
- * More general groups absorb additional connected members only when needed.
- * Target entry transfers the result to its owner; all later joins keep it there.
- * Optional steps records executed member indices, with -1 for target entry.
+template<class TokenT,class DimT>
+std::uint64_t mcmc_prepare_group_contraction_plan(
+    const std::vector<TokenT>& target_axes,int target_owner,
+    const std::vector<std::vector<TokenT>>& boundary_axes,const std::vector<int>& boundary_owners,
+    const std::vector<TokenT>& side_axes,bool has_side,int side_owner,
+    const std::vector<DimT>& dimensions,int count,
+    std::vector<std::vector<TokenT>>& leaf_axes,std::vector<int>& leaf_owners,
+    std::vector<std::array<std::size_t,3>>& steps,std::uint64_t& max_elements,bool& used_fallback) {
+    if(count<1 || boundary_axes.size()!=boundary_owners.size()) throw std::invalid_argument("group plan inputs");
+    std::vector<std::vector<TokenT>> a{target_axes};std::vector<int> o{target_owner};
+    if(has_side) {a.push_back(side_axes);o.push_back(side_owner);}
+    a.insert(a.end(),boundary_axes.begin(),boundary_axes.end());o.insert(o.end(),boundary_owners.begin(),boundary_owners.end());
+    detail::validate_region_inputs(a,dimensions,o,0);
+    auto baseline=mcmc_group_fallback(a,has_side);std::vector<std::array<std::size_t,3>> ops;
+    std::uint64_t peak=0;bool fallback=false;
+    const auto cost=make_small_region_contraction_plan(a,dimensions,o,0,count,baseline,ops,peak,fallback);
+    leaf_axes.swap(a);leaf_owners.swap(o);steps.swap(ops);max_elements=peak;used_fallback=fallback;return cost;
+}
+
+/** Execute common subtrees once, then the target-dependent spine per state.
+ * Input tensors are borrowed. Public outputs are swapped only after local
+ * success; any preparation or contraction error aborts the job. No environment is reconstructed.
+ */
+template<class TenT,class TokenT>
+void mcmc_execute_group_contraction_plan(context_handle_t<TenT>& ctx,
+    const std::vector<const std::vector<TenT>*>& inputs,int count,int state_offset,
+    const std::vector<std::array<std::size_t,3>>& ops,const std::vector<std::vector<TokenT>>& axes,
+    const std::vector<int>& owners,const std::vector<unsigned char>& dependent,
+    const std::vector<std::size_t>& parent,const std::vector<std::size_t>& frontier,
+    const std::vector<tcapi::bond_dim_t<TenT>>& dimensions,MPI_Comm comm,
+    std::vector<std::vector<TenT>>& candidates,std::vector<TokenT>& candidate_axes,
+    int phase=1,std::vector<std::size_t>* audit=nullptr,std::vector<int>* steps=nullptr,
+    std::vector<std::vector<std::size_t>>* trace=nullptr) {
+    using Dim=tcapi::bond_dim_t<TenT>;
+    int rank,size;MPI_Comm_rank(comm,&rank);MPI_Comm_size(comm,&size);int bad=0;
+    const auto n=inputs.size();
+    std::vector<std::vector<std::pair<int,int>>> graphs;
+    std::vector<std::map<int,std::vector<Dim>>> shapes;
+    std::vector<std::vector<std::pair<std::size_t,std::size_t>>> fa,fb;
+    std::vector<std::vector<TenT>> storage,work;std::vector<TokenT> out_axes;
+    std::vector<unsigned char> retained;
+    try {
+        if(!n || count<1 || state_offset<0 || ops.size()!=n-1 || axes.size()!=2*n-1 ||
+           owners.size()!=axes.size() || dependent.size()!=axes.size() || parent.size()!=axes.size())
+            throw std::invalid_argument("invalid group execution metadata");
+        storage.resize(axes.size());work.resize(count);out_axes=axes.back();retained.assign(axes.size(),0);
+        if(steps) {
+            const auto extra=detail::graph_cost_product(std::max(std::size_t(1),ops.size()),static_cast<std::uint64_t>(count));
+            if(extra>steps->max_size()-steps->size()) throw std::length_error("group trace too large");
+            steps->reserve(steps->size()+static_cast<std::size_t>(extra));
+        }
+        for(auto id:frontier) retained.at(id)=1;
+        for(std::size_t i=0;i<n;++i) {
+            if(owners[i]<0 || owners[i]>=size || (inputs[i]!=nullptr)!=(rank==owners[i]))
+                throw std::invalid_argument("group input owner");
+            if(inputs[i]) {
+                const auto required=i==0?static_cast<std::size_t>(state_offset)+static_cast<std::size_t>(count):1;
+                if(inputs[i]->size()<required || (i && inputs[i]->size()!=1)) throw std::invalid_argument("missing group input");
+            }
+        }
+        graphs.resize(ops.size());shapes.resize(ops.size());fa.resize(ops.size());fb.resize(ops.size());
+        for(std::size_t k=0;k<ops.size();++k) {
+            const auto op=ops[k];std::vector<TokenT> result_axes;
+            make_region_join_metadata(axes.at(op[0]),axes.at(op[1]),dimensions,graphs[k],shapes[k],fa[k],fb[k],result_axes);
+            if(result_axes!=axes.at(op[2]) || owners.at(op[2])!=owners.at(op[0])) throw std::invalid_argument("group plan mismatch");
+        }
+        if(audit && audit->size()>12) audit->at(12)+=ops.size();
+    } catch(const std::exception&) {bad=1;}
+    mcmc_plan_check(comm,bad,"group execution preparation failed");
+    auto input=[&](std::size_t id,int state)->const TenT* {
+        if(rank!=owners[id]) return nullptr;
+        if(id<n) return &inputs[id]->at(id==0?static_cast<std::size_t>(state_offset)+state:0);
+        return &storage[id].at(0);
+    };
+    auto execute=[&](std::size_t k,int state) {
+        const auto op=ops[k];const TenT *a=nullptr,*b=nullptr;
+        // Shape/owner availability follows the validated tree and previous joins.
+        a=input(op[0],state);b=input(op[1],state);
+        mcmc_contract_cached_tensors_prepared(ctx,a,owners[op[0]],b,owners[op[1]],
+            graphs[k],shapes[k],fa[k],fb[k],axes[op[2]],comm,storage[op[2]],phase,audit,trace);
+        // No allocation here: diagnostic capacity was reserved in preflight.
+        for(auto id:{op[0],op[1]}) if(id>=n && !retained[id]) storage[id].clear();
+        if(steps) steps->push_back(dependent[op[2]]?-1:0);
+    };
+    for(std::size_t k=0;k<ops.size();++k) if(!dependent[ops[k][2]]) execute(k,0);
+    for(int state=0;state<count;++state) {
+        if(n==1) {
+            try {
+                if(rank==owners[0]) {
+                    auto t=tcapi::copy(ctx,*input(0,state));
+                    auto sh=tcapi::shape(ctx,t);
+                    if(sh.size()!=axes[0].size()) throw std::invalid_argument("singleton shape rank");
+                    for(std::size_t j=0;j<sh.size();++j) if(sh[j]!=dimensions.at(axes[0][j])) throw std::invalid_argument("singleton shape dimension");
+                    work[state].push_back(std::move(t));
+                }
+                if(audit && phase==1) audit->at(8)++;
+                if(steps) steps->push_back(-1);
+            } catch(const std::exception&) {bad=1;break;}
+        } else {
+            for(std::size_t k=0;k<ops.size();++k) if(dependent[ops[k][2]]) execute(k,state);
+            work[state].swap(storage.back());
+        }
+    }
+    // Publish only completed local results, including the singleton path.
+    mcmc_plan_check(comm,bad,"group candidate publication failed");
+    candidates.swap(work);candidate_axes.swap(out_axes);
+}
+
+// Plain arrays stored together; no tensor data is retained in the plan cache.
+template<class TokenT>
+using mcmc_region_plan_arrays = std::tuple<
+    std::vector<std::array<std::size_t,3>>, std::vector<std::vector<TokenT>>,
+    std::vector<int>, std::vector<unsigned char>, std::vector<std::size_t>,
+    std::vector<std::size_t>, std::uint64_t>;
+
+/** Plan a group once and reuse its common subtrees across all target states.
+ * Optional line-local key/plan arrays reuse searches for identical metadata.
+ * steps is a diagnostic stage trace: 0 for common, -1 for target-dependent joins.
  */
 template<class TenT,class IntT>
 void mcmc_prepare_group_candidates(context_handle_t<TenT>& ctx,
@@ -376,76 +520,59 @@ void mcmc_prepare_group_candidates(context_handle_t<TenT>& ctx,
     const std::vector<tcapi::bond_dim_t<TenT>>& dimensions,MPI_Comm comm,
     std::vector<std::vector<TenT>>& candidates,std::vector<IntT>& candidate_axes,
     int phase=1,std::vector<std::size_t>* audit=nullptr,std::vector<int>* steps=nullptr,
-    int state_offset=0,std::vector<std::vector<std::size_t>>* trace=nullptr) {
-    int rank;MPI_Comm_rank(comm,&rank);
-    auto connected=[](const std::vector<IntT>& a,const std::vector<IntT>& b) {
-        for(auto token:a) if(std::find(b.begin(),b.end(),token)!=b.end()) return true;
-        return false;
-    };
-    std::vector<bool> used(boundary.size(),false);
-    std::vector<TenT> common;auto common_axes=side_axes;
-    const std::vector<TenT>* input=&side;bool have=has_side;int common_owner=side_owner;
-    auto attach_boundary=[&](std::size_t k) {
-        if(have) {
-            std::vector<TenT> joined;std::vector<IntT> joined_axes;
-            mcmc_contract_cached_regions(ctx,boundary[k],boundary_axes[k],boundary_owners[k],
-                *input,common_axes,common_owner,dimensions,comm,joined,joined_axes,phase,audit,trace);
-            common=std::move(joined);common_axes=std::move(joined_axes);input=&common;
+    int state_offset=0,std::vector<std::vector<std::size_t>>* trace=nullptr,
+    std::vector<std::vector<std::uint64_t>>* plan_keys=nullptr,
+    std::vector<mcmc_region_plan_arrays<IntT>>* plan_cache=nullptr,
+    std::uint64_t* total_macs=nullptr) {
+    int rank;MPI_Comm_rank(comm,&rank);int bad=0;
+    const mcmc_region_plan_arrays<IntT>* cached=nullptr;std::uint64_t total=0;
+    std::vector<std::vector<IntT>> leaves,axes;std::vector<int> leaf_owners,owners;
+    std::vector<unsigned char> dependent;std::vector<std::size_t> parent,frontier;
+    std::vector<std::uint64_t> macs,elements,key;
+    std::vector<std::array<std::size_t,3>> ops;std::vector<const std::vector<TenT>*> inputs;
+    try {
+        if(count<1 || boundary.size()!=boundary_axes.size() || boundary.size()!=boundary_owners.size() ||
+           (plan_keys==nullptr)!=(plan_cache==nullptr)) throw std::invalid_argument("group inputs");
+        leaves.push_back(target_axes);leaf_owners.push_back(target_owner);inputs.push_back(rank==target_owner?&target:nullptr);
+        if(has_side) {leaves.push_back(side_axes);leaf_owners.push_back(side_owner);inputs.push_back(rank==side_owner?&side:nullptr);}
+        for(std::size_t i=0;i<boundary.size();++i) {
+            leaves.push_back(boundary_axes[i]);leaf_owners.push_back(boundary_owners[i]);
+            inputs.push_back(rank==boundary_owners[i]?&boundary[i]:nullptr);
+        }
+        detail::validate_region_inputs(leaves,dimensions,leaf_owners,0);
+        key={static_cast<std::uint64_t>(count),static_cast<std::uint64_t>(has_side),leaves.size()};
+        for(std::size_t i=0;i<leaves.size();++i) {
+            key.push_back(leaf_owners[i]);key.push_back(leaves[i].size());
+            for(auto t:leaves[i]) {key.push_back(t);key.push_back(dimensions.at(t));}
+        }
+        std::size_t index=0;
+        if(plan_keys) {
+            if(plan_keys->size()!=plan_cache->size()) throw std::invalid_argument("plan cache mismatch");
+            index=std::find(plan_keys->begin(),plan_keys->end(),key)-plan_keys->begin();
+        }
+        if(plan_keys && index<plan_keys->size()) {
+            cached=&plan_cache->at(index);total=std::get<6>(*cached);if(audit && audit->size()>14) audit->at(14)++;
         } else {
-            // The raw boundary stays immutable and alive for every candidate.
-            // The graph join makes its own private copy when it is used.
-            input=&boundary[k];common_axes=boundary_axes[k];
+            std::uint64_t peak=0;bool fallback=false;
+            total=mcmc_prepare_group_contraction_plan(target_axes,target_owner,boundary_axes,boundary_owners,
+                side_axes,has_side,side_owner,dimensions,count,leaves,leaf_owners,ops,peak,fallback);
+            if(audit && audit->size()>11) {audit->at(10)++;audit->at(11)+=fallback;}
+            describe_region_contraction_plan(leaves,dimensions,leaf_owners,0,ops,axes,owners,dependent,parent,frontier,macs,elements);
+            if(plan_keys) {
+                auto saved=std::make_tuple(std::move(ops),std::move(axes),std::move(owners),
+                    std::move(dependent),std::move(parent),std::move(frontier),total);
+                plan_keys->reserve(plan_keys->size()+1);plan_cache->reserve(plan_cache->size()+1);
+                plan_keys->push_back(std::move(key));plan_cache->push_back(std::move(saved));cached=&plan_cache->back();
+            }
         }
-        common_owner=boundary_owners[k];have=true;used[k]=true;
-        if(steps) steps->push_back(static_cast<int>(k));
-    };
-    // Select the first boundary connected to the advancing side. At an open
-    // end start from a boundary adjacent to the target instead.
-    for(std::size_t k=0;k<boundary.size();++k)
-        if(connected(has_side ? side_axes:target_axes,boundary_axes[k])) {attach_boundary(k);break;}
-    while(have && !connected(common_axes,target_axes)) {
-        std::size_t k=0;for(;k<boundary.size();++k)
-            if(!used[k] && connected(common_axes,boundary_axes[k])) break;
-        if(k==boundary.size()) throw std::invalid_argument("group cannot reach target from environment");
-        attach_boundary(k);
-    }
-    // Determine remaining connected absorption order once, independent of state.
-    auto final_axes=target_axes;
-    if(have) {
-        for(auto token:common_axes) {
-            auto it=std::find(final_axes.begin(),final_axes.end(),token);
-            if(it==final_axes.end()) final_axes.push_back(token);else final_axes.erase(it);
-        }
-    }
-    std::vector<std::size_t> remaining;
-    for(std::size_t n=std::count(used.begin(),used.end(),false);n>0;--n) {
-        std::size_t k=0;for(;k<boundary.size();++k)
-            if(!used[k] && connected(final_axes,boundary_axes[k])) break;
-        if(k==boundary.size()) throw std::invalid_argument("disconnected heat-bath group");
-        used[k]=true;remaining.push_back(k);
-        for(auto token:boundary_axes[k]) {
-            auto it=std::find(final_axes.begin(),final_axes.end(),token);
-            if(it==final_axes.end()) final_axes.push_back(token);else final_axes.erase(it);
-        }
-    }
-    candidates.clear();candidates.resize(count);
-    for(int state=0;state<count;++state) {
-        if(have) mcmc_contract_cached_tensors(ctx,rank==target_owner ? &target.at(state+state_offset):nullptr,
-            target_axes,target_owner,input->empty() ? nullptr:&input->at(0),common_axes,common_owner,
-            dimensions,comm,candidates[state],candidate_axes,phase,audit,false,trace);
-        else {
-            if(rank==target_owner) candidates[state].push_back(tcapi::copy(ctx,target.at(state+state_offset)));
-            candidate_axes=target_axes;if(audit && phase==1) audit->at(8)++;
-        }
-        if(steps) steps->push_back(-1);
-        for(auto k:remaining) {
-            std::vector<TenT> joined;std::vector<IntT> joined_axes;
-            mcmc_contract_cached_regions(ctx,candidates[state],candidate_axes,target_owner,
-                boundary[k],boundary_axes[k],boundary_owners[k],dimensions,comm,joined,joined_axes,phase,audit,trace);
-            candidates[state]=std::move(joined);candidate_axes=std::move(joined_axes);
-            if(steps) steps->push_back(static_cast<int>(k));
-        }
-    }
+    } catch(const std::exception&) {bad=1;}
+    mcmc_plan_check(comm,bad,"group contraction planning failed");
+    mcmc_execute_group_contraction_plan(ctx,inputs,count,state_offset,
+        cached?std::get<0>(*cached):ops,cached?std::get<1>(*cached):axes,
+        cached?std::get<2>(*cached):owners,cached?std::get<3>(*cached):dependent,
+        cached?std::get<4>(*cached):parent,cached?std::get<5>(*cached):frontier,
+        dimensions,comm,candidates,candidate_axes,phase,audit,steps,trace);
+    if(total_macs) *total_macs=total;
 }
 
 /** @brief Build all proper opposite-side environments once for this sweep.
@@ -462,7 +589,9 @@ void mcmc_build_heat_bath_environments(context_handle_t<TenT>& ctx,
     int width=1,std::vector<std::size_t>* audit=nullptr,
     const std::vector<std::vector<std::vector<TenT>>>* boundary=nullptr,
     const std::vector<std::vector<std::vector<IntT>>>* boundary_axes=nullptr,
-    const std::vector<std::vector<int>>* boundary_owners=nullptr) {
+    const std::vector<std::vector<int>>* boundary_owners=nullptr,
+    std::vector<std::vector<std::uint64_t>>* plan_keys=nullptr,
+    std::vector<mcmc_region_plan_arrays<IntT>>* plan_cache=nullptr) {
     const auto n=order.size();
     if(width!=1 && width!=2) throw std::invalid_argument("environment window size");
     suffix.clear();suffix.resize(n+1);suffix_axes.clear();suffix_axes.resize(n+1);
@@ -476,7 +605,7 @@ void mcmc_build_heat_bath_environments(context_handle_t<TenT>& ctx,
             boundary ? boundary->at(j):empty_boundary,boundary_axes ? boundary_axes->at(j):empty_axes,
             boundary_owners ? boundary_owners->at(j):empty_owners,
             suffix[pos],suffix_axes[pos],pos<n,pos<n ? owners[order[pos]]:owners[j],
-            dimensions,comm,candidate,suffix_axes[pos-1],0,audit,nullptr,states[j]);
+            dimensions,comm,candidate,suffix_axes[pos-1],0,audit,nullptr,states[j],nullptr,plan_keys,plan_cache);
         suffix[pos-1]=std::move(candidate[0]);
     }
 }
@@ -500,36 +629,67 @@ void mcmc_evaluate_window_weights(context_handle_t<TenT>& ctx,
     const std::vector<std::vector<TenT>>& first_boundary={},
     const std::vector<std::vector<IntT>>& first_boundary_axes={},const std::vector<int>& first_boundary_owners={},
     const std::vector<std::vector<TenT>>& second_boundary={},
-    const std::vector<std::vector<IntT>>& second_boundary_axes={},const std::vector<int>& second_boundary_owners={}) {
+    const std::vector<std::vector<IntT>>& second_boundary_axes={},const std::vector<int>& second_boundary_owners={},
+    std::vector<std::vector<std::uint64_t>>* plan_keys=nullptr,
+    std::vector<mcmc_region_plan_arrays<IntT>>* plan_cache=nullptr) {
     using Real=tcapi::real_t<TenT>;int rank;MPI_Comm_rank(comm,&rank);
     if(first_dim<1 || second_dim<1 || static_cast<std::size_t>(first_dim)>
        static_cast<std::size_t>(std::numeric_limits<int>::max())/static_cast<std::size_t>(second_dim))
         throw std::overflow_error("heat-bath candidate count");
+    std::uint64_t first_cost=0,second_cost=0;
     mcmc_prepare_group_candidates(ctx,first,first_axes,first_owner,first_dim,
         first_boundary,first_boundary_axes,first_boundary_owners,prefix,prefix_axes,has_prefix,prefix_owner,
-        dimensions,comm,candidates,candidate_axes,1,audit);
+        dimensions,comm,candidates,candidate_axes,1,audit,nullptr,0,nullptr,plan_keys,plan_cache,&first_cost);
     std::vector<std::vector<TenT>> right;std::vector<IntT> right_axes;
     if(pair) mcmc_prepare_group_candidates(ctx,second,second_axes,second_owner,second_dim,
         second_boundary,second_boundary_axes,second_boundary_owners,suffix,suffix_axes,has_suffix,suffix_owner,
-        dimensions,comm,right,right_axes,1,audit);
-    amplitudes.assign(static_cast<std::size_t>(first_dim)*second_dim,Real(0));int bad=0;
-    for(int t=0;t<second_dim;++t) for(int s=0;s<first_dim;++s) {
-        std::vector<TenT> evaluated;std::vector<IntT> evaluated_axes;
-        if(pair || has_suffix) mcmc_contract_cached_regions(ctx,candidates[s],candidate_axes,first_owner,
-            pair ? right[t]:suffix,pair ? right_axes:suffix_axes,pair ? second_owner:suffix_owner,
-            dimensions,comm,evaluated,evaluated_axes,1,audit);
-        else evaluated_axes=candidate_axes;
-        if(!evaluated_axes.empty()) throw std::runtime_error("window evaluation did not close the cached boundary");
+        dimensions,comm,right,right_axes,1,audit,nullptr,0,nullptr,plan_keys,plan_cache,&second_cost);
+    std::vector<std::pair<int,int>> graph;std::map<int,std::vector<tcapi::bond_dim_t<TenT>>> shapes;
+    std::vector<std::pair<std::size_t,std::size_t>> fa,fb;std::vector<IntT> result_axes;
+    std::vector<Real> work_amplitudes,work_weights;int bad=0;
+    try {
+        const auto group_cost=detail::region_cost_sum(first_cost,second_cost);
+        work_amplitudes.assign(static_cast<std::size_t>(first_dim)*second_dim,Real(0));
+        work_weights.resize(work_amplitudes.size());
+        if(!pair && has_suffix) {
+            int size;MPI_Comm_size(comm,&size);
+            if(suffix_owner<0 || suffix_owner>=size || suffix.size()!=static_cast<std::size_t>(rank==suffix_owner))
+                throw std::invalid_argument("window suffix is not owner-local");
+        }
+        if(pair || has_suffix) {
+            make_region_join_metadata(candidate_axes,pair?right_axes:suffix_axes,dimensions,graph,shapes,fa,fb,result_axes);
+            if(!result_axes.empty()) throw std::invalid_argument("window does not close");
+            auto e=graph;auto sh=shapes;
+            const auto cost=graph_tensor_contraction_cost(e,sh,0,1,0);
+            detail::region_cost_sum(group_cost,detail::graph_cost_product(cost,static_cast<std::uint64_t>(first_dim)*second_dim));
+            if(!sh.at(0).empty()) throw std::invalid_argument("window result is not scalar");
+            if(audit && audit->size()>13) audit->at(13)++;
+        } else if(!candidate_axes.empty()) throw std::invalid_argument("open singleton window");
+    } catch(const std::exception&) {bad=1;}
+    mcmc_plan_check(comm,bad,"window join preparation failed");
+    for(int t=0;t<second_dim;++t) for(int state=0;state<first_dim;++state) {
+        std::vector<TenT> evaluated;
+        if(pair || has_suffix) {
+            const auto& rhs=pair?right[t]:suffix;const int rhs_owner=pair?second_owner:suffix_owner;
+            mcmc_contract_cached_tensors_prepared(ctx,rank==first_owner?&candidates[state].at(0):nullptr,first_owner,
+                rank==rhs_owner?&rhs.at(0):nullptr,rhs_owner,graph,shapes,fa,fb,result_axes,comm,evaluated,1,audit);
+        }
         if(rank==first_owner) try {
-            const auto a=std::abs(tcapi::get_elem(ctx,(pair || has_suffix) ? evaluated.at(0):candidates[s].at(0),tcapi::elem_coors_t<TenT>{}));
+            const auto a=std::abs(tcapi::get_elem(ctx,(pair || has_suffix)?evaluated.at(0):candidates[state].at(0),tcapi::elem_coors_t<TenT>{}));
             if(!std::isfinite(a)) bad=1;
-            amplitudes[static_cast<std::size_t>(s)+static_cast<std::size_t>(first_dim)*t]=a;
+            work_amplitudes[static_cast<std::size_t>(state)+static_cast<std::size_t>(first_dim)*t]=a;
         } catch(const std::exception&) {bad=1;}
     }
-    MPI_Bcast(&bad,1,MPI_INT,first_owner,comm);
-    if(bad) throw std::runtime_error("invalid cached heat-bath amplitude");
-    MPI_Bcast(amplitudes.data(),static_cast<int>(amplitudes.size()),GetMpiType<Real>(),first_owner,comm);
-    mcmc_heat_bath_weights(amplitudes,weights);
+    // Scalar reads can fail locally without affecting subsequent joins. Keep
+    // completing the candidate loop, then notify once before sharing/drawing.
+    if(rank==first_owner && !bad) try {mcmc_heat_bath_weights(work_amplitudes,work_weights);}
+    catch(const std::exception&) {bad=1;}
+    int failed=0;MPI_Bcast(&bad,1,MPI_INT,first_owner,comm);failed=bad;
+    if(failed) throw std::runtime_error("window scalar/weights failed");
+    MPI_Bcast(work_amplitudes.data(),static_cast<int>(work_amplitudes.size()),GetMpiType<Real>(),first_owner,comm);
+    // Storage was reserved before the loop; owner already validated every value.
+    if(rank!=first_owner) mcmc_heat_bath_weights(work_amplitudes,work_weights);
+    amplitudes.swap(work_amplitudes);weights.swap(work_weights);
 }
 
 /** @brief Move the selected leading intermediate into the advancing environment.
@@ -543,71 +703,6 @@ void mcmc_absorb_group(std::size_t selected,std::vector<std::vector<TenT>>& cand
     if(audit) audit->at(4)++;
 }
 
-/** @brief Distributed full-state heat bath with both side environments reused.
- * Prepare raw members and proper opposite-side caches once. Each candidate contracts
- * only window groups and cached sides. Move the selected leading intermediate
- * forward by one group; the overlapping group remains explicit for the next
- * window. Reverse sweeps exchange the roles of left and right. No rank-zero
- * gather, no class, and no candidate-dependent exterior reconstruction.
- */
-template<class TenT,class IntT,class RNG>
-void mcmc_update_line_heat_bath(context_handle_t<TenT>& ctx,
-    const std::vector<std::pair<IntT,IntT>>& edges,const std::vector<TenT>& W,
-    const std::vector<IntT>& site_idx,const std::map<IntT,IntT>& owners,
-    const std::vector<TenT>& upper,const std::vector<IntT>& upper_ids,
-    std::vector<TenT>& target,const std::vector<IntT>& target_ids,
-    const std::vector<TenT>& lower,const std::vector<IntT>& lower_ids,
-    const std::vector<IntT>& line,const std::vector<std::vector<IntT>>& groups,
-    std::vector<IntT>& states,MPI_Comm comm,RNG& rng,int direction,int width,
-    std::vector<std::size_t>* audit=nullptr) {
-    if(audit) audit->assign(10,0);
-    if(width!=1 && width!=2) throw std::invalid_argument("update_sites must be 1 or 2");
-    if(line.empty()) throw std::invalid_argument("empty heat-bath line");
-    if(width==2 && line.size()==1) return;
-    int rank;MPI_Comm_rank(comm,&rank);int bad=0,failed=0;
-    for(auto site:line) if(owners.at(site)==rank) {
-        const auto it=std::find(target_ids.begin(),target_ids.end(),site);
-        if(it==target_ids.end() || static_cast<std::size_t>(it-target_ids.begin())>=target.size()) bad=1;
-    }
-    MPI_Allreduce(&bad,&failed,1,MPI_INT,MPI_MAX,comm);
-    if(failed) throw std::invalid_argument("missing heat-bath commit tensor");
-    std::vector<std::vector<TenT>> slices;std::vector<std::vector<IntT>> axes;
-    std::vector<std::vector<std::vector<TenT>>> boundary;
-    std::vector<std::vector<std::vector<IntT>>> boundary_axes;
-    std::vector<std::vector<int>> boundary_owners;
-    std::vector<int> dims;std::vector<tcapi::bond_dim_t<TenT>> bond_dims;
-    mcmc_prepare_heat_bath_cache(ctx,edges,W,site_idx,owners,upper,upper_ids,lower,lower_ids,
-        line,groups,states,comm,slices,axes,dims,bond_dims,audit,&boundary,&boundary_axes,&boundary_owners);
-    std::vector<int> selected(line.size()),group_owners(line.size());
-    for(std::size_t j=0;j<line.size();++j) {
-        group_owners[j]=static_cast<int>(owners.at(line[j]));
-        if(rank==group_owners[j]) selected[j]=static_cast<int>(states.at(std::find(site_idx.begin(),site_idx.end(),line[j])-site_idx.begin()));
-        MPI_Bcast(&selected[j],1,MPI_INT,group_owners[j],comm);
-    }
-    std::vector<std::size_t> order(line.size());std::iota(order.begin(),order.end(),0);
-    if(direction) std::reverse(order.begin(),order.end());
-    std::vector<std::vector<TenT>> suffix;std::vector<std::vector<IntT>> suffix_axes;
-    mcmc_build_heat_bath_environments(ctx,slices,axes,group_owners,selected,order,bond_dims,comm,suffix,suffix_axes,width,audit,&boundary,&boundary_axes,&boundary_owners);
-    std::vector<TenT> prefix;std::vector<IntT> prefix_axes;
-    const std::vector<TenT> empty;const std::vector<IntT> empty_axes;
-    for(std::size_t pos=0;pos+static_cast<std::size_t>(width)<=line.size();++pos) {
-        auto a=order[pos],b=width==2 ? order[pos+1]:a;const auto end=pos+static_cast<std::size_t>(width);
-        std::vector<tcapi::real_t<TenT>> amplitudes,weights;
-        std::vector<std::vector<TenT>> candidates;std::vector<IntT> candidate_axes;
-        mcmc_evaluate_window_weights(ctx,slices[a],axes[a],group_owners[a],dims[a],
-            width==2 ? slices[b]:empty,width==2 ? axes[b]:empty_axes,group_owners[b],width==2 ? dims[b]:1,width==2,
-            prefix,prefix_axes,pos>0,pos>0 ? group_owners[order[pos-1]]:group_owners[a],
-            suffix[end],suffix_axes[end],end<line.size(),end<line.size() ? group_owners[order[end]]:group_owners[a],
-            bond_dims,comm,amplitudes,weights,candidates,candidate_axes,audit,
-            boundary[a],boundary_axes[a],boundary_owners[a],boundary[b],boundary_axes[b],boundary_owners[b]);
-        unsigned long long chosen=0;
-        if(rank==group_owners[a]) chosen=static_cast<unsigned long long>(mcmc_draw_heat_bath(weights,rng));
-        MPI_Bcast(&chosen,1,MPI_UNSIGNED_LONG_LONG,group_owners[a],comm);
-        selected[a]=static_cast<int>(chosen%static_cast<unsigned long long>(dims[a]));
-        if(width==2) selected[b]=static_cast<int>(chosen/static_cast<unsigned long long>(dims[a]));
-        mcmc_absorb_group(static_cast<std::size_t>(selected[a]),candidates,candidate_axes,prefix,prefix_axes,audit);
-    }
-    mcmc_commit_window_state(slices,site_idx,owners,line,selected,rank,target,target_ids,states);
-}
 } // namespace tnbp
+#include "tnbp/ptns/function/mcmc_edge_heat_bath.h"
 #endif

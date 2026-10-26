@@ -210,8 +210,9 @@ dimensions and an empty rank zero. A fixed-charge 01/10 state must freeze under
 one-site updates and visit both supported states under two-site updates. All
 256 p16 pair candidates are checked without charge filtering, including when
 rank zero owns no tensors. Scalar weight tests cover extreme scales, invalid
-weights and roulette frequencies. Numerical failure on a nonzero owner must
-propagate collectively. Kernel tests run with CPU MPI 1/2/3 ranks.
+weights and roulette frequencies. Scalar-read failure on a nonzero owner is
+reported once at the window end; a line-update failure aborts with a diagnostic.
+Kernel tests run with CPU MPI 1/2/3 ranks.
 
 `mcmc_regression full-heat-bath` checks chain/square/K4 distributions at both
 window sizes using 128 burn-in round trips and 4096 retained samples per case.
@@ -243,15 +244,15 @@ operands, with all result components compared to an independent sum. Existing
 K4 cases exercise multiple shared legs fused into a single composite bond. Source cache values remain
 unchanged. An empty rank zero and distributed owners are included.
 
-The eight-group audit also requires zero identities on its single-cut chain,
-one binary contraction per cached join, two join-input clones per call, and
-only the necessary private boundary candidates (d for one-site, 2d for two-site).
-No preliminary candidate slice copies are made. These counts concern the cache
-layer, excluding copies performed internally by the existing graph API/backend.
+The eight-group production audit compares environment and candidate contraction
+counts against the compiled native plans on each participating rank. It checks
+zero identities, one environment construction, one selected-prefix move per
+window, reused metadata, last-use prefix/suffix/right-candidate moves, and no line-wide shape reduction. Separate cache-helper
+tests retain the two-input copy checks for the older standalone helper API.
 
 Physical leaf IDs must have neither numerical tensors nor owners in the
 prepared graph. Invalid initial states and mismatched virtual bond dimensions
-must still be rejected collectively after removing numerical physical leaves.
+must still terminate with a diagnostic after removing numerical physical leaves.
 
 
 ## Square-lattice contraction order
@@ -264,16 +265,19 @@ compared with these sums (tolerance 1e-11 * (1 + reference)). Repeated productio
 sweeps are compared with independent owner-specific roulette streams. Both upper-
 and lower-first member orders, split owners and an empty rank zero are covered.
 
-An explicit trace from the production candidate helper checks first boundary
-once, then target/other boundary for each state. Dense MAC counts are 108/144/108;
-actual output element counts are 36/36/18. Joins share 1/2/2 original legs, each
-using exactly one binary distributed graph contraction and no identity buffer.
-The pre-target intermediate belongs to the first boundary owner, target entry
-moves it to the target owner, and the final absorption retains that owner. Both
-side orientations are checked. Selected candidate storage is moved into the
-next proper environment. These checks verify the local contraction order and
-sizes, not large-system wall-clock speed or a globally optimal arbitrary-graph
-schedule.
+An explicit trace checks the selected plan against its predicted MACs and
+sizes. With two candidates the common boundary/side join runs once, followed
+by target/other boundary per state: total MACs 612, largest output 36 elements.
+With three candidates the common subtree is completed before target entry:
+total MACs 756, largest output 72 elements. The two plans must give identical
+values for identical raw states. Repeated metadata reuses the cached plan;
+changing the candidate count requires another search.
+
+The common intermediate stays on the owner of its smallest leaf ID (the side
+in this fixture). Target entry and the final root retain the target owner.
+Selected candidate storage is moved into the next proper environment. These
+checks verify the constrained local plan, not wall-clock speed or a globally
+optimal arbitrary-graph schedule.
 
 
 ## Honeycomb layouts
@@ -284,10 +288,9 @@ parities, reversed edges, indirect group members, all 16 target configurations,
 widths 1/2 and both directions are covered. Independent sums enumerate all
 93312 original virtual-index assignments. Owner-local candidates, immutable
 opposite caches, storage moves, no identity buffers and exact roulette streams
-are checked, including an empty rank zero. Traces exercise boundary-first and
-target-first entry according to actual connectivity. This particular line
-layout can create a chi^3 D intermediate; it is not a generic complexity result
-for every honeycomb orientation.
+are checked, including an empty rank zero. Traces exercise the selected common
+and target-dependent stages. The planner may replace the old connectivity-first
+order; no fixed entry order is required for all honeycomb orientations.
 
 `mcmc_honeycomb_integration_{1,2}_rank` uses D=2 on the full patch with fixed
 physical dimension-one boundary rows, leaving all 16 middle-row configurations.
@@ -350,3 +353,67 @@ an owned common intermediate. The graph join still clones each immutable input
 once internally. The source boundary remains alive through all candidate states;
 no separate numerical seed copy is needed. This preserves absorption order,
 owner placement, opposite environments and raw-slice commit.
+
+The heat-bath kernel also checks planned group contraction: common-subtree reuse
+for two/three candidates, line-local plan reuse, target-owner retention,
+prepared multi-bond fusion against a direct complex sum, and fatal failure
+cases in separate bounded MPI jobs (including the no-step singleton case).
+PMPI counts require no Allreduce in group/candidate/graph execution and one
+scalar-failure notification per window. The production line has no Allreduce. Direct line calls share candidate counts
+only on each window's communicator; prepared sampling calls already know them.
+Cross-owner contraction dimensions are checked by the native graph operation. Ten fatal cases
+per MPI configuration also cover invalid initial state, cross-owner dimension
+mismatch, missing raw/commit tensors and an all-zero window.
+Existing square, brick-wall and zigzag exact-candidate tests cover both window
+widths and sweep directions with distributed owners.
+
+The production line entry point is also checked with parent ranks 0 and 2 as
+participants: rank 0 owns boundaries only and rank 2 owns targets. Rank 1 waits
+outside the function until rank 2 completes, proving no parent-wide collective
+is needed, including communicator creation. Both widths and directions are
+compared with the exact sweep oracle. PMPI counts require zero parent
+Allreduce/Bcast calls, zero line shape reductions, and no
+communication for nonparticipants. Original graph/owner metadata, unrelated
+tensors/states and nonparticipant RNG are preserved.
+
+Sampling-call communicator reuse is checked separately from contraction-plan
+selection. The three-rank kernel reuses one {0,2} communicator across widths and
+directions while rank 1 waits outside. PMPI requires one creation/free pair.
+The sampling regression also counts one creation/free per unique participating
+owner set across every sample and both sweeps. Direct line calls without an
+external registry retain their temporary-communicator behavior.
+
+
+## Original-edge heat-bath execution
+
+Default production sweeps use `mcmc_edge_plan.h` and `mcmc_edge_heat_bath.h`.
+Square and brick-wall production oracles exercise baseline and both D < chi
+and D > chi model choices, one/two sites, both directions and distributed
+owners. Zigzag production oracles use model-selected native plans for automatic
+A/B and paired layers. Earlier standalone cached-helper checks remain as
+independent compatibility/reference tests; their small-graph work counts do
+not describe the new native execution path.
+
+A native K4-region fixture uses interleaved edges and unequal factors. A common
+subtree changes the target and an exterior neighbor's axes. All three candidate
+output tensors are compared componentwise with independent sums; the target
+owner and immutable raw caches are checked. The common contraction runs once,
+the dependent contraction three times, with ten total private input copies
+across owners and no intermediate-step recopy. The three-rank case includes an
+owner holding only the external neighbor. PMPI checks zero executor collectives.
+
+The 4096-sample integrations continue to compare exact Born probabilities for
+square/brick-wall and automatic/paired zigzag layouts, both window widths.
+Communicator creation/free counts cover the full sampling call, with the exact
+native-plan owner sets rather than a single three-line owner set. Original
+physical dimensions/model D are shared once at sampling entry; no shape
+collective or planner broadcast occurs inside a line.
+
+A four-row metadata fixture checks the boundary checkpoint model against the
+existing edges-only BMPS replay: unabsorbed outer-row bonds remain D and only
+absorbed/truncated boundary bonds become chi.
+
+The native scalar-join regression prepares one descriptor for six state pairs on
+a three-factor cut (2 x 3 x 4), compares complex scalar values with an independent
+sum, checks immutable A candidates and last-use B moves, and verifies that no
+collective is introduced. It runs with 1/2/3 ranks, including an idle rank.

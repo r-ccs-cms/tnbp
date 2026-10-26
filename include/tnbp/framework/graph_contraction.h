@@ -10,6 +10,8 @@
 #include "tnbp/framework/mpiutility.h"
 #include "tnbp/framework/typedef.h"
 #include <cstddef>
+#include <cstdio>
+#include <cstdlib>
 #include <iterator>
 #include <map>
 #include <set>
@@ -48,6 +50,13 @@ std::vector<std::pair<IntT,IntT>> make_graph_shift_edges(
     return updated;
 }
 
+// Fatal validation/backend errors must not add synchronization to valid calls.
+[[noreturn]] inline void abort_tensor_operation(MPI_Comm comm,const char* message) {
+    int rank=-1;MPI_Comm_rank(comm,&rank);
+    std::fprintf(stderr,"tnbp: fatal tensor operation on rank %d: %s\n",rank,message);
+    std::fflush(stderr);MPI_Abort(comm,1);std::abort();
+}
+
 // Collective preflight for graph contraction, bond shifts and BMPS sweeps.
 // Every tensor is indexed by current incident-edge order. Only required sites
 // need tensors; graph-only external sites may be absent from owners/site_idx.
@@ -56,7 +65,7 @@ std::map<IntT,std::size_t> validate_graph_tensors(
     context_handle_t<TenT>& ctx, const std::vector<IntT>& required,
     const std::vector<std::pair<IntT,IntT>>& edges,
     const std::vector<TenT>& tensors,const std::vector<IntT>& site_idx,
-    const std::map<IntT,IntT>& owners,MPI_Comm comm, bool invalid_operation=false) {
+    const std::map<IntT,IntT>& owners,MPI_Comm comm, bool invalid_operation=false, bool collective=true) {
     int rank,size; MPI_Comm_rank(comm,&rank); MPI_Comm_size(comm,&size);
     std::map<IntT,std::size_t> required_sites;
     std::set<std::pair<IntT,IntT>> unique_edges;
@@ -98,6 +107,14 @@ std::map<IntT,std::size_t> validate_graph_tensors(
         }
       }
     } catch(const std::exception&) {invalid=1;}
+    if(!collective) {
+      if(invalid) throw std::invalid_argument("graph operation: invalid graph, required sites, owner or tensor axes");
+      for(std::size_t e=0;e<edges.size();++e)
+        if(required_sites.count(edges[e].first) && required_sites.count(edges[e].second) &&
+           local.count(edges[e].first) && local.count(edges[e].second) && dim_min[e]!=dim_max[e])
+          throw std::invalid_argument("graph operation: local bond dimensions disagree");
+      return local;
+    }
     int any_invalid=0;
     MPI_Allreduce(&invalid,&any_invalid,1,MPI_INT,MPI_MAX,comm);
     if(any_invalid) throw std::invalid_argument("graph operation: invalid graph, required sites, owner or tensor axes");
@@ -202,11 +219,11 @@ namespace detail {
 				std::vector<IntT> & site_idx,
 				std::map<IntT,IntT> & site_to_mpi_rank,
 				IntT site_a, IntT site_b, IntT site_c,
-				MPI_Comm comm, GraphContractionMode mode) {
+				MPI_Comm comm, GraphContractionMode mode) try {
 
     using BondLabelT = typename tcapi::tensor_traits<TenT>::bond_label_t;
 
-    // All ranks validate before any point-to-point transfer or tensor mutation.
+    // Validate locally; no collective is introduced for a binary contraction.
     // Unaffected external sites may remain absent from tensors and owners.
     GraphContractionPlan<IntT> plan;
     bool invalid=site_c!=site_a && site_to_mpi_rank.count(site_c);
@@ -223,7 +240,7 @@ namespace detail {
     // A graph-only reform never sends a real tensor to a missing owner.
     invalid=invalid || graph_only(site_a)!=graph_only(site_b);
     for(auto site:candidates) if(!graph_only(site)) required.push_back(site);
-    validate_graph_tensors(ctx,required,edges,W,site_idx,site_to_mpi_rank,comm,invalid);
+    validate_graph_tensors(ctx,required,edges,W,site_idx,site_to_mpi_rank,comm,invalid,false);
 
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
 
@@ -257,6 +274,13 @@ namespace detail {
       if( mpi_type == 2 || mpi_type == 3 ) {
 	auto it_adrs_a = std::find(site_idx.begin(),site_idx.end(),site_a);
 	auto adrs_a = std::distance(site_idx.begin(),it_adrs_a);
+        // The received operand already carries its shape. Check the contracted
+        // bond here without a separate shape exchange or global reduction.
+        const auto bond=static_cast<std::size_t>(find_edge(edges,site_a,site_b)-edges.begin());
+        const auto axis_a=std::find(plan.bonds_a.begin(),plan.bonds_a.end(),bond)-plan.bonds_a.begin();
+        const auto axis_b=std::find(plan.bonds_b.begin(),plan.bonds_b.end(),bond)-plan.bonds_b.begin();
+        if(tcapi::shape(ctx,W[adrs_a]).at(axis_a)!=tcapi::shape(ctx,B).at(axis_b))
+            throw std::invalid_argument("graph operation: contraction bond dimensions disagree");
 #ifdef HELPER_DEBUG
 	auto shape_a = tcapi::shape(ctx,W[adrs_a]);
 	std::cout << " graph_tensor_contraction: Tensor A at site " << site_a << ": shape =";
@@ -338,7 +362,8 @@ namespace detail {
     if( it_site_b_rank != site_to_mpi_rank.end() ) {
       site_to_mpi_rank.erase(it_site_b_rank);
     }
-  }
+  } catch(const std::exception& e) {abort_tensor_operation(comm,e.what());}
+    catch(...) {abort_tensor_operation(comm,"unknown graph contraction failure");}
 
 } // namespace detail
 
@@ -354,10 +379,13 @@ namespace detail {
    *      axes must match the incident-edge order in edges.
    * @pre site_a and site_b are distinct adjacent sites. site_c must be site_a
    *      or a fresh label, not site_b or another existing site.
-   * @note Collective on comm: all ranks must agree on edges, arguments and owners.
-   *       Required tensors, axes, internal bond dimensions and structural inputs
-   *       are checked collectively before mutation. Backend failures after this
-   *       preflight may still leave partial output.
+   * @note All ranks update replicated graph metadata and must agree on edges,
+   *       arguments and owners. Normal execution communicates only between
+   *       operand owners; there is no communicator-wide validation collective.
+   *       Local validation/backend failure reports an error and aborts comm.
+   *       Required tensors and axes are checked locally. Cross-owner bond
+   *       dimensions are checked when the operand is received. No rollback or
+   *       communicator-wide successful-return guarantee is provided.
    * @note Ownership is asymmetric: the result stays on the original owner of
    *       site_a, regardless of the label site_c. site_b is transferred there
    *       when needed. Swapping site_a/site_b changes the destination rank.

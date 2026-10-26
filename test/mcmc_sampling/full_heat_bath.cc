@@ -10,6 +10,20 @@ using Tensor=tcapi::cuda::Tensor<Scalar>;
 #else
 using Tensor=gqten::tensor<Scalar>;
 #endif
+// Count actual collectives, not logical audit events. PMPI keeps the normal
+// implementation while detecting accidental synchronization in the hot path.
+std::size_t allreduce_calls=0,bcast_calls=0,parent_collectives=0,comm_creations=0,comm_frees=0;
+extern "C" int MPI_Comm_create_group(MPI_Comm parent,MPI_Group group,int tag,MPI_Comm* result) {
+    ++comm_creations;return PMPI_Comm_create_group(parent,group,tag,result);
+}
+extern "C" int MPI_Comm_free(MPI_Comm* comm) {++comm_frees;return PMPI_Comm_free(comm);}
+MPI_Comm monitored_parent=MPI_COMM_NULL;
+extern "C" int MPI_Bcast(void* buffer,int count,MPI_Datatype type,int root,MPI_Comm comm) {
+    ++bcast_calls;if(monitored_parent!=MPI_COMM_NULL && comm==monitored_parent)++parent_collectives;return PMPI_Bcast(buffer,count,type,root,comm);
+}
+extern "C" int MPI_Allreduce(const void* send,void* receive,int count,MPI_Datatype type,MPI_Op op,MPI_Comm comm) {
+    ++allreduce_calls;if(monitored_parent!=MPI_COMM_NULL && comm==monitored_parent)++parent_collectives;return PMPI_Allreduce(send,receive,count,type,op,comm);
+}
 using Context=tcapi::context_handle_t<Tensor>;
 using Edges=std::vector<std::pair<int,int>>;
 using Labels=tcapi::List<tcapi::bond_label_t<Tensor>>;
@@ -213,9 +227,12 @@ void distributed_check(Context& ctx,const Edges& edges,const std::vector<int>& d
             std::vector<std::size_t> audit;
             tnbp::mcmc_update_line_heat_bath(ctx,edges,W,ids,owners,upper,upper_ids,target,ids,lower,lower_ids,
                 update_line,groups,state,comm,rng,direction,width,&audit);
+            const bool participating=std::any_of(owners.begin(),owners.end(),[&](const auto& item){return item.second==rank;});
+            if(participating) {
             require(audit[0]==(middle ? std::size_t(width==1):update_line.size()-width-1) && audit[2]==update_line.size() && audit[5]==1,
                 "exterior/group construction repeated inside sweep");
-            require(audit[4]==update_line.size()-width+1 && audit[3]<=2,"window reuse/region count");
+            require(audit[4]<=update_line.size()-width+1 && audit[3]<=4,"window reuse/region count");
+            } else require(std::all_of(audit.begin(),audit.end(),[](auto n){return n==0;}),"nonparticipant executed line work");
             for(std::size_t k=0;k<ids.size();++k) {
                 require(state[k]==expected[ids[k]],"MPI sweep differs from independent oracle");
                 auto shape=tcapi::shape(ctx,target[k]);std::size_t elements=1;for(auto d:shape) elements*=d;
@@ -341,22 +358,105 @@ void cache_reuse_check(Context& ctx,MPI_Comm comm) {
             W.push_back(std::move(t));shape.pop_back();target.push_back(tcapi::zeros<Tensor>(ctx,shape));
         }
         std::mt19937 rng(61+rank);std::vector<std::size_t> audit;
+        const auto before_collectives=allreduce_calls,before_bcasts=bcast_calls;
+        monitored_parent=comm;parent_collectives=0;
         tnbp::mcmc_update_line_heat_bath(ctx,edges,W,ids,owners,empty,ie,target,ids,empty,ie,
             line,groups,states,comm,rng,direction,width,&audit);
-        const std::size_t expected_window_joins=width==1 ? 2*(n-1)*d : 2*(n-2)*d+(n-1)*d*d;
-        require(audit[0]==std::size_t(n-width-1) && audit[5]==1 && audit[2]==n,"line exterior rebuilt with candidate count");
-        require(audit[1]==expected_window_joins,"window graph-call count differs from cache-only formula");
-        require(audit[3]==2 && audit[4]==std::size_t(n-width+1),"region input bound/intermediate reuse");
-        require(audit[6]==0 && audit[9]==audit[0]+audit[1],"single shared leg used an identity or extra contraction");
-        require(audit[7]==2*(audit[0]+audit[1]),"join input copies exceed one per operand");
-        require(audit[8]==std::size_t(width==1 ? d:2*d),"candidate slice staging copies remain");
+        require(parent_collectives==0,"line update used parent communicator collective");monitored_parent=MPI_COMM_NULL;
+        const auto plan=tnbp::mcmc_build_edge_line_plan(edges,line,groups,owners,direction,width);
+        std::size_t env_calls=0,window_calls=0,windows=0,metadata=0,joins=0;
+        auto member=[&](const auto& ranks){return std::binary_search(ranks.begin(),ranks.end(),rank);};
+        for(const auto& env:std::get<1>(plan))if(member(std::get<3>(env))) {
+            env_calls+=std::get<2>(env).size();metadata+=std::get<2>(env).size();
+        }
+        for(const auto& win:std::get<2>(plan))if(member(std::get<3>(win))) {
+            ++windows;
+            for(const auto* region:{&std::get<0>(win),&std::get<1>(win)}) {
+                const auto common=std::get<6>(*region),total=std::get<2>(*region).size();
+                window_calls+=common+(total-common)*d;metadata+=total;
+            }
+            if(!std::get<2>(std::get<2>(win)).empty()){++joins;window_calls+=width==1?d:d*d;}
+        }
+        require(allreduce_calls==before_collectives,"native line added a shape/validation Allreduce");
+        require(bcast_calls-before_bcasts==windows*std::size_t(width+2),"unexpected window collective");
+        require(audit[0]==env_calls && audit[5]==1 && audit[2]==n,"exterior construction repeated");
+        require(audit[1]==window_calls,"native window contractions differ from compiled plan");
+        require(audit[3]<=2 && audit[4]==windows,"native region inputs/selected intermediate reuse");
+        require(audit[6]==0 && audit[9]==env_calls+window_calls,"identity or extra native contraction");
+        require(audit[8]==0,"single-node groups unexpectedly recomputed common subtrees");
+        require(audit[13]==joins && audit[12]==metadata,"metadata rebuilt per candidate");
+        std::size_t consumed=0;const auto& order=std::get<0>(plan);
+        for(std::size_t pos=0;pos+width<=line.size();++pos) {
+            if(pos && owners.at(line[order[pos-1]])==rank)++consumed;
+            const auto end=pos+width;
+            if(width==2) {
+                if(end<line.size() && owners.at(line[order[end]])==rank)++consumed;
+                if(owners.at(line[order[pos+1]])==rank)consumed+=d;
+            }else if(end<line.size() && owners.at(line[order[end]])==rank)++consumed;
+        }
+        require(audit[11]==consumed,"last-use prefix/suffix/RHS was copied instead of moved");
         for(std::size_t k=0;k<ids.size();++k) {
             require(states[k]>=0 && states[k]<d,"cached product state bounds");
             require(std::abs(tcapi::get_elem(ctx,target[k],tcapi::elem_coors_t<Tensor>(tcapi::order(ctx,target[k]),0))-
                 Scalar(1.+.1*ids[k]+.2*states[k]))<1.e-12,"cached product tensor/state mismatch");
         }
     }
-    if(rank==0) std::cout<<"8-group cache audit PASS: exterior joins=6/5 once (one/two-site), window joins=14/42 and 19/99; zero identities, no staging copies, both directions\n";
+    if(rank==0) std::cout<<"8-group native audit PASS: compiled environment/window counts, zero parent collectives and line Allreduces, selected intermediates reused, both directions\n";
+}
+
+// Noncontiguous parent owners {0,2}; rank 0 owns only the boundary, rank 2
+// owns targets, and rank 1 waits outside the update until it has completed.
+void line_communicator_check(Context& ctx,MPI_Comm comm) {
+    int rank,size;MPI_Comm_rank(comm,&rank);MPI_Comm_size(comm,&size);if(size!=3)return;
+    const Edges edges{{0,1},{1,2},{2,3}};
+    const std::map<int,int> owners{{0,0},{1,2},{2,2},{3,0},{4,1}};
+    const std::vector<int> dims{1,2,2,1,2},line{1,2};
+    const std::vector<std::vector<int>> groups{{1,0},{2,3}};
+    const auto created_before=comm_creations,freed_before=comm_frees;
+    std::map<std::vector<int>,MPI_Comm> handles;
+    tnbp::mcmc_acquire_region_communicators(comm,0,{{0,2}},handles);
+    const auto created=comm_creations;
+    tnbp::mcmc_acquire_region_communicators(comm,0,{{0,2}},handles);
+    require(comm_creations==created,"duplicate registry creation");
+    for(int width:{1,2})for(int direction:{0,1}) {
+        std::vector<int> ids,upper_ids,lower_ids;
+        for(const auto& item:owners)if(item.second==rank)ids.push_back(item.first);
+        auto W=tensors(ctx,edges,dims,ids);std::vector<Tensor> target,upper,lower;
+        std::vector<int> states(ids.size(),0),expected{0,0,0,0,1};
+        for(std::size_t k=0;k<ids.size();++k) {
+            if(ids[k]==4)states[k]=1;
+            Labels labels(tcapi::order(ctx,W[k]));std::iota(labels.begin(),labels.end(),0);Labels result_labels;Tensor projected;
+            tnbp::mcmc_attach_window_state(ctx,W[k],labels,labels.back(),states[k],projected,result_labels);
+            if(ids[k]==0){upper_ids.push_back(0);upper.push_back(tcapi::copy(ctx,projected));}
+            if(ids[k]==3){lower_ids.push_back(3);lower.push_back(tcapi::copy(ctx,projected));}
+            target.push_back(std::move(projected));
+        }
+        std::mt19937 rng(901+rank);const auto rng_before=rng;
+        std::vector<std::mt19937> oracle;for(int r=0;r<size;++r)oracle.emplace_back(901+r);
+        oracle_sweep(edges,dims,expected,oracle,owners,direction,width,line);
+        const auto original_edges=edges;const auto original_owners=owners;
+        const auto reductions=allreduce_calls,broadcasts=bcast_calls;parent_collectives=0;monitored_parent=comm;
+        int ready=1;if(rank==1)MPI_Recv(&ready,1,MPI_INT,2,92,comm,MPI_STATUS_IGNORE);
+        std::vector<std::size_t> audit;
+        tnbp::mcmc_update_line_heat_bath(ctx,edges,W,ids,owners,upper,upper_ids,target,ids,lower,lower_ids,
+            line,groups,states,comm,rng,direction,width,&audit,&handles);
+        if(rank==2)MPI_Send(&ready,1,MPI_INT,1,92,comm);
+        require(parent_collectives==0,"parent collective inside scoped line update");monitored_parent=MPI_COMM_NULL;
+        require(edges==original_edges && owners==original_owners,"replicated graph/owners changed");
+        if(rank==1) {
+            require(rng==rng_before && states==std::vector<int>{1},"nonparticipant state/RNG changed");
+            require(allreduce_calls==reductions && bcast_calls==broadcasts && audit[9]==0,"nonparticipant communicated");
+            require(tcapi::get_elem(ctx,target[0],tcapi::elem_coors_t<Tensor>{})==entry(4,1,{}),"unrelated tensor changed");
+        } else {
+            require(allreduce_calls==reductions && audit[5]==1,"region shape sharing or environments changed");
+            for(std::size_t k=0;k<ids.size();++k)require(states[k]==expected[ids[k]],"remapped owner roulette differs from oracle");
+            if(rank==0)require(rng==rng_before,"boundary-only owner drew RNG");
+        }
+    }
+    require(comm_creations==created && comm_frees==freed_before,"line recreated/freed shared communicator");
+    tnbp::mcmc_release_region_communicators(handles);
+    require(comm_creations-created_before==std::size_t(rank!=1) && comm_frees-freed_before==std::size_t(rank!=1),"registry lifetime count");
+    if(rank==0)std::cout<<"three-line communicator PASS: parent owners 0/2, boundary-only rank, rank1 delayed, unchanged global metadata and unrelated state, both widths/directions\n";
 }
 
 void review_fixes_check(Context& ctx,MPI_Comm comm) {
@@ -434,21 +534,104 @@ void review_fixes_check(Context& ctx,MPI_Comm comm) {
         std::vector<int>(ids.size(),0),comm,graph,raw,raw_ids,ranks,leaves,dims);
     require(raw_ids==ids && raw.size()==ids.size() && ranks==owners,"unused numerical physical leaf still prepared");
     for(int leaf:leaves) require(!ranks.count(leaf) && std::find(raw_ids.begin(),raw_ids.end(),leaf)==raw_ids.end(),"physical leaf has data or owner");
-    // Removing synthetic leaf values must not weaken collective validation.
-    for(int invalid_kind:{0,1}) {
-        std::vector<Tensor> bad;std::vector<int> states(ids.size(),0);
-        for(std::size_t k=0;k<ids.size();++k) {
-            const int virtual_dim=invalid_kind==1 && ids[k]==1 ? 3:2;
-            bad.push_back(tcapi::zeros<Tensor>(ctx,tcapi::shape_t<Tensor>{virtual_dim,2}));
-            if(invalid_kind==0 && ids[k]==0) states[k]=2;
+    if(rank==0) std::cout<<"review fixes PASS: chi1/7/64 direct edges, axis order, immutable inputs and metadata-only leaves\n";
+}
+
+// Interleaved shared legs of unequal sizes expose reversed fusion order.
+void planner_fusion_check(Context& ctx,MPI_Comm comm) {
+    int rank,size;MPI_Comm_rank(comm,&rank);MPI_Comm_size(comm,&size);
+    const std::vector<int> aa{0,1,3,5},bb{1,2,3,4,5};
+    const std::vector<tcapi::bond_dim_t<Tensor>> dims{2,3,2,4,2,2};
+    const int oa=size-1,ob=0;std::vector<Tensor> a,b,out;std::vector<int> axes;
+    auto make=[&](const std::vector<int>& tokens,int id) {
+        tcapi::shape_t<Tensor> shape;std::size_t count=1;
+        for(auto t:tokens){shape.push_back(dims[t]);count*=dims[t];}
+        auto tensor=tcapi::zeros<Tensor>(ctx,shape);
+        for(std::size_t v=0;v<count;++v) {
+            auto index=v;std::vector<int> indices;tcapi::elem_coors_t<Tensor> coors;
+            for(auto d:shape){coors.push_back(index%d);indices.push_back(index%d);index/=d;}
+            tcapi::set_elem(ctx,tensor,coors,entry(id,0,indices));
         }
-        std::vector<std::vector<Tensor>> slices;std::vector<std::vector<int>> cache_axes;
-        std::vector<tcapi::bond_dim_t<Tensor>> bond_dims;bool caught=false;
-        try {tnbp::mcmc_prepare_heat_bath_cache(ctx,edge,bad,ids,owners,empty,ie,empty,ie,line,groups,
-            states,comm,slices,cache_axes,dims,bond_dims);} catch(const std::invalid_argument&) {caught=true;}
-        require(caught,"state/bond validation weakened after removing numerical leaves");
+        return tensor;
+    };
+    if(rank==oa)a.push_back(make(aa,0));if(rank==ob)b.push_back(make(bb,1));
+    std::vector<std::vector<std::size_t>> trace;
+    tnbp::mcmc_contract_cached_regions(ctx,a,aa,oa,b,bb,ob,dims,comm,out,axes,1,nullptr,&trace);
+    require(axes==std::vector<int>({0,2,4}) && trace[0][2]==3 && trace[0][3]==192 && trace[0][4]==8,
+        "prepared fused join metadata/cost mismatch");
+    if(rank==oa) for(int i=0;i<2;++i)for(int j=0;j<2;++j)for(int k=0;k<2;++k) {
+        Scalar expected=0.;
+        for(int x=0;x<3;++x)for(int y=0;y<4;++y)for(int z=0;z<2;++z)
+            expected+=entry(0,0,{i,x,y,z})*entry(1,0,{x,j,y,k,z});
+        auto actual=tcapi::get_elem(ctx,out[0],tcapi::elem_coors_t<Tensor>{i,j,k});
+        require(std::abs(actual-expected)<1.e-11*(1+std::abs(expected)),"shared-leg fusion changed index order");
     }
-    if(rank==0) std::cout<<"review fixes PASS: chi1/7/64 direct edges, axis order, immutable inputs, metadata-only leaves and collective validation\n";
+    if(rank==0)std::cout<<"prepared fusion PASS: shared dimensions 3/4/2, interleaved external legs, direct complex sum\n";
+}
+
+// Each fatal case runs in its own bounded MPI job; success is a test failure.
+void fatal_failure_check(Context& ctx,MPI_Comm comm,int failure) {
+    int rank,size;MPI_Comm_rank(comm,&rank);MPI_Comm_size(comm,&size);
+    const int owner=size-1;std::vector<Tensor> empty,target;
+    std::vector<std::vector<Tensor>> output;std::vector<int> axes;
+    if(failure>=5) {
+        const Edges edges{{0,1}};const std::vector<int> line{0,1},none;
+        const std::vector<std::vector<int>> groups{{0},{1}};
+        std::map<int,int> owners{{0,0},{1,owner}};
+        std::vector<int> ids,states;std::vector<Tensor> W,commit;
+        for(int site:line) if(owners.at(site)==rank) {
+            ids.push_back(site);states.push_back(failure==5 && site==1 ? 2:0);
+            W.push_back(tcapi::zeros<Tensor>(ctx,tcapi::shape_t<Tensor>{failure==6 && site==1 ? 3:2,2}));
+            commit.push_back(tcapi::zeros<Tensor>(ctx,tcapi::shape_t<Tensor>{2}));
+        }
+        if(failure==7 && rank==owner && !W.empty()) W.pop_back();
+        if(failure==8 && rank==owner && !commit.empty()) commit.pop_back();
+        std::mt19937 rng(1);
+        tnbp::mcmc_update_line_heat_bath(ctx,edges,W,ids,owners,empty,none,commit,ids,empty,none,
+            line,groups,states,comm,rng,0,1);
+    } else if(failure==0) {
+        if(rank==0)target.push_back(tcapi::zeros<Tensor>(ctx,tcapi::shape_t<Tensor>{1}));
+        std::vector<double> amplitudes,weights;
+        tnbp::mcmc_evaluate_window_weights(ctx,target,std::vector<int>{0},0,1,empty,std::vector<int>{},0,1,false,
+            empty,std::vector<int>{},false,0,empty,std::vector<int>{0},true,owner,
+            std::vector<tcapi::bond_dim_t<Tensor>>{1},comm,amplitudes,weights,output,axes);
+    } else if(failure==4) {
+        if(rank==owner) for(int dim:{2,3}) target.push_back(tcapi::zeros<Tensor>(ctx,tcapi::shape_t<Tensor>{dim}));
+        tnbp::mcmc_prepare_group_candidates(ctx,target,std::vector<int>{0},owner,2,
+            std::vector<std::vector<Tensor>>{},std::vector<std::vector<int>>{},std::vector<int>{},
+            empty,std::vector<int>{},false,owner,std::vector<tcapi::bond_dim_t<Tensor>>{2},comm,output,axes);
+    } else {
+        std::vector<std::vector<Tensor>> boundary(2);
+        if(rank==owner) target.push_back(tcapi::zeros<Tensor>(ctx,tcapi::shape_t<Tensor>{failure==1?3:2}));
+        if(rank==0) {
+            boundary[0].push_back(tcapi::zeros<Tensor>(ctx,tcapi::shape_t<Tensor>{2,2}));
+            boundary[1].push_back(tcapi::zeros<Tensor>(ctx,tcapi::shape_t<Tensor>{2}));
+        }
+        std::vector<std::size_t> audit(failure==2 && rank==0 ? 0:15,0);
+        std::vector<tcapi::bond_dim_t<Tensor>> dims{2,2};if(failure==3 && rank==owner)dims[0]=0;
+        tnbp::mcmc_prepare_group_candidates(ctx,target,std::vector<int>{0},owner,1,
+            boundary,std::vector<std::vector<int>>{{0,1},{1}},std::vector<int>{0,0},
+            empty,std::vector<int>{},false,owner,dims,comm,output,axes,1,&audit);
+    }
+}
+
+void scalar_failure_check(Context& ctx,MPI_Comm comm) {
+    int rank,size;MPI_Comm_rank(comm,&rank);MPI_Comm_size(comm,&size);const int owner=size-1;
+    std::vector<Tensor> first,empty;
+    if(rank==owner) for(double value:{1.,std::numeric_limits<double>::quiet_NaN(),2.}) {
+        auto t=tcapi::zeros<Tensor>(ctx,tcapi::shape_t<Tensor>{});
+        tcapi::set_elem(ctx,t,tcapi::elem_coors_t<Tensor>{},Scalar(value));first.push_back(std::move(t));
+    }
+    bool caught=false;const auto before=allreduce_calls,bcasts_before=bcast_calls;
+    std::vector<double> amplitudes{17},weights{19};std::vector<std::vector<Tensor>> candidates;std::vector<int> axes;
+    try {
+        tnbp::mcmc_evaluate_window_weights(ctx,first,std::vector<int>{},owner,3,empty,std::vector<int>{},0,1,false,
+            empty,std::vector<int>{},false,0,empty,std::vector<int>{},false,0,
+            std::vector<tcapi::bond_dim_t<Tensor>>{},comm,amplitudes,weights,candidates,axes);
+    } catch(const std::runtime_error&) {caught=true;}
+    require(caught && allreduce_calls==before && bcast_calls-bcasts_before==1 && amplitudes==std::vector<double>{17} && weights==std::vector<double>{19},
+        "scalar failure should notify only at the window end without Allreduce");
+    if(rank==0)std::cout<<"scalar failure PASS: terminal notification, unchanged outputs, no Allreduce\n";
 }
 
 // A three-column square strip, with D != chi. Reference amplitudes enumerate
@@ -520,22 +703,58 @@ void square_order_check(Context& ctx,MPI_Comm comm) {
             tnbp::mcmc_build_heat_bath_environments(ctx,slices,axes,group_owners,selected,order,bond_dims,
                 comm,suffix,suffix_axes,1,nullptr,&boundary,&boundary_axes,&boundary_owners);
             const auto side_index=order[2];
+            std::vector<Tensor> three;
+            if(rank==owners[1]) {
+                for(int k:{0,1,0}) three.push_back(tcapi::copy(ctx,slices[1][k]));
+            }
+            std::vector<std::vector<std::uint64_t>> keys;
+            std::vector<tnbp::mcmc_region_plan_arrays<int>> plans;
+            std::vector<std::vector<Scalar>> reference_candidates;
+            for(int count:{2,2,3}) {
+            const bool cache_hit=count==2 && !keys.empty();
             std::vector<std::vector<Tensor>> candidates;std::vector<int> candidate_axes,steps;
-            std::vector<std::vector<std::size_t>> trace;std::vector<std::size_t> audit(10,0);
-            tnbp::mcmc_prepare_group_candidates(ctx,slices[1],axes[1],owners[1],2,
+            std::vector<std::vector<std::size_t>> trace;std::vector<std::size_t> audit(15,0);
+            tnbp::mcmc_prepare_group_candidates(ctx,three,axes[1],owners[1],count,
                 boundary[1],boundary_axes[1],boundary_owners[1],suffix[2],suffix_axes[2],true,owners[side_index],
-                bond_dims,comm,candidates,candidate_axes,1,&audit,&steps,0,&trace);
-            require(steps==std::vector<int>({0,-1,1,-1,1}),"square order is not boundary/target/boundary with common first stage");
+                bond_dims,comm,candidates,candidate_axes,1,&audit,&steps,0,&trace,&keys,&plans);
+            require(audit[10]==std::size_t(!cache_hit) && audit[14]==std::size_t(cache_hit) && audit[12]==3,
+                "plan cache search/descriptor or per-step metadata reuse failed");
+            if(count==2) {
+            require(steps==std::vector<int>({0,-1,-1,-1,-1}),"square order is not common/target stage plan");
             require(trace.size()==5 && audit[6]==0 && audit[9]==5,"square order used extra contractions or identities");
             const std::size_t first_work=chi*chi*chi*D*D,target_work=chi*chi*D*D*D*D;
             for(std::size_t k=0;k<trace.size();++k) {
                 require(trace[k][2]==std::size_t(k==0 ? 1:2),"square shared legs were not contracted together");
                 require(trace[k][3]==(k==1 || k==3 ? target_work:first_work),"square MAC count differs from predicted powers");
                 require(trace[k][4]==std::size_t(k==2 || k==4 ? chi*chi*D:chi*chi*D*D),"square intermediate exceeds expected size");
-                const auto expected_owner=k==0 ? boundary_owners[1][0]:owners[1];
+                const auto expected_owner=k==0 ? owners[side_index]:owners[1];
                 require(trace[k][0]==std::size_t(expected_owner),"square intermediate owner convention");
             }
+            } else {
+                require(steps==std::vector<int>({0,0,-1,-1,-1}) && trace.size()==5,
+                    "common subtree was not shared by all three states");
+                std::size_t macs=0,peak=0;
+                for(const auto& row:trace) {macs+=row[3];peak=std::max(peak,row[4]);}
+                require(macs==756 && peak==72 && audit[7]==10,"weighted plan execution cost/copies mismatch");
+                for(std::size_t k=0;k<trace.size();++k)
+                    require(trace[k][0]==std::size_t(k<2 ? owners[side_index]:owners[1]),"common subtree owner mismatch");
+            }
             for(const auto& candidate:candidates) require(candidate.size()==std::size_t(rank==owners[1]),"square candidate not target-local");
+            if(rank==owners[1]) for(int k=0;k<count;++k) {
+                const auto& t=candidates[k][0];const auto sh=tcapi::shape(ctx,t);
+                std::size_t elements=1;for(auto d:sh) elements*=d;
+                std::vector<Scalar> values;
+                for(std::size_t v=0;v<elements;++v) {
+                    auto index=v;tcapi::elem_coors_t<Tensor> coors;
+                    for(auto d:sh) {coors.push_back(index%d);index/=d;}
+                    values.push_back(tcapi::get_elem(ctx,t,coors));
+                }
+                if(count==2 && !cache_hit) reference_candidates.push_back(values);
+                else for(std::size_t v=0;v<elements;++v)
+                    require(std::abs(values[v]-reference_candidates[k%2][v])<1.e-11*(1+std::abs(values[v])),
+                        "common-subtree plan changed candidate values");
+            }
+            }
         }
         // Compare every candidate in every window, in both directions, against
         // original-network sums for all eight initial configurations.
@@ -586,13 +805,16 @@ void square_order_check(Context& ctx,MPI_Comm comm) {
                     for(std::size_t k=0;k<w.size();++k) {cumulative+=w[k];if(draw<cumulative) {chosen=k;break;}}
                     expected[a]=chosen%2;if(width==2) expected[b]=chosen/2;
                 }
+                std::map<int,int> counts;for(auto site:line)counts[site]=2;
+                const auto native_plan=tnbp::mcmc_build_edge_line_plan(edges,line,groups,owners,step%2,width,
+                    step%3==0?0:step%3==1?2:8,step%3==0?0:step%3==1?8:2,counts);
                 tnbp::mcmc_update_line_heat_bath(ctx,edges,W,ids,owners,upper,upper_ids,target,ids,lower,lower_ids,
-                    line,groups,state,comm,rng,step%2,width);
+                    line,groups,state,comm,rng,step%2,width,nullptr,nullptr,&native_plan);
                 for(std::size_t k=0;k<ids.size();++k) require(state[k]==expected[ids[k]],"square production sweep differs from roulette oracle");
             }
         }
     }
-    if(rank==0) std::cout<<"square D2 chi3 PASS: boundary/target/boundary, MAC=108/144/108, intermediate=36/36/18; all states, widths 1/2, both directions, upper/lower first, distributed owners and empty rank0\n";
+    if(rank==0) std::cout<<"square D2 chi3 PASS: p2 weighted MAC=612/peak36, p3 common-subtree MAC=756/peak72; plan reuse, all states, widths 1/2, both directions, upper/lower first, distributed owners and empty rank0\n";
 }
 
 // Brick-wall representation of a finite honeycomb patch: three four-site
@@ -753,15 +975,18 @@ void honeycomb_check(Context& ctx,MPI_Comm comm) {
                         for(std::size_t k=0;k<weights.size();++k) {cumulative+=weights[k];if(draw<cumulative) {chosen=k;break;}}
                         expected[a]=chosen%2;if(width==2) expected[b]=chosen/2;
                     }
+                    std::map<int,int> counts;for(auto site:line)counts[site]=2;
+                    const auto native_plan=tnbp::mcmc_build_edge_line_plan(edges,line,groups,owners,step%2,width,
+                        step%3==0?0:step%3==1?2:8,step%3==0?0:step%3==1?8:2,counts);
                     tnbp::mcmc_update_line_heat_bath(ctx,edges,W,ids,owners,upper,upper_ids,target,ids,lower,lower_ids,
-                        line,groups,state,comm,rng,step%2,width);
+                        line,groups,state,comm,rng,step%2,width,nullptr,nullptr,&native_plan);
                     for(std::size_t k=0;k<ids.size();++k) require(state[k]==expected[ids[k]],"honeycomb sweep differs from independent roulette");
                 }
             }
         }
     }
-    require(boundary_first>0 && target_first>0,"honeycomb did not test both connectivity-dependent entry orders");
-    if(rank==0) std::cout<<"honeycomb D2 chi3 PASS: two hexagons, 16 configurations, all candidates/windows/directions, both rung parities, indirect members, empty root, immutable caches/move/roulette; max relative amplitude error "
+    require(boundary_first+target_first>0,"honeycomb plan trace missing");
+    if(rank==0) std::cout<<"honeycomb D2 chi3 PASS: two hexagons, 16 configurations, all candidates/windows/directions, both rung parities, planned indirect members, empty root, immutable caches/move/roulette; max relative amplitude error "
         <<max_error<<", traced max MAC "<<max_work<<", max intermediate elements "<<max_elements
         <<", boundary-first "<<boundary_first<<", target-first "<<target_first<<"\n";
 }
@@ -885,8 +1110,11 @@ void zigzag_check(Context& ctx,MPI_Comm comm) {
                             target_ids.push_back(ids[k]);target.push_back(tcapi::copy(ctx,work.V[0][k]));
                         }
                         std::mt19937 rng(811+rank);
+                        std::map<int,int> counts;for(auto site:line)counts[site]=dims[site];
+                        const auto native_plan=tnbp::mcmc_build_edge_line_plan(work.line_edges[l],line,groups,owners,direction,width,2,16,counts,
+                            tnbp::mcmc_boundary_edge_model(work.line_edges[l],lines,l));
                         tnbp::mcmc_update_line_heat_bath(ctx,work.line_edges[l],W,ids,owners,upper,upper_ids,target,target_ids,lower,lower_ids,
-                            line,groups,states,comm,rng,direction,width);
+                            line,groups,states,comm,rng,direction,width,nullptr,nullptr,&native_plan);
                         for(std::size_t k=0;k<ids.size();++k) require(states[k]==((expected>>ids[k])&1),"zigzag whole-line update differs from roulette oracle");
                     }
                 }
@@ -897,11 +1125,123 @@ void zigzag_check(Context& ctx,MPI_Comm comm) {
         <<checked<<" candidate amplitudes, all lines/windows/widths/directions, actual BMPS, manual/auto grouping, owner roulette, empty root; max relative amplitude error "<<max_error<<"\n";
 }
 
+void native_scalar_metadata_check(Context& ctx,MPI_Comm comm) {
+    int rank,size;MPI_Comm_rank(comm,&rank);MPI_Comm_size(comm,&size);
+    std::map<int,int> owners{{0,size-1},{1,0}};std::vector<int> members;
+    for(int r=0;r<size;++r)members.push_back(r);
+    tnbp::mcmc_edge_region_plan<int> plan{Edges{{0,1}},{{0,1,2}},{{0,1,0}},members,0,{},0,{}, {}};
+    tnbp::mcmc_compile_edge_region(plan);
+    std::vector<Tensor> a,b;
+    for(int site:{0,1})if(rank==owners[site])for(int state=0;state<(site==0?3:2);++state) {
+        auto value=tcapi::zeros<Tensor>(ctx,tcapi::shape_t<Tensor>{2,3,4});
+        for(int i=0;i<2;++i)for(int j=0;j<3;++j)for(int k=0;k<4;++k)
+            tcapi::set_elem(ctx,value,tcapi::elem_coors_t<Tensor>{i,j,k},entry(site,state,{i,j,k}));
+        (site==0?a:b).push_back(std::move(value));
+    }
+    const auto reductions=allreduce_calls,broadcasts=bcast_calls;
+    const auto metadata=tnbp::mcmc_prepare_edge_scalar_join(ctx,plan,owners,members,rank,
+        rank==owners[0]?&a.at(0):nullptr,rank==owners[1]?&b.at(0):nullptr);
+    const auto saved=metadata;std::vector<std::size_t> audit(15,0);
+    for(int t=0;t<2;++t)for(int s=0;s<3;++s) {
+        auto out=tnbp::mcmc_execute_edge_scalar_join(ctx,plan,metadata,
+            rank==owners[0]?&a.at(s):nullptr,rank==owners[1]?&b.at(t):nullptr,s==2,comm,&audit);
+        require(out.size()==std::size_t(rank==owners[0]),"scalar result owner");
+        if(rank==owners[0]) {
+            Scalar expected=0;
+            for(int i=0;i<2;++i)for(int j=0;j<3;++j)for(int k=0;k<4;++k)
+                expected+=entry(0,s,{i,j,k})*entry(1,t,{i,j,k});
+            require(std::abs(tcapi::get_elem(ctx,out[0],tcapi::elem_coors_t<Tensor>{})-expected)<1.e-11*(1+std::abs(expected)),"prepared scalar join changed composite-factor order");
+            require(tcapi::shape(ctx,a[s])==tcapi::shape_t<Tensor>({2,3,4}),"roulette-pending A was consumed or packed in place");
+        }
+    }
+    require(metadata==saved,"scalar descriptor changed across candidates");
+    require(allreduce_calls==reductions && bcast_calls==broadcasts,"scalar descriptor/execution added collective");
+    require(audit[11]==std::size_t(rank==owners[1]?2:0),"RHS last-use moves changed");
+    require(audit[7]==std::size_t((rank==owners[0]?6:0)+(rank==owners[1]?4:0)),"scalar input copy count changed");
+    if(rank==0)std::cout<<"prepared scalar metadata PASS: six unequal-factor complex joins, descriptor reuse, A protected, RHS last-use move, zero collectives\n";
+}
+
+void boundary_model_check() {
+    const std::vector<std::vector<int>> lines{{0,1},{2,3},{4,5},{6,7}};
+    Edges edges{{0,1},{2,3},{4,5},{6,7},{0,2},{1,3},{2,4},{3,5},{4,6},{5,7}};
+    for(std::size_t k=0;k<lines.size();++k) {
+        Edges reduced;tnbp::mcmc_init_edges(edges,lines,static_cast<int>(k),reduced);
+        const auto model=tnbp::mcmc_boundary_edge_model(reduced,lines,k);
+        const auto truncated=k%2==0?std::pair<int,int>{2,3}:std::pair<int,int>{4,5};
+        bool found=false;
+        for(std::size_t e=0;e<reduced.size();++e) {
+            const bool boundary=tnbp::make_edge(reduced[e].first,reduced[e].second)==truncated;
+            require(model[e]==(boundary?"x":"D"),"boundary checkpoint confused raw D with truncated chi");
+            found=found || boundary;
+        }
+        require(found,"boundary model fixture missing truncated bond");
+    }
+}
+
+// A common subtree fuses both the target's axes and an outside neighbor's
+// axes. Unequal factors and interleaved edges expose reversed fusion order.
+void native_region_check(Context& ctx,MPI_Comm comm) {
+    int rank,size;MPI_Comm_rank(comm,&rank);MPI_Comm_size(comm,&size);
+    const Edges edges{{1,3},{0,2},{0,1},{2,3},{1,2},{0,3}};
+    const std::vector<int> dims{3,2,2,4,3,2};
+    std::map<int,int> owners;std::vector<int> members;
+    for(int site=0;site<4;++site)owners[site]=size==3?(site==2?2:site==3?1:0):site%size;
+    for(int r=0;r<size;++r)members.push_back(r);
+    tnbp::mcmc_edge_ports ports;for(std::size_t e=0;e<edges.size();++e)ports.push_back({e});
+    tnbp::mcmc_edge_region_plan<int> plan{edges,ports,{{0,1,0},{2,0,2}},members,2,{},0,{}, {}};
+    tnbp::mcmc_compile_edge_region(plan);
+    std::map<int,std::vector<Tensor>> raw;
+    for(int site=0;site<4;++site)if(owners[site]==rank) {
+        const auto bonds=tnbp::GetSurroundingBondIndex(site,edges);
+        tcapi::shape_t<Tensor> shape;std::size_t n=1;
+        for(auto e:bonds){shape.push_back(dims[e]);n*=dims[e];}
+        for(int s=0;s<(site==2?3:1);++s) {
+            auto tensor=tcapi::zeros<Tensor>(ctx,shape);
+            for(std::size_t i=0;i<n;++i) {
+                auto bits=i;tcapi::elem_coors_t<Tensor> coors;std::vector<int> values;
+                for(auto d:shape){coors.push_back(bits%d);values.push_back(bits%d);bits/=d;}
+                tcapi::set_elem(ctx,tensor,coors,entry(site,s,values));
+            }
+            raw[site].push_back(std::move(tensor));
+        }
+    }
+    const auto reductions=allreduce_calls,broadcasts=bcast_calls;
+    std::vector<std::size_t> audit(15,0);
+    auto provider=[&](int site,int state)->const Tensor&{return raw.at(site).at(site==2?state:0);};
+    auto values=tnbp::mcmc_execute_edge_region<Tensor>(ctx,plan,owners,members,comm,3,provider,1,&audit);
+    require(allreduce_calls==reductions && bcast_calls==broadcasts,"native graph executor used a collective");
+    require(audit[8]==1 && audit[1]==4,"common subtree was not reused across target states");
+    unsigned long long copies=audit[7],total_copies=0;
+    MPI_Allreduce(&copies,&total_copies,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,comm);
+    require(total_copies==10,"native branch inputs copied again between steps, or common values not moved at last use");
+    require(values.size()==std::size_t(rank==owners[2]?3:0),"native root changed target owner");
+    if(rank==owners[2])for(int s=0;s<3;++s)for(int x=0;x<3;++x)for(int y=0;y<4;++y)for(int z=0;z<2;++z) {
+        Scalar expected=0;
+        for(int a=0;a<2;++a)for(int b=0;b<2;++b)for(int c=0;c<3;++c)
+            expected+=entry(0,0,{a,b,z})*entry(1,0,{x,b,c})*entry(2,s,{a,y,c});
+        const auto actual=tcapi::get_elem(ctx,values[s],tcapi::elem_coors_t<Tensor>{x,y,z});
+        require(std::abs(actual-expected)<1.e-11*(1+std::abs(expected)),"native common-neighbor/cut factor order");
+    }
+    // Raw target and exterior neighbor are immutable despite native fusions.
+    for(const auto& item:raw)for(std::size_t state=0;state<item.second.size();++state) {
+        const auto sh=tcapi::shape(ctx,item.second[state]);
+        const auto bonds=tnbp::GetSurroundingBondIndex(item.first,edges);
+        require(sh.size()==bonds.size(),"native source cache was fused in place");
+        for(std::size_t i=0;i<sh.size();++i)require(sh[i]==dims[bonds[i]],"native cache factor dimension changed");
+        require(tcapi::get_elem(ctx,item.second[state],tcapi::elem_coors_t<Tensor>(sh.size(),0))==entry(item.first,state,std::vector<int>(sh.size(),0)),"native cache value changed");
+    }
+    if(rank==0)std::cout<<"native original-edge region PASS: outside neighbor, unequal/interleaved fusion, all three states, common subtree once, owner/cut/cache invariant, zero collectives\n";
+}
+
 int main(int argc,char** argv) {
     MPI_Init(&argc,&argv);int rank;MPI_Comm_rank(MPI_COMM_WORLD,&rank);
     int result=0;
     try {
         initialize_tensor_device(MPI_COMM_WORLD);Context ctx;tcapi::create_context(ctx);
+        if(argc>2 && std::string(argv[1])=="fatal") {
+            fatal_failure_check(ctx,MPI_COMM_WORLD,std::stoi(argv[2]));
+            tcapi::destroy_context(ctx);MPI_Finalize();return 0;
+        }
         commit_move_only_check(MPI_COMM_WORLD);
         if(argc>1 && std::string(argv[1])=="zigzag") {
             zigzag_check(ctx,MPI_COMM_WORLD);tcapi::destroy_context(ctx);MPI_Finalize();return 0;
@@ -915,19 +1255,15 @@ int main(int argc,char** argv) {
         conditional_check(ctx,k4,{2,3,2,1},MPI_COMM_WORLD);
         distributed_check(ctx,k4,{2,3,2,1},MPI_COMM_WORLD);
         support_check(ctx,MPI_COMM_WORLD);
+        native_scalar_metadata_check(ctx,MPI_COMM_WORLD);
+        boundary_model_check();
+        native_region_check(ctx,MPI_COMM_WORLD);
         cache_reuse_check(ctx,MPI_COMM_WORLD);
+        line_communicator_check(ctx,MPI_COMM_WORLD);
         review_fixes_check(ctx,MPI_COMM_WORLD);
+        planner_fusion_check(ctx,MPI_COMM_WORLD);
+        scalar_failure_check(ctx,MPI_COMM_WORLD);
         square_order_check(ctx,MPI_COMM_WORLD);
-        // Numerical errors on a nonzero owner must reach every rank without hanging.
-        int size;MPI_Comm_size(MPI_COMM_WORLD,&size);
-        std::vector<int> ids{0,1};std::map<int,int> owners{{0,size-1},{1,size-1}};
-        std::vector<Tensor> zero,target;std::vector<int> local_ids,state;
-        if(rank==size-1) {local_ids=ids;state={0,0};for(int j:ids) {zero.push_back(tcapi::zeros<Tensor>(ctx,tcapi::shape_t<Tensor>{1,2}));target.push_back(tcapi::zeros<Tensor>(ctx,tcapi::shape_t<Tensor>{1}));}}
-        std::mt19937 rng(3);bool caught=false;const std::vector<Tensor> empty;const std::vector<int> ie;
-        try {tnbp::mcmc_update_line_heat_bath(ctx,Edges{{0,1}},zero,local_ids,owners,empty,ie,target,local_ids,empty,ie,
-            ids,std::vector<std::vector<int>>{{0},{1}},state,MPI_COMM_WORLD,rng,0,2);}
-        catch(const std::runtime_error&){caught=true;}
-        require(caught,"all-zero window did not fail collectively");
         tcapi::destroy_context(ctx);
         if(rank==0) std::cout<<"full-state heat-bath regression PASS\n";
     }catch(const std::exception& e) {std::cerr<<"rank "<<rank<<": "<<e.what()<<"\n";MPI_Abort(MPI_COMM_WORLD,1);result=1;}
