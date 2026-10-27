@@ -1,0 +1,5 @@
+#ifdef TCAPI_TEST_NO_FILESYSTEM
+#error "Default TCAPI headers must not directly include <filesystem>"
+#else
+#include_next <filesystem>
+#endif

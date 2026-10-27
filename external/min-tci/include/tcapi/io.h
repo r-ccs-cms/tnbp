@@ -1,6 +1,6 @@
 #pragma once
 #include "detail/core.h"
-#include <filesystem>
+#include "detail/io_path.h"
 #include <fstream>
 #include <string_view>
 
@@ -61,7 +61,7 @@ TenT load(context_handle_t<TenT>& ctx, Storage&& storage) {
     if constexpr(std::is_base_of_v<std::istream,std::decay_t<Storage>>) {
         return detail::read_tensor<TenT>(storage);
     } else {
-        const std::filesystem::path path(std::forward<Storage>(storage));
+        const std::string path = detail::io::path_from(storage);
         std::ifstream in(path,std::ios::binary);
         if (!in) throw std::ios_base::failure("min-tcapi: cannot open tensor file for reading");
         return detail::read_tensor<TenT>(in);
@@ -78,7 +78,7 @@ void save(context_handle_t<TenT>& ctx,const TenT& a, Storage&& storage) {
     if constexpr(std::is_base_of_v<std::ostream,std::decay_t<Storage>>) {
         detail::write_tensor(a,storage);
     } else {
-        const std::filesystem::path path(std::forward<Storage>(storage));
+        const std::string path = detail::io::path_from(storage);
         std::ofstream out(path,std::ios::binary|std::ios::trunc);
         if (!out) throw std::ios_base::failure("min-tcapi: cannot open tensor file for writing");
         detail::write_tensor(a,out);
