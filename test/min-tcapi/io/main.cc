@@ -1,6 +1,8 @@
 #include "../common/check.h"
+#include "tcapi/input_and_output_filesystem.h"
 #include <sstream>
 #include <chrono>
+void check_filesystem_header_before();
 struct temp_dir {
     std::filesystem::path path;
     temp_dir() {
@@ -15,6 +17,7 @@ struct temp_dir {
 };
 template<class E> void test() {
     using T=gqten::tensor<E>;using R=tcapi::real_t<T>;
+    check_filesystem_header_before();
     tcapi::gqten_handle ctx;tcapi::create_context(ctx);
     temp_dir dir;const auto path=dir.path/"tensor.bin";
     for(const auto dims:{tcapi::shape_t<T>{},{2,3}}) {

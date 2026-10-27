@@ -12,7 +12,14 @@ Runtime checks remain enabled with `NDEBUG`.
 | tensor_manipulation | set_elem, scalar/dense reshape, 3D transpose/inverse, output aliasing, conjugation, component extraction, mutable/const traversals, callback exceptions, region padding/slicing/replacement, alias safety, CRef joins and scalar stack |
 | miscellaneous | Mapped range construction/export, scalar callbacks, complex round trip, invalid offsets/context; absolute close boundaries/nonfinite inputs; all 16 conversion pairs, deep copy, alias, signed zero and narrowing overflow |
 
-`input_and_output` will be added with its implementation unit. The foundation, tensor-manipulation and initial linear-algebra APIs are currently tested.
+The `io` executable covers native-format compatibility, stream and path round trips,
+truncated input and invalid data. It explicitly includes the optional
+`tcapi/input_and_output_filesystem.h` adapter and checks both header orders across
+two translation units. The `no_filesystem` executable checks string, C-string,
+non-terminated string-view and stream I/O, as well as rejected invalid paths,
+without that adapter. Its sentinel catches direct filesystem includes after
+standard-library headers have been parsed (some libc++ versions include
+filesystem internally from fstream).
 
 The `tensor_linear_algebra` executable covers bidirectional diag (including rectangular matrices), norm/normalize/scale, scalar and complex values, output aliasing and independence, invalid ranks/contexts, zero/nonfinite norm rejection and tiny positive norms. It also covers partial/full/empty trace, reversed/disjoint pairs, aliasing, and CRef linear combinations with omitted/complex coefficients, repeated references, scalar inputs and validation failures. Numerical comparisons use 64 times the real-type epsilon with a mixed absolute/relative bound.
 
@@ -22,6 +29,9 @@ Use `make check` with a C++17 compiler and the required gqten include/link flags
 No MPI initialization or launcher is needed for these foundation tests. The MPI
 compiler wrapper supplies headers pulled in by gqten. The Makefile accepts
 `CXX`, `CPPFLAGS`, `CXXFLAGS`, `LDFLAGS`, `LDLIBS`, and `BUILD_DIR`.
+`FILESYSTEM_LIBS` adds link flags only to the optional `io` adapter test; use
+`FILESYSTEM_LIBS=-lc++fs` with Fujitsu libc++ if required. Ordinary string I/O,
+the default adapter, and TNBP do not need this flag.
 
 Transpose tests require a built gqten HPTT library. For Apple Clang and Homebrew,
 build it from the repository root:

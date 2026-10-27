@@ -6,7 +6,6 @@
 #include <cstdlib>
 #include <exception>
 #include <functional>
-#include <filesystem>
 #include <iomanip>
 #include <locale>
 #include <map>
@@ -108,11 +107,6 @@ template<class K, class V, class H, class E, class A>
 struct formatter<std::unordered_map<K, V, H, E, A>> {
     static void write(std::ostream& os, const std::unordered_map<K, V, H, E, A>& value) {
         sequence(os, value);
-    }
-};
-template<> struct formatter<std::filesystem::path> {
-    static void write(std::ostream& os, const std::filesystem::path& value) {
-        quoted(os, value.string());
     }
 };
 template<class T> void field(std::ostream& os, const char* name, const T& value) {

@@ -309,8 +309,15 @@ or reported LAPACK failure leaves input/output unchanged, including in-place use
 ## Binary I/O
 
 `load<Ten>(ctx, storage)` and `save(ctx, a, storage)` accept std::string,
-std::string_view (without requiring a trailing null), const char*, and
-std::filesystem::path. They also support std::istream/std::ostream and derived
+std::string_view (without requiring a trailing null), and const char*.
+The default adapter does not directly include `<filesystem>` or require a
+filesystem link library (the standard library may include the header internally). To enable
+std::filesystem::path, explicitly include `tcapi/input_and_output_filesystem.h`
+before or after `tcapi/tcapi.h`, matching the optional adapter in tcapi-cuda.
+Empty paths, null C strings, and embedded NULs are rejected with invalid_argument.
+On toolchains with a separate filesystem library, only users of that optional
+adapter need its link flags (for example `-lc++fs` with Fujitsu libc++).
+They also support std::istream/std::ostream and derived
 streams such as ifstream/ofstream/stringstream. Open file streams in binary mode.
 Each stream call reads/writes exactly one tensor from the current position;
 it does not close, seek, or explicitly flush the caller's stream, or consume
