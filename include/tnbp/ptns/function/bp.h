@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "tnbp/framework/typedef.h"
+#include "tnbp/framework/timestamp.h"
 #include "tnbp/framework/graph.h"
 #include "tnbp/framework/mpiutility.h"
 #include "tnbp/ptns/function/message_gauge.h"
@@ -72,7 +73,7 @@ void UpdateBPMessages(context_handle_t<TenT>& ctx,
   int rank; MPI_Comm_rank(comm,&rank);
   static bool logged=false;
   if(!logged) {
-    if(rank==0) std::clog << "BP_ALGORITHM " << BPAlgorithm << " gauge=" << BPGauge
+    if(rank==0) std::clog << make_timestamp() << " BP_ALGORITHM " << BPAlgorithm << " gauge=" << BPGauge
                          << " residual=" << BPResidual << std::endl;
     logged=true;
   }
@@ -321,7 +322,7 @@ void ExchangeBPMessages(context_handle_t<TenT>& ctx,
     int rank; MPI_Comm_rank(comm,&rank);
     static bool logged=false;
     if(!logged) {
-      if(rank==0) std::clog << "BP_CONVERGENCE successive-normalized-message-difference-v1" << std::endl;
+      if(rank==0) std::clog << make_timestamp() << " BP_CONVERGENCE successive-normalized-message-difference-v1" << std::endl;
       logged=true;
     }
     RealT local=0;

@@ -1,8 +1,30 @@
 # Graph, tensor-axis and ownership conventions
 
-These conventions apply to the operations in
+The edge representation below is shared by graph input, TPS and operator
+construction. The operation-specific details apply to the operations in
 [`graph_contraction.h`](../include/tnbp/framework/graph_contraction.h), including
 the graph bond-shift functions used by boundary MPS.
+
+## Normalize endpoints, preserve edge order
+
+Represent newly constructed undirected edges as `(min(a,b), max(a,b))`.
+`make_edge(a,b)` creates such a pair; `normalize_edge` normalizes one pair;
+`normalize_edges` normalizes each pair **without changing the vector order**.
+`read_edges_from_file(filename, false)` does the same endpoint normalization
+while retaining input row order and duplicates. Applications requiring a simple
+graph validate and reject duplicate edges. Blank/comment-only rows are ignored;
+malformed or out-of-range endpoint values are read errors, not missing edges.
+
+The vector position is the edge ID and determines incident tensor-axis order.
+Do not confuse endpoint normalization with sorting the vector:
+`normalize_and_unique_edges` and `read_edges_from_file(filename, true)` also sort
+and deduplicate edges. Use them before tensors/messages are constructed, or
+update all associated axes, edge IDs and directed-message metadata together.
+
+Portable states retain their stored graph and tensor/message correspondence.
+Do not independently normalize or reorder the graph after loading a state.
+Reversed endpoint pairs supported by some low-level graph operations do not
+change the canonical convention for new graph input.
 
 ## Edges determine tensor-axis order
 

@@ -26,6 +26,7 @@ namespace tnbp {
   template <typename TenT>
   void AbsorbTPO(context_handle_t<TenT> & ctx,
 		 const std::vector<TenT> & O,
+                 const std::vector<int> & global_sites,
 		 const std::vector<std::pair<int,int>> & Edge,
 		 std::vector<TenT> & V,
 		 const std::vector<int> & SiteIdx,
@@ -43,13 +44,17 @@ namespace tnbp {
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
 
-    auto global_sites = GetSiteIndexFromBond(Edge);
+    if(O.size()!=global_sites.size() || !std::is_sorted(global_sites.begin(),global_sites.end()) ||
+       std::adjacent_find(global_sites.begin(),global_sites.end())!=global_sites.end())
+      throw std::invalid_argument("AbsorbTPO: invalid explicit sites/operator count");
 
     for(int address=0; address < SiteIdx.size(); address++) {
       int site = SiteIdx[address];
       auto it_global_site_address = std::find(global_sites.begin(),
 					      global_sites.end(),
 					      site);
+      if(it_global_site_address==global_sites.end())
+        throw std::invalid_argument("AbsorbTPO: local site outside operator sites");
       auto global_site_address = std::distance(global_sites.begin(),
 					       it_global_site_address);
       OrderT order_v = tcapi::order(ctx,V[address]);
@@ -187,6 +192,15 @@ namespace tnbp {
       }
     }
     NormalizeMessages(ctx,E,comm);
+  }
+
+  /** Compatibility overload: infer sites from edge endpoints. */
+  template<class TenT>
+  void AbsorbTPO(context_handle_t<TenT>& ctx,const std::vector<TenT>& O,
+      const std::vector<std::pair<int,int>>& edges,std::vector<TenT>& V,
+      const std::vector<int>& sites,const std::map<int,int>& owners,
+      std::vector<TenT>& E,const std::vector<int>& edge_idx,MPI_Comm comm) {
+    AbsorbTPO(ctx,O,GetSiteIndexFromBond(edges),edges,V,sites,owners,E,edge_idx,comm);
   }
 
   /**

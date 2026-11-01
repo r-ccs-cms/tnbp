@@ -9,6 +9,7 @@ Each numerical suite owns its sources, fixtures, CMake registration and README.
 | [mcmc_sampling](mcmc_sampling/README.md) | Grouping, environments, Metropolis/heat bath and sampling integration | `mcmc` |
 | [mcmc_sampling/heavyhex51](mcmc_sampling/heavyhex51/README.md) | Optional 51-site graph/circuit experiments | explicit executable runs |
 | [backend_integration](backend_integration/README.md) | MPI/backend operations, BP, truncation, QASM and header checks | `integration|header_link` |
+| [pauli_evolution](pauli_evolution/README.md) | Pauli route/layer plans, exponential operators, Trotter ordering, batch compression and imaginary-time CLI input/measurement/restart | `pauli_evolution|truncation_batch|imaginary_time_cli` |
 | [common](common/README.md) | Shared deterministic fixtures and independent reference calculations | no standalone tests |
 
 The `truncation`, `square_root_and_inverse` and `min-tcapi` directories provide
@@ -39,7 +40,8 @@ Use `-S test` for new builds. Backend dependency setup is shared in
 CPU CTest uses MPI 1/2 ranks for sampling and 1/2/3 for graph/boundary shifts,
 with one OpenMP/BLAS thread per process. Configure `TNBP_TEST_BACKEND=cuda`
 to build CUDA versions of the integration, graph, boundary, sampling CLI,
-sampling regression and heavyhex51 executables. Launch them explicitly inside
+sampling regression, heavyhex51, Pauli evolution, batch compression and
+imaginary-time evolution executables. Launch them explicitly inside
 a scheduler allocation with one visible GPU per process (for example,
 `srun --mpi=pmix --gpus-per-task=1 --gpu-bind=single:1`). CPU-only CTest
 registrations, including checkpoint fixture generation, are not enabled for CUDA.
@@ -48,6 +50,9 @@ BP trace phase, real/complex sampling CLI/checkpoints, and all seven sampling
 regression modes on one GPU and same-node two GPUs on October 17–18, 2026.
 Fixed-site distribution checks use heat bath; sample counts and tolerances
 are unchanged. See the [sampling tests](mcmc_sampling/README.md).
+
+The imaginary-time application and Pauli/batch suites also passed GB200 tests
+on November 1, 2026; see [their CUDA validation scope](pauli_evolution/README.md#cuda-validation).
 
 The older GPU results below used the historical direct-allocation backend;
 the optional 51-site experiments have not been repeated with the new pin.

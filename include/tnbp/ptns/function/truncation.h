@@ -15,6 +15,9 @@
 #include <iterator>
 #include <map>
 #include <numeric>
+#include <limits>
+#include <set>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -24,12 +27,13 @@
 
 namespace tnbp {
 
-  /**
-     Truncation based on the messenger tensors
-   */
+  namespace detail {
+  // Shared numerical/owner-local communication kernel. Callers provide a
+  // globally ordered selection; no BP, barrier or collective is added here.
   template <typename TenT>
-  void Truncation(context_handle_t<TenT> & ctx,
+  void TruncationSelectedEdges(context_handle_t<TenT> & ctx,
 		  const std::vector<std::pair<int,int>> & I,
+                  const std::vector<int> * selected_edges,
 		  std::vector<TenT> & V,
 		  const std::vector<int> & SiteIdx,
 		  const std::map<int,int> & Site_To_MpiRank,
@@ -94,7 +98,9 @@ namespace tnbp {
       if (site_norms) site_norms->push_back(nrm);
     };
 
-    for(int global_edge_address=0; global_edge_address < I.size(); global_edge_address++) {
+    const auto selected_count=selected_edges ? selected_edges->size() : I.size();
+    for(std::size_t selection=0;selection<selected_count;++selection) {
+      const int global_edge_address=selected_edges ? (*selected_edges)[selection] : static_cast<int>(selection);
       int site_a = I[global_edge_address].first;
       int site_b = I[global_edge_address].second;
       int mpi_rank_a = Site_To_MpiRank.at(site_a);
@@ -314,8 +320,108 @@ namespace tnbp {
     
   }
 
-  
-  
-}
+  } // namespace detail
+
+  /** @brief Truncate all edges using the existing frozen BP environments.
+   * Results remain indexed by local EdgeIdx. No BP is run internally.
+   * The edge order, numerical factors and endpoint-owner communication are
+   * unchanged; all edges, including ones sharing sites, are processed.
+   */
+  template<class TenT>
+  void Truncation(context_handle_t<TenT>& ctx,
+      const std::vector<std::pair<int,int>>& edges,
+      std::vector<TenT>& V,const std::vector<int>& site_idx,
+      const std::map<int,int>& owners,std::vector<TenT>& E,
+      const std::vector<int>& edge_idx,MPI_Comm comm,
+      bond_dim_t<TenT> max_dim,real_t<TenT> eps,real_t<TenT> err,
+      std::vector<bond_dim_t<TenT>>& res_bond_dim,
+      std::vector<real_t<TenT>>& res_trunc_err,
+      std::vector<real_t<TenT>>* site_norms=nullptr) {
+    if(edges.size()>static_cast<std::size_t>(std::numeric_limits<int>::max()))
+      throw std::overflow_error("Truncation: edge ID range exceeded");
+    detail::TruncationSelectedEdges(ctx,edges,nullptr,V,site_idx,owners,E,
+        edge_idx,comm,max_dim,eps,err,res_bond_dim,res_trunc_err,site_norms);
+  }
+
+  /** Local results for selected edges incident to this rank, in global edge-ID
+   * order. Each boundary edge has a result on both endpoint owners; numerical
+   * decomposition is still performed only on the first endpoint's owner.
+   */
+  template<class TenT> struct TruncationBatchResult {
+    std::vector<int> edge_ids;
+    std::vector<bond_dim_t<TenT>> bond_dims;
+    std::vector<real_t<TenT>> truncation_errors;
+  };
+
+  /** @brief Truncate a site-disjoint batch of global edge IDs without BP.
+   * batch_edges indexes the complete ordered graph, never the local edge_idx.
+   * IDs may be unordered, but must be unique, valid and share no endpoints.
+   * The graph, selection, owners and numerical settings must be agreed by the
+   * caller before entry. Validation is local and precedes all mutations and
+   * tensor communication; no collective agreement or barrier is performed.
+   * Both owners of each selected edge must call with the same batch. Other
+   * ranks may call (returning empty results if uninvolved) or omit the call.
+   * Only selected edges' directed messages and endpoint tensors are modified.
+   * site_norms, when supplied, uses the existing append-only normalization
+   * accounting, for selected locally incident edges only. An empty batch is a
+   * no-op. The caller decides whether to run BP between batches.
+   */
+  template<class TenT>
+  TruncationBatchResult<TenT> TruncationBatch(context_handle_t<TenT>& ctx,
+      const std::vector<std::pair<int,int>>& edges,
+      const std::vector<int>& batch_edges,
+      std::vector<TenT>& V,const std::vector<int>& site_idx,
+      const std::map<int,int>& owners,std::vector<TenT>& E,
+      const std::vector<int>& edge_idx,MPI_Comm comm,
+      bond_dim_t<TenT> max_dim,real_t<TenT> eps,real_t<TenT> err,
+      std::vector<real_t<TenT>>* site_norms=nullptr) {
+    if(max_dim<1 || !std::isfinite(eps) || eps<0 || !std::isfinite(err) || err<0)
+      throw std::invalid_argument("TruncationBatch: invalid truncation parameters");
+    auto selected=batch_edges;
+    std::sort(selected.begin(),selected.end());
+    std::set<int> sites;
+    for(std::size_t i=0;i<selected.size();++i) {
+      const int e=selected[i];
+      if(e<0 || static_cast<std::size_t>(e)>=edges.size())
+        throw std::invalid_argument("TruncationBatch: edge ID out of range");
+      if(i && selected[i-1]==e)
+        throw std::invalid_argument("TruncationBatch: duplicate edge ID");
+      const auto [a,b]=edges[e];
+      if(!sites.insert(a).second || !sites.insert(b).second)
+        throw std::invalid_argument("TruncationBatch: selected edges share a site");
+    }
+    TruncationBatchResult<TenT> result;
+    if(selected.empty()) return result;
+    int rank,size;MPI_Comm_rank(comm,&rank);MPI_Comm_size(comm,&size);
+    for(int e:selected) {
+      const auto [a,b]=edges[e];
+      auto oa=owners.find(a),ob=owners.find(b);
+      if(oa==owners.end() || ob==owners.end() || oa->second<0 || oa->second>=size || ob->second<0 || ob->second>=size)
+        throw std::invalid_argument("TruncationBatch: missing or invalid selected endpoint owner");
+      if(oa->second==rank || ob->second==rank) {
+        if(std::find(edge_idx.begin(),edge_idx.end(),e)==edge_idx.end())
+          throw std::invalid_argument("TruncationBatch: selected incident edge missing from local edge_idx");
+        if((oa->second==rank && std::find(site_idx.begin(),site_idx.end(),a)==site_idx.end()) ||
+           (ob->second==rank && std::find(site_idx.begin(),site_idx.end(),b)==site_idx.end()))
+          throw std::invalid_argument("TruncationBatch: selected endpoint missing from local site_idx");
+        result.edge_ids.push_back(e);
+      }
+    }
+    if(result.edge_ids.empty()) return result;
+    if(V.size()!=site_idx.size() || E.size()%2!=0 || E.size()/2!=edge_idx.size())
+      throw std::invalid_argument("TruncationBatch: local tensor and index counts differ");
+    std::vector<bond_dim_t<TenT>> dims;
+    std::vector<real_t<TenT>> errors;
+    detail::TruncationSelectedEdges(ctx,edges,&selected,V,site_idx,owners,E,
+        edge_idx,comm,max_dim,eps,err,dims,errors,site_norms);
+    for(int e:result.edge_ids) {
+      const auto local=std::find(edge_idx.begin(),edge_idx.end(),e)-edge_idx.begin();
+      result.bond_dims.push_back(dims[local]);
+      result.truncation_errors.push_back(errors[local]);
+    }
+    return result;
+  }
+
+} // namespace tnbp
 
 #endif

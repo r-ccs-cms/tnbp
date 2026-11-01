@@ -1,4 +1,5 @@
 #pragma once
+#include "tnbp/framework/timestamp.h"
 #include "tnbp/ptns/function/bp.h"
 #include "tnbp/ptns/function/detail/checkpoint_sha256.h"
 #include <algorithm>
@@ -450,9 +451,11 @@ LoadTPSPortable(context_handle_t<T> &ctx, const std::string &path,
       state.communication_order =
           MakeBPCommunicationOrder(d.edges, owners, rank);
     }
-    std::clog << "PORTABLE_READ rank=" << rank << " V=" << state.V.size()
-              << " E=" << state.E.size() << " bytes=" << state.payload_bytes
-              << " digest=" << d.state_digest << '\n';
+    std::ostringstream read_log;
+    read_log << make_timestamp() << " PORTABLE_READ rank=" << rank << " V=" << state.V.size()
+             << " E=" << state.E.size() << " bytes=" << state.payload_bytes
+             << " digest=" << d.state_digest;
+    std::clog << read_log.str() << std::endl;
   });
   return state;
 }
