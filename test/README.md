@@ -9,6 +9,7 @@ Each numerical suite owns its sources, fixtures, CMake registration and README.
 | [mcmc_sampling](mcmc_sampling/README.md) | Grouping, environments, Metropolis/heat bath and sampling integration | `mcmc` |
 | [mcmc_sampling/heavyhex51](mcmc_sampling/heavyhex51/README.md) | Optional 51-site graph/circuit experiments | explicit executable runs |
 | [backend_integration](backend_integration/README.md) | MPI/backend operations, BP, truncation, QASM and header checks | `integration|header_link` |
+| [pauli_evolution](pauli_evolution/README.md) | Pauli route/layer plans, exponential operators, Trotter ordering, batch compression and imaginary-time CLI input/measurement/restart | `pauli_evolution|truncation_batch|imaginary_time_cli` |
 | [common](common/README.md) | Shared deterministic fixtures and independent reference calculations | no standalone tests |
 
 The `truncation`, `square_root_and_inverse` and `min-tcapi` directories provide

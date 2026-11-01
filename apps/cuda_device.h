@@ -2,6 +2,7 @@
 
 #ifdef USE_TCAPI_CUDA
 #include <cuda_runtime_api.h>
+#include "tnbp/framework/timestamp.h"
 #include <iostream>
 #include <mpi.h>
 
@@ -13,7 +14,7 @@ inline void initialize_tensor_device(MPI_Comm comm) {
     int count=0;
     auto status=cudaGetDeviceCount(&count);
     if(status!=cudaSuccess || count!=1) {
-        std::cerr << "rank " << rank
+        std::cerr << tnbp::make_timestamp() << " rank " << rank
                   << ": tcapi-cuda requires one visible GPU per process; "
                   << "use launcher GPU binding (e.g. --gpus-per-task=1). "
                   << "Visible GPUs=" << count << ", CUDA=" << cudaGetErrorString(status) << '\n';
@@ -22,7 +23,7 @@ inline void initialize_tensor_device(MPI_Comm comm) {
     }
     status=cudaSetDevice(0);
     if(status!=cudaSuccess) {
-        std::cerr << "rank " << rank << ": cudaSetDevice: " << cudaGetErrorString(status) << '\n';
+        std::cerr << tnbp::make_timestamp() << " rank " << rank << ": cudaSetDevice: " << cudaGetErrorString(status) << '\n';
         MPI_Abort(comm,1);
     }
 }

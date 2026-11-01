@@ -9,5 +9,6 @@
 #include "tnbp/parser/qasmtotpo.h"
 #include "tnbp/parser/qasmtoedge.h"
 #include "tnbp/parser/paulitotpo.h"
+#include "tnbp/operator/pauli_exponential.h"
 
 #endif

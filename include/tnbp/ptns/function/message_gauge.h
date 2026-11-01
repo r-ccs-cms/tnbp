@@ -1,6 +1,7 @@
 #pragma once
 
 #include "tnbp/framework/typedef.h"
+#include "tnbp/framework/timestamp.h"
 #include "tnbp/framework/mpiutility.h"
 #include <cmath>
 #include <complex>
@@ -61,7 +62,7 @@ void SetMessageTraceGauge(context_handle_t<TenT>& ctx, TenT& message,
     if (comm!=MPI_COMM_NULL) {
       int rank=0,size=1;
       MPI_Comm_rank(comm,&rank); MPI_Comm_size(comm,&size);
-      std::cerr << BPAlgorithm << " rank=" << rank << " at " << location
+      std::cerr << make_timestamp() << " " << BPAlgorithm << " rank=" << rank << " at " << location
                 << ": " << error.what() << std::endl;
       if(size>1) MPI_Abort(comm,1);
     }

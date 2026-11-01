@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <limits>
+#include <sys/stat.h>
 #include <mpi.h>
 
 #ifndef TNBP_FRAMEWORK_GRAPHIO_H
@@ -20,6 +21,10 @@ namespace tnbp {
   template <class IntT>
   std::vector<std::pair<IntT, IntT>>
   read_edges_from_file(const std::string& filename, bool deduplicate) {
+    // Some stream implementations report a directory read as plain EOF.
+    struct stat info{};
+    if(::stat(filename.c_str(),&info)==0 && S_ISDIR(info.st_mode))
+      throw std::runtime_error("expected edge file, got directory: " + filename);
     std::ifstream ifs(filename.c_str());
     if (!ifs) {
       throw std::runtime_error("failed to open file: " + filename);
@@ -35,9 +40,11 @@ namespace tnbp {
 	line.erase(pos);
       }
       std::istringstream iss(line);
+      iss >> std::ws;
+      if(iss.eof()) continue;
       IntT u, v;
       if (!(iss >> u)) {
-	continue;
+        throw std::runtime_error("invalid edge endpoint at line " + std::to_string(line_no));
       }
       if (!(iss >> v)) {
 	throw std::runtime_error(
@@ -57,6 +64,8 @@ namespace tnbp {
       }
       edges.push_back(tnbp::make_edge(u, v));
     }
+
+    if(ifs.bad()) throw std::runtime_error("failed to read file: " + filename);
 
     if( deduplicate ) {
       std::sort(edges.begin(),edges.end());

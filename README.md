@@ -61,7 +61,7 @@ See [CUDA setup](apps/README.cuda.md) and the
 ## Graph tensor conventions
 
 See [graph, tensor-axis and ownership conventions](docs/graph_tensor_conventions.md)
-for edge ordering, rank-local tensor storage, ownership during contraction and
+for endpoint normalization, edge ordering, rank-local tensor storage, ownership during contraction and
 bond shifts, and partial tensor inputs.
 See [portable TPS checkpoints](docs/portable_checkpoints.md) for estimator-to-sampler
 state sharing with a different MPI process count.
@@ -101,6 +101,10 @@ submodule; a CPU build does not require the tcapi-cuda submodule.
   Pauli expectation values, using CPU or CUDA tensors.
 - [Estimator with checkpoints](apps/estimator_restart/README.md): select
   measurement layers, repeat a circuit and save/load rank-local states.
+- [Imaginary-time evolution](apps/imaginary_time_evolution/README.md): evolve a
+  Pauli-string Hamiltonian with second-order Trotter operators, BP compression,
+  local energy summaries and portable restart. Small-system CPU validation is
+  provided; CUDA execution has not yet been validated for this app.
 - [Kicked Ising lattice example](apps/kicked_ising_lattice/README.md): simulate
   kicked Ising Floquet dynamics on a lattice.
 - [Markov-chain Monte Carlo sampler](apps/mcmc_sampling/README.md): sample

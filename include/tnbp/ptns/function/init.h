@@ -29,6 +29,7 @@ namespace tnbp {
    */
   template <typename TenT>
   void InitTensorProductState(context_handle_t<TenT> & ctx,
+                         const std::vector<int> & Site,
 		 const std::vector<std::pair<int,int>> & I,
 		 const std::vector<int> & PhysicalBondDim,
 		 std::vector<TenT> & V,
@@ -46,7 +47,15 @@ namespace tnbp {
     int mpi_size; MPI_Comm_size(comm,&mpi_size);
     int mpi_rank; MPI_Comm_rank(comm,&mpi_rank);
 
-    auto Site = GetSiteIndexFromBond(I);
+    if(PhysicalBondDim.size()!=Site.size() || !std::is_sorted(Site.begin(),Site.end()) ||
+       std::adjacent_find(Site.begin(),Site.end())!=Site.end())
+      throw std::invalid_argument("InitTensorProductState: invalid explicit sites/dimensions");
+    for(const auto& edge:I)
+      if(!std::binary_search(Site.begin(),Site.end(),edge.first) ||
+         !std::binary_search(Site.begin(),Site.end(),edge.second))
+        throw std::invalid_argument("InitTensorProductState: edge outside explicit sites");
+    for(auto d:PhysicalBondDim) if(d<1)
+      throw std::invalid_argument("InitTensorProductState: physical dimension must be positive");
     ValidateSiteOwners(Site,Site_To_MpiRank,comm);
     SiteIdx.clear();
     for(auto site:Site) if(Site_To_MpiRank.at(site)==mpi_rank) SiteIdx.push_back(site);
@@ -86,6 +95,15 @@ namespace tnbp {
       Em = tcapi::copy(ctx,Eorig);
     }
 
+  }
+
+  /** Compatibility overload: infer sites from edge endpoints. */
+  template <typename TenT>
+  void InitTensorProductState(context_handle_t<TenT>& ctx,
+      const std::vector<std::pair<int,int>>& edges, const std::vector<int>& pdim,
+      std::vector<TenT>& V, std::vector<int>& sites, const std::map<int,int>& owners,
+      std::vector<TenT>& E, std::vector<int>& edge_idx, MPI_Comm comm) {
+    InitTensorProductState(ctx,GetSiteIndexFromBond(edges),edges,pdim,V,sites,owners,E,edge_idx,comm);
   }
 
   /**
