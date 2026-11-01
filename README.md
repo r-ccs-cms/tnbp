@@ -40,7 +40,7 @@ from tensors takes `ctx` as the first argument; deep copying is explicit
 with `state.copy(ctx)`, while ordinary copying is disabled and moves are allowed.
 
 The validated backends are gqten on CPU and tcapi-cuda for the estimator
-applications, MCMC sampler and selected test suites. See
+applications, imaginary-time evolution, MCMC sampler and selected test suites. See
 [CUDA setup](apps/README.cuda.md), the [sampler guide](apps/mcmc_sampling/README.md)
 and [test coverage](test/README.md). Cytnx configurations are not validated.
 CPU and CUDA tensor checkpoint formats differ; use the backend that wrote the files.
@@ -103,8 +103,9 @@ submodule; a CPU build does not require the tcapi-cuda submodule.
   measurement layers, repeat a circuit and save/load rank-local states.
 - [Imaginary-time evolution](apps/imaginary_time_evolution/README.md): evolve a
   Pauli-string Hamiltonian with second-order Trotter operators, BP compression,
-  local energy summaries and portable restart. Small-system CPU validation is
-  provided; CUDA execution has not yet been validated for this app.
+  local energy summaries and portable restart. Small-system CPU and CUDA
+  validation covers evolution, compression, measurement and restart; see
+  [the validation scope](test/pauli_evolution/README.md#cuda-validation).
 - [Kicked Ising lattice example](apps/kicked_ising_lattice/README.md): simulate
   kicked Ising Floquet dynamics on a lattice.
 - [Markov-chain Monte Carlo sampler](apps/mcmc_sampling/README.md): sample

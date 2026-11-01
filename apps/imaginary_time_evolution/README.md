@@ -200,3 +200,13 @@ include every state normalization and is not a partition function or state norm.
 See [operator API](../../docs/pauli_evolution.md),
 [portable format](../../docs/portable_checkpoints.md), and
 [acceptance tests](../../test/pauli_evolution/README.md).
+
+## Validation scope
+
+Small-system CPU and ROQUO NVIDIA GB200 tests cover initial states, schedules,
+measurement/statistics, leaf-side batch compression with intervening BP, and
+save/resume. CUDA validation includes shared-GPU MPI 1/2/3/4-rank batch tests
+and same-node GPU-per-rank MPI 1/2-rank tests; CLI acceptance passed 74 runs in
+each GPU configuration. See [test coverage](../../test/pauli_evolution/README.md#cuda-validation)
+for the backend revision and checkpoint-reader setup. These tests do not
+establish general BP convergence or multi-node/performance guarantees.

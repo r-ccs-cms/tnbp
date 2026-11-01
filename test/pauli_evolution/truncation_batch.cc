@@ -16,6 +16,9 @@ using Tensor=tcapi::cuda::Tensor<C>;
 using Tensor=gqten::tensor<C>;
 #endif
 using Context=tnbp::context_handle_t<Tensor>;
+using BondDim=tnbp::bond_dim_t<Tensor>;
+using Real=tnbp::real_t<Tensor>;
+using Elem=tnbp::elem_t<Tensor>;
 const std::vector<std::pair<int,int>> edges{{0,1},{1,2},{3,4},{4,5}};
 int checks=0;
 void check(bool ok,const std::string& message){if(!ok)throw std::runtime_error(message);++checks;}
@@ -33,7 +36,7 @@ State initial(Context& ctx,MPI_Comm comm){
   else if(size>=2)s.owners={{0,0},{1,1},{2,0},{3,0},{4,1},{5,0}};
   else for(int i=0;i<6;++i)s.owners.emplace(i,0);
   tnbp::InitTensorProductState(ctx,{0,1,2,3,4,5},edges,{2,2,2,2,2,2},s.V,s.sites,s.owners,s.E,s.edge_idx,comm);
-  for(auto& v:s.V){auto shape=tcapi::shape(ctx,v);std::vector<C> d(2,1/std::sqrt(2.));v=tcapi::assign_from_range<Tensor>(ctx,shape,d.begin(),[](const auto&c){return c.back();});}
+  for(auto& v:s.V){auto shape=tcapi::shape(ctx,v);std::vector<Elem> d(2,1/std::sqrt(2.));v=tcapi::assign_from_range<Tensor>(ctx,shape,d.begin(),[](const auto&c){return c.back();});}
   return s;
 }
 void bp(Context&ctx,State&s,MPI_Comm comm){
@@ -41,7 +44,7 @@ void bp(Context&ctx,State&s,MPI_Comm comm){
   for(int i=0;i<50;++i){
     tnbp::UpdateBPMessages(ctx,edges,s.V,s.sites,s.E,s.edge_idx,comm,F);
     tnbp::ExchangeBPMessages(ctx,edges,s.owners,s.edge_idx,order,comm,F);
-    double residual=0;tnbp::BeliefPropagationDifference(ctx,edges,s.owners,s.E,F,s.edge_idx,comm,residual);s.E.swap(F);
+    Real residual=0;tnbp::BeliefPropagationDifference(ctx,edges,s.owners,s.E,F,s.edge_idx,comm,residual);s.E.swap(F);
     if(residual<1e-12)return;
   }
   throw std::runtime_error("batch fixture BP did not converge");
@@ -49,7 +52,7 @@ void bp(Context&ctx,State&s,MPI_Comm comm){
 std::vector<C> normalized(std::vector<C> a){double n=0;for(auto z:a)n+=std::norm(z);n=std::sqrt(n);check(n>0 && std::isfinite(n),"valid state norm");for(auto&z:a)z/=n;return a;}
 // Test-only collection/virtual enumeration, independent of BP measurement.
 std::vector<C> dense(Context&ctx,const State&s,MPI_Comm comm){
-  int rank;MPI_Comm_rank(comm,&rank);std::vector<std::vector<C>> data(6);std::vector<std::vector<int>> shape(6);std::vector<int> dims(4,0);
+  int rank;MPI_Comm_rank(comm,&rank);std::vector<std::vector<Elem>> data(6);std::vector<tnbp::shape_t<Tensor>> shape(6);std::vector<BondDim> dims(4,0);
   for(int site=0;site<6;++site){
     Tensor t;if(rank==s.owners.at(site)){auto i=std::find(s.sites.begin(),s.sites.end(),site)-s.sites.begin();t=tcapi::copy(ctx,s.V.at(i));}
     tnbp::MpiBcast(ctx,t,s.owners.at(site),comm);shape[site]=tcapi::shape(ctx,t);const auto& sh=shape[site];auto incident=tnbp::GetSurroundingBondIndex(site,edges);
@@ -57,23 +60,23 @@ std::vector<C> dense(Context&ctx,const State&s,MPI_Comm comm){
     data[site].resize(tcapi::size(ctx,t));tcapi::to_range(ctx,t,data[site].begin(),[sh](const auto&c){std::size_t a=0,k=1;for(std::size_t i=0;i<sh.size();++i){a+=c[i]*k;k*=sh[i];}return a;});
   }
   std::size_t assignments=1;for(auto d:dims)assignments*=d;std::vector<C> psi(64);
-  for(std::size_t a=0;a<assignments;++a){auto rem=a;std::vector<int> c(4);for(int e=0;e<4;++e){c[e]=rem%dims[e];rem/=dims[e];}
+  for(std::size_t a=0;a<assignments;++a){auto rem=a;tnbp::elem_coors_t<Tensor> c(4);for(int e=0;e<4;++e){c[e]=rem%dims[e];rem/=dims[e];}
     for(int bits=0;bits<64;++bits){C value=1;for(int site=0;site<6;++site){std::size_t offset=0,stride=1;auto incident=tnbp::GetSurroundingBondIndex(site,edges);for(std::size_t k=0;k<incident.size();++k){offset+=c[incident[k]]*stride;stride*=shape[site][k];}offset+=((bits>>site)&1)*stride;value*=data[site][offset];}psi[bits]+=value;}
   }
   return normalized(psi);
 }
 double distance(const std::vector<C>&a,const std::vector<C>&b){C overlap=0;for(std::size_t i=0;i<a.size();++i)overlap+=std::conj(a[i])*b[i];const C phase=std::abs(overlap)>0 ? overlap/std::abs(overlap):C(1);double err=0;for(std::size_t i=0;i<a.size();++i)err+=std::norm(b[i]-phase*a[i]);return std::sqrt(err);}
 std::vector<C> exact_step(const std::vector<C>&psi,const std::string&label,double x){std::vector<C> p(64);for(std::size_t bits=0;bits<64;++bits){auto out=bits;C v=psi[bits];for(int q=0;q<6;++q){auto op=label[5-q];bool bit=(bits>>q)&1;if(op=='X'||op=='Y')out^=std::size_t(1)<<q;if(op=='Y')v*=bit?C(0,-1):C(0,1);if(op=='Z'&&bit)v=-v;}p[out]+=v;}std::vector<C> r(64);for(int i=0;i<64;++i)r[i]=std::cosh(x)*psi[i]-std::sinh(x)*p[i];return normalized(r);}
-auto batch(Context&ctx,State&s,const std::vector<int>&ids,MPI_Comm comm,std::vector<double>*norms=nullptr){return tnbp::TruncationBatch(ctx,edges,ids,s.V,s.sites,s.owners,s.E,s.edge_idx,comm,100,1e-12,1e-12,norms);}
-void all(Context&ctx,State&s,MPI_Comm comm,std::vector<int>&dims,std::vector<double>&err){tnbp::Truncation(ctx,edges,s.V,s.sites,s.owners,s.E,s.edge_idx,comm,100,1e-12,1e-12,dims,err);}
+auto batch(Context&ctx,State&s,const std::vector<int>&ids,MPI_Comm comm,std::vector<Real>*norms=nullptr){return tnbp::TruncationBatch(ctx,edges,ids,s.V,s.sites,s.owners,s.E,s.edge_idx,comm,100,1e-12,1e-12,norms);}
+void all(Context&ctx,State&s,MPI_Comm comm,std::vector<BondDim>&dims,std::vector<Real>&err){tnbp::Truncation(ctx,edges,s.V,s.sites,s.owners,s.E,s.edge_idx,comm,100,1e-12,1e-12,dims,err);}
 void equal_tensors(Context&ctx,const std::vector<Tensor>&a,const std::vector<Tensor>&b,const std::string&tag){check(a.size()==b.size(),tag+" count");for(std::size_t i=0;i<a.size();++i){check(tcapi::shape(ctx,a[i])==tcapi::shape(ctx,b[i]),tag+" shape");auto d=tcapi::linear_combine<Tensor>(ctx,{std::cref(a[i]),std::cref(b[i])},{C(1),C(-1)});check(tcapi::norm(ctx,d)<1e-11,tag+" values");}}
 void api_contract(Context&ctx,MPI_Comm comm){
   int rank;MPI_Comm_rank(comm,&rank);auto s=initial(ctx,comm);
   auto p=tnbp::MakePauliEvolutionPlan(tnbp::NormalizePauliHamiltonian({{{.2,0},"IIIZYZ"},{{-.13,0},"YZYIII"}}),edges);
   auto t=tnbp::MakePauliLayerExponentialTPO<Tensor>(ctx,p,0,.04);
   tnbp::AbsorbTPO(ctx,t.tensors,p.graph.sites,edges,s.V,s.sites,s.owners,s.E,s.edge_idx,comm);bp(ctx,s,comm);
-  auto before=clone(ctx,s);std::vector<double> norms{123};auto empty=batch(ctx,s,{},comm,&norms);
-  check(empty.edge_ids.empty()&&empty.bond_dims.empty()&&empty.truncation_errors.empty()&&norms==std::vector<double>{123},"empty batch and norm no-op");
+  auto before=clone(ctx,s);std::vector<Real> norms{123};auto empty=batch(ctx,s,{},comm,&norms);
+  check(empty.edge_ids.empty()&&empty.bond_dims.empty()&&empty.truncation_errors.empty()&&norms==std::vector<Real>{123},"empty batch and norm no-op");
   equal_tensors(ctx,s.V,before.V,"empty V");equal_tensors(ctx,s.E,before.E,"empty E");
   for(const auto ids:std::vector<std::vector<int>>{{-1},{4},{0,0},{0,1}}){
     bool rejected=false;try{batch(ctx,s,ids,comm);}catch(const std::invalid_argument&){rejected=true;}
@@ -108,13 +111,13 @@ void api_contract(Context&ctx,MPI_Comm comm){
   std::set<int> touched{0,1,3,4};
   for(std::size_t i=0;i<s.sites.size();++i)if(!touched.count(s.sites[i]))check(bytes(ctx,s.V[i])==bytes(ctx,before.V[i]),"unselected site bytes unchanged");
   for(std::size_t i=0;i<s.edge_idx.size();++i)if(s.edge_idx[i]==1||s.edge_idx[i]==3){check(bytes(ctx,s.E[i])==bytes(ctx,before.E[i]),"unselected forward E unchanged");check(bytes(ctx,s.E[i+s.edge_idx.size()])==bytes(ctx,before.E[i+s.edge_idx.size()]),"unselected reverse E unchanged");}
-  check(expected.empty() ? norms==std::vector<double>{123}:norms.size()>1,"norms appended only on participants");
+  check(expected.empty() ? norms==std::vector<Real>{123}:norms.size()>1,"norms appended only on participants");
   // Owners of the other component deliberately omit this API call. If a
   // collective is accidentally introduced, the following test Bcasts hang.
   auto local_only=clone(ctx,before);if(rank==s.owners.at(0)||rank==s.owners.at(1))batch(ctx,local_only,{0},comm);
   auto psi=dense(ctx,local_only,comm);check(psi.size()==64,"nonparticipants need not enter batch");
-  auto whole=clone(ctx,before),split=clone(ctx,before);std::vector<int>dims;std::vector<double>errors;all(ctx,whole,comm,dims,errors);
-  std::vector<int> split_dims(s.edge_idx.size());std::vector<double>split_errors(s.edge_idx.size());
+  auto whole=clone(ctx,before),split=clone(ctx,before);std::vector<BondDim>dims;std::vector<Real>errors;all(ctx,whole,comm,dims,errors);
+  std::vector<BondDim> split_dims(s.edge_idx.size());std::vector<Real>split_errors(s.edge_idx.size());
   for(const auto ids:{std::vector<int>{2,0},std::vector<int>{3,1}}){auto r=batch(ctx,split,ids,comm);for(std::size_t i=0;i<r.edge_ids.size();++i){auto pos=std::find(s.edge_idx.begin(),s.edge_idx.end(),r.edge_ids[i])-s.edge_idx.begin();split_dims[pos]=r.bond_dims[i];split_errors[pos]=r.truncation_errors[i];}}
   check(dims==split_dims,"batch sweep retained dimensions equal all-edge call");for(std::size_t i=0;i<errors.size();++i)check(std::abs(errors[i]-split_errors[i])<1e-14,"batch sweep errors equal all-edge call");
   equal_tensors(ctx,whole.V,split.V,"full versus batch V");equal_tensors(ctx,whole.E,split.E,"full versus batch E");

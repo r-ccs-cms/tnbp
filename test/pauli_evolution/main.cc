@@ -308,7 +308,7 @@ void single_precision() {
   auto empty=tnbp::MakePauliLayerExponentialTPO<FTensor>(ctx,p,0,.3,{});
   check(local.tensors.size()==1 && empty.tensors.empty() && local.log_scale==t.log_scale && empty.log_scale==t.log_scale,"complex<float> local generation and common scale");
   const auto expected=exponential("Y",-0.21,true);
-  for(int i=0;i<2;++i)for(int o=0;o<2;++o) {
+  for(tnbp::elem_coor_t<FTensor> i=0;i<2;++i)for(tnbp::elem_coor_t<FTensor> o=0;o<2;++o) {
     const auto actual=tcapi::get_elem(ctx,t.tensors[0],{i,o});
     check(std::abs(C(actual)-expected[o*2+i])<1e-7,"complex<float> exponential");
     check(tcapi::get_elem(ctx,local.tensors[0],{i,o})==actual,"complex<float> local/global values identical");
@@ -379,10 +379,10 @@ void absorption_layout(Context& ctx,MPI_Comm comm) {
     for(std::size_t i=0;i<v.size();++i)check(tensor_bytes(ctx,v[i])==tensor_bytes(ctx,local_v[i]),"permuted Attach/Absorb V byte identity");
     for(std::size_t i=0;i<e.size();++i)check(tensor_bytes(ctx,e[i])==tensor_bytes(ctx,local_e[i]),"permuted Attach/Absorb E byte identity");
     for(std::size_t j=0;j<n;++j) {
-      const int d=edgeids[j]==3 ? 1 : 1<<step;
+      const tnbp::bond_dim_t<Tensor> d=edgeids[j]==3 ? 1 : 1<<step;
       for(auto slot:{j,j+n}) {
         check(tcapi::shape(ctx,local_e[slot])==tnbp::shape_t<Tensor>({d,d}),"active seam expands, unused seam stays unchanged");
-        for(int a=0;a<d;++a)for(int b=0;b<d;++b)
+        for(tnbp::elem_coor_t<Tensor> a=0;a<d;++a)for(tnbp::elem_coor_t<Tensor> b=0;b<d;++b)
           check(std::abs(tcapi::get_elem(ctx,local_e[slot],{a,b})-C(a==b ? 1/std::sqrt(double(d)):0))<2e-14,"both directed messages have the expected normalized identity");
       }
     }

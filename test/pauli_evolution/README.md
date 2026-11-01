@@ -27,9 +27,9 @@ ctest --test-dir BUILD -R '^pauli_evolution_[12]_rank$' --output-on-failure
 ```
 
 This suite validates operator construction and Trotter ordering, not BP ground
-state convergence. CUDA builds use the existing test backend selection and must
-be launched explicitly with one visible GPU per rank. CPU/CUDA agreement is not
-implied by CPU-only results.
+state convergence. CUDA builds use the existing test backend selection and are
+launched explicitly inside a GPU allocation; each rank sees one GPU. Multiple
+ranks may share that GPU in the shared-GPU configuration described below.
 
 ## CLI acceptance
 
@@ -122,3 +122,21 @@ stays at dimension 1. Both directed messages are checked against normalized
 identity matrices, and an isolated local site is included. CLI checkpoints also
 check whole-operator log scale against an independent coefficient sum before
 and after continuation on different rank counts.
+
+## CUDA validation
+
+On November 1, 2026, small-system tests passed on ROQUO NVIDIA GB200 GPUs
+with tcapi-cuda `f32c87d`: one shared GPU with MPI 1/2/3/4 ranks for batch
+compression and MPI 1/2 ranks for operator tests, followed by same-node
+GPU-per-rank execution with MPI 1/2 ranks. Both configurations passed CLI
+acceptance (74 application runs and 2239 checks each), covering initial states,
+time schedules, measurement/statistics and save/resume. The GPU acceptance
+runner used a CUDA-native checkpoint reader in place of the CPU-native reader
+in `cli.py`; reference calculations and numerical tolerances were unchanged.
+The largest exact-state distance across CLI cases was below `2e-15`. A checkpoint
+saved in the shared-GPU job and repacked in the two-GPU job was byte-identical.
+
+These results supplement CPU validation; they do not establish general BP
+convergence, multi-node correctness or performance. CPU/CUDA native tensor
+checkpoint interchange is not supported. CPU-only CTest registrations remain
+disabled for CUDA builds.
