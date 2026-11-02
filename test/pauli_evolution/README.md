@@ -9,6 +9,12 @@ indices, enumerates the generated TPO virtual bonds on the host, and compares
 complete matrices for up to five sites. Cases include Y signs, reversed and
 unsorted edges, long-range strings, branching routes, cycles, isolated sites,
 negative coefficients, zero/tiny/large time steps, and site-disjoint layers.
+Weight-layout checks verify equal magnitudes at every non-identity Pauli site,
+unit-weight I routers and branch points, a single negative sign at the root,
+and weighting a Pauli branch point once rather than once per leg. These checks
+run for complex float/double, alongside full-matrix references and local/full
+tensor byte comparisons. A routed `1e-300` double-precision exponential checks
+that sharing a tiny branch coefficient preserves its nonzero matrix element.
 Commuting terms with shared support or intermediate identity routing sites
 must be assigned to separate layers. Complex double and float
 construction are exercised. Separate input and planning checks cover invalid
@@ -41,6 +47,10 @@ state-only/warm-start/normal restart, changed MPI ownership, and invalid input o
 corrupt/incomplete resume rejection. A native CPU record reader independently
 contracts saved small states. Same-rank continuous/restarted states and
 measurement-cadence variants must preserve V/E bytes.
+Resume version 3 also records the operator-weight layout. Legacy version 2 and
+different-layout metadata must not auto-continue; a valid legacy checkpoint used
+as a new initial state must agree with state-only input. Missing layout metadata
+in version 3 is rejected.
 
 The repeated long-range example and branching/multiple-tree examples compare
 saved states against independent exact bit-basis Trotter evolution. These are
@@ -140,3 +150,12 @@ These results supplement CPU validation; they do not establish general BP
 convergence, multi-node correctness or performance. CPU/CUDA native tensor
 checkpoint interchange is not supported. CPU-only CTest registrations remain
 disabled for CUDA builds.
+
+Support-balanced weights were revalidated on 2026-11-02 at commit `cdda0c2`,
+using the same CUDA backend `f32c87d`. Both shared-GPU and two-GPU runs passed
+complex float/double operator construction on MPI 1/2 and 78 CLI runs with
+2,375 checks each. Batch tests passed shared-GPU MPI 1/2/3/4 and distinct-GPU
+MPI 1/2. A shared-GPU checkpoint repacked on two distinct GPUs was byte-identical.
+The committed CLI acceptance script was used with only its native-record decoder
+adapted for GPU records. This supersedes the earlier 74-run count for the new
+weight layout; the validation scope limitations above still apply.

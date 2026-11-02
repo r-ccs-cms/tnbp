@@ -142,6 +142,10 @@ full = root / "full"
 text = run(*base, "--portable_save", full)
 check("EDGES 1\n0 0 1\n" in (full/"manifest.txt").read_text(), "saved endpoints normalized")
 rows = summaries(text)
+check("operator_weights: pauli-support-equal-v1" in text, "input records the operator weight layout")
+resume_text = (full/"imaginary_time.resume").read_text()
+check(resume_text.startswith("TNBP_IMAGINARY_TIME_RESUME 3\n") and
+      "OPERATOR_WEIGHTS pauli-support-equal-v1\n" in resume_text, "resume records support-balanced operator weights")
 check([int(x["step"]) for x in rows] == list(range(1, 8)), "default measurement every step")
 check(all(x["bond_dim_max"] != "N/A" and x["trunc_error_max"] != "N/A" for x in rows), "graph statistics")
 reference = evolve([.5]*4, layers, [(.08, 3), (.025, 4)])
@@ -408,8 +412,21 @@ def modified_resume(name, old, new):
 
 run("--portable_load",modified_resume("old-layer-plan","PLAN_VERSION 2","PLAN_VERSION 1"),ok=False)
 run("--portable_load",modified_resume("bad-compression","COMPRESSION leaf-batches-v1","COMPRESSION unknown"),ok=False)
-run("--portable_load",modified_resume("old-draft","TNBP_IMAGINARY_TIME_RESUME 2","TNBP_IMAGINARY_TIME_RESUME 1"),ok=False)
-run("--portable_load",modified_resume("bad-version","TNBP_IMAGINARY_TIME_RESUME 2","TNBP_IMAGINARY_TIME_RESUME 3"),ok=False)
+run("--portable_load",modified_resume("old-draft","TNBP_IMAGINARY_TIME_RESUME 3","TNBP_IMAGINARY_TIME_RESUME 1"),ok=False)
+run("--portable_load",modified_resume("bad-version","TNBP_IMAGINARY_TIME_RESUME 3","TNBP_IMAGINARY_TIME_RESUME 99"),ok=False)
+run("--portable_load",modified_resume("missing-weights","OPERATOR_WEIGHTS pauli-support-equal-v1\n",""),ok=False)
+run("--portable_load",modified_resume("different-weights","OPERATOR_WEIGHTS pauli-support-equal-v1","OPERATOR_WEIGHTS unknown"),ok=False)
+# Legacy root-only metadata remains readable as an explicitly new initial state,
+# but must not silently continue using a different numerical layout.
+legacy = modified_resume("legacy-root","TNBP_IMAGINARY_TIME_RESUME 3","TNBP_IMAGINARY_TIME_RESUME 2")
+legacy_path = legacy/"imaginary_time.resume"
+legacy_body = legacy_path.read_text().split("SHA256 ")[0].replace("OPERATOR_WEIGHTS pauli-support-equal-v1\n", "")
+legacy_path.write_text(legacy_body+"SHA256 "+hashlib.sha256(legacy_body.encode()).hexdigest()+"\n")
+text = run("--portable_load",legacy,ok=False)
+check("saved operator weights differ" in text,"legacy automatic resume rejects changed operator layout")
+legacy_warm = root/"legacy-warm"
+run("--portable_load",legacy,"--restart_mode","initial",*new,"--portable_save",legacy_warm)
+check((legacy_warm/"COMMITTED").read_bytes()==(plain/"COMMITTED").read_bytes(),"legacy checkpoint warm start equals state-only input")
 run("--portable_load",modified_resume("bad-phase","PHASE step-complete","PHASE mid-step"),ok=False)
 old_plan = re.search(r'PLAN "([0-9a-f]+)"',(split/"imaginary_time.resume").read_text()).group(1)
 run("--portable_load",modified_resume("bad-plan",old_plan,"0"*64),ok=False)

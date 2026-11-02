@@ -61,6 +61,21 @@ operator is `exp(-abs(x)) * exp(-x P)`. Stable bounded coefficients avoid direct
 evaluating large cosh/sinh values. Layer scales add. Overflow of `x` or the
 accumulated scale is rejected.
 
+For the represented operator `a I + b P`, coefficients are shared equally
+among the `m` non-identity Pauli sites: each contributes `a^(1/m)` on virtual
+branch 0 and `abs(b)^(1/m)` on branch 1. A negative `b` contributes its sign
+only at the deterministic Pauli root. Each site is weighted once, including
+Pauli sites with several tree legs. Intermediate I sites and I branch points
+remain unweighted copy tensors. The virtual flags still agree along the tree,
+so their products are `a` and `b` up to rounding. Single-site terms retain
+their direct local exponential; the common `log_scale` is unchanged.
+
+This layout is identified by `PauliExponentialWeights` (`pauli-support-equal-v1`).
+It balances the virtual representation without changing the exact operator or
+the root/inverse cutoff and compression algorithms. Finite cutoff projections
+are representation-dependent; balancing does not guarantee globally exact
+compression or monotonic energy on a loopy graph.
+
 The separated identity Hamiltonian coefficient is **not** included in any term
 or layer TPO. The caller accounts for its log factor `-time_step * c_identity`
 exactly once per complete Trotter step. Operator scales are not the norm of a

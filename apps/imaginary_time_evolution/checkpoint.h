@@ -1,5 +1,6 @@
 #pragma once
 #include "config.h"
+#include "tnbp/operator/pauli_exponential.h"
 #include "tnbp/ptns/function/portable_checkpoint.h"
 #include <optional>
 
@@ -10,11 +11,13 @@ struct Resume {
   Config config;
   std::size_t next_step=0;
   double operator_log_scale=0;
+  std::string operator_weights=tnbp::PauliExponentialWeights;
 };
 inline std::string encode_resume(const Resume& r) {
   std::ostringstream out;out.imbue(std::locale::classic());out<<std::setprecision(17);
-  out<<"TNBP_IMAGINARY_TIME_RESUME 2\nSTATE "<<std::quoted(r.state_digest)
+  out<<"TNBP_IMAGINARY_TIME_RESUME 3\nSTATE "<<std::quoted(r.state_digest)
      <<"\nCOMPRESSION leaf-batches-v1\nPLAN_VERSION 2\nPLAN "<<std::quoted(r.plan_digest)
+     <<"\nOPERATOR_WEIGHTS "<<r.operator_weights
      <<"\nCONFIG "<<std::quoted(encode_config(r.config))<<"\nNEXT_STEP "<<r.next_step
      <<"\nOPERATOR_LOG_SCALE "<<r.operator_log_scale<<"\nPHASE step-complete\nEND\n";
   auto body=out.str();return body+"SHA256 "+tnbp::portable_detail::sha256(body)+"\n";
@@ -30,9 +33,13 @@ inline std::optional<Resume> read_resume(const std::string& directory,const std:
   std::istringstream in(text.substr(0,checksum));in.imbue(std::locale::classic());
   auto token=[&]{std::string v;require(bool(in>>v),"truncated resume");return v;};
   auto tag=[&](const std::string& v){require(token()==v,"invalid resume tag/version: "+v);};
-  Resume r;tag("TNBP_IMAGINARY_TIME_RESUME");tag("2");tag("STATE");require(bool(in>>std::quoted(r.state_digest)),"missing state digest");
+  Resume r;tag("TNBP_IMAGINARY_TIME_RESUME");const auto version=token();
+  require(version=="2" || version=="3","unsupported resume version");
+  tag("STATE");require(bool(in>>std::quoted(r.state_digest)),"missing state digest");
   tag("COMPRESSION");tag("leaf-batches-v1");
   tag("PLAN_VERSION");tag("2");tag("PLAN");require(bool(in>>std::quoted(r.plan_digest)),"missing plan digest");
+  if(version=="3") {tag("OPERATOR_WEIGHTS");r.operator_weights=token();}
+  else r.operator_weights="pauli-root-v1";
   std::string config;tag("CONFIG");require(bool(in>>std::quoted(config)),"missing config");r.config=decode_config(config);
   tag("NEXT_STEP");r.next_step=count(token());tag("OPERATOR_LOG_SCALE");r.operator_log_scale=real(token());
   tag("PHASE");tag("step-complete");tag("END");in>>std::ws;require(in.eof(),"trailing resume data");

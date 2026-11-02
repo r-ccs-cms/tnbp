@@ -200,7 +200,8 @@ void operators(Context& ctx) {
   const std::vector<std::pair<std::string,Edges>> cases={
     {"X",{}},{"Y",{}},{"Z",{}},{"YII",{{0,1}}},{"ZY",{{0,1}}},
     {"ZIIZ",{{2,3},{0,1},{1,2}}},{"YIXZ",{{0,1},{1,2},{2,3}}},
-    {"XYZI",{{0,1},{0,2},{0,3}}},{"YIYIY",{{0,1},{1,2},{2,3},{3,4},{4,0}}}};
+    {"XYZI",{{0,1},{0,2},{0,3}}},{"ZZZYZ",{{0,1},{1,2},{1,3},{1,4}}},
+    {"YIYIY",{{0,1},{1,2},{2,3},{3,4},{4,0}}}};
   for(const auto& [label,edges]:cases) for(double c:{-0.7,0.3}) for(double dt:{0.0,1e-14,0.17,0.8}) {
     const auto p=plan({{{c,0},label}},edges); auto t=tnbp::MakePauliTermExponentialTPO<Tensor>(ctx,p,0,dt);
     auto actual=tpo_dense(ctx,p,t);auto expected=exponential(label,c*dt,true);
@@ -211,6 +212,10 @@ void operators(Context& ctx) {
   }
   auto tiny=plan({{{1,0},"X"}},{});auto t=tnbp::MakePauliTermExponentialTPO<Tensor>(ctx,tiny,0,1e-20);
   auto a=tpo_dense(ctx,tiny,t);check(std::abs(a[1]+1e-20)<1e-34,"tiny coefficient avoids cancellation");
+  auto tiny_route=plan({{{1,0},"XIZ"}},{{0,1},{1,2}});
+  auto tiny_tpo=tnbp::MakePauliTermExponentialTPO<Tensor>(ctx,tiny_route,0,1e-300);
+  auto tiny_matrix=tpo_dense(ctx,tiny_route,tiny_tpo);
+  check(std::abs(tiny_matrix[4*8]+1e-300)<1e-313,"distributed tiny branch remains nonzero");
   for(double c:{-1000.,1000.}) {
     auto p=plan({{{c,0},"YIY"}},{{0,1},{1,2}});auto t=tnbp::MakePauliTermExponentialTPO<Tensor>(ctx,p,0,1);
     check(distance(tpo_dense(ctx,p,t),exponential("YIY",c,true))<1e-14,"large scaled exponential");
@@ -234,6 +239,66 @@ void operators(Context& ctx) {
   rejects([&]{tnbp::MakePauliTermExponentialTPO<Tensor>(ctx,p,0,INFINITY);},"nonfinite dt");
   auto huge=plan({{{1e308,0},"X"}},{});
   rejects([&]{tnbp::MakePauliTermExponentialTPO<Tensor>(ctx,huge,0,10);},"x overflow");
+}
+// Inspect the required factorization, which a contracted-matrix test alone
+// cannot distinguish from the former root-only coefficient placement.
+template<class TenT>
+void support_weights(tnbp::context_handle_t<TenT>& ctx) {
+  using Real=tnbp::real_t<TenT>;
+  const double tolerance=64*std::numeric_limits<Real>::epsilon();
+  const std::vector<std::pair<std::string,Edges>> cases={
+    {"ZIIZ",{{0,1},{1,2},{2,3}}},
+    {"XYZI",{{0,1},{0,2},{0,3}}},
+    {"ZZZYZ",{{0,1},{1,2},{1,3},{1,4}}},
+    {"XIZIY",{{0,1},{1,2},{2,3},{3,4}}}};
+  for(const auto& [label,edges]:cases)for(double coefficient:{-.7,.3}) {
+    auto p=plan({{{coefficient,0},label}},edges);
+    const auto& route=p.routes[0];const double dt=.25;
+    auto t=tnbp::MakePauliTermExponentialTPO<TenT>(ctx,p,0,dt);
+    std::array<C,2> products{C(1),C(1)};
+    std::array<double,2> reference_magnitudes{};bool first=true;
+    for(const auto& local:route.local_sites) {
+      const auto& tensor=t.tensors[local.site];auto shape=tcapi::shape(ctx,tensor);
+      std::array<C,2> amplitudes{};
+      for(tnbp::elem_coor_t<TenT> branch=0;branch<2;++branch) {
+        auto reference=pauli_matrix(std::string(1,branch ? local.op:'I'));
+        tnbp::elem_coors_t<TenT> coor(shape.size(),0);
+        for(auto leg:local.tree_legs)coor[leg]=branch;
+        for(tnbp::elem_coor_t<TenT> in=0;in<2;++in)for(tnbp::elem_coor_t<TenT> out=0;out<2;++out) {
+          coor[shape.size()-2]=in;coor[shape.size()-1]=out;
+          amplitudes[branch]+=std::conj(reference[out*2+in])*C(tcapi::get_elem(ctx,tensor,coor))*.5;
+        }
+        for(tnbp::elem_coor_t<TenT> in=0;in<2;++in)for(tnbp::elem_coor_t<TenT> out=0;out<2;++out) {
+          coor[shape.size()-2]=in;coor[shape.size()-1]=out;
+          check(std::abs(C(tcapi::get_elem(ctx,tensor,coor))-amplitudes[branch]*reference[out*2+in])<tolerance,
+                "local branch is its Pauli matrix times one site weight");
+        }
+      }
+      if(local.op=='I') {
+        check(std::abs(amplitudes[0]-C(1))<tolerance && std::abs(amplitudes[1]-C(1))<tolerance,
+              "identity routing and branch sites have no weight");
+      } else {
+        for(std::size_t branch=0;branch<2;++branch) {
+          if(first)reference_magnitudes[branch]=std::abs(amplitudes[branch]);
+          check(std::abs(std::abs(amplitudes[branch])-reference_magnitudes[branch])<tolerance,
+                "all Pauli support sites have equal branch magnitudes");
+          products[branch]*=amplitudes[branch];
+        }
+        check(amplitudes[0].real()>0 && std::abs(amplitudes[0].imag())<tolerance,"positive identity-branch weight");
+        const bool negative=coefficient>0 && local.site==route.root_site;
+        check((amplitudes[1].real()<0)==negative && std::abs(amplitudes[1].imag())<tolerance,
+              "negative branch sign occurs only at the deterministic Pauli root");
+        first=false;
+      }
+      if(local.tree_legs.size()>1) {
+        tnbp::elem_coors_t<TenT> mismatch(shape.size(),0);mismatch[local.tree_legs.back()]=1;
+        check(std::abs(tcapi::get_elem(ctx,tensor,mismatch))==0,"branch point synchronizes virtual flags");
+      }
+    }
+    const double x=dt*coefficient,scale=std::exp(-std::abs(x));
+    check(std::abs(products[0]-C(scale*std::cosh(x)))<tolerance,"product of site weights gives scaled cosh");
+    check(std::abs(products[1]+C(scale*std::sinh(x)))<tolerance,"product of signed site weights gives scaled minus-sinh");
+  }
 }
 // Taylor exp of a complete dense noncommuting Hamiltonian, independently of Trotter.
 Dense exact_exp(Dense h,std::size_t n,double time) {
@@ -302,6 +367,7 @@ void single_precision() {
   using FTensor=gqten::tensor<std::complex<float>>;
 #endif
   tnbp::context_handle_t<FTensor> ctx;tcapi::create_context(ctx);
+  support_weights<FTensor>(ctx);
   auto p=plan({{{-0.7,0},"Y"}},{});
   auto t=tnbp::MakePauliLayerExponentialTPO<FTensor>(ctx,p,0,0.3);
   auto local=tnbp::MakePauliLayerExponentialTPO<FTensor>(ctx,p,0,.3,{0});
@@ -395,7 +461,7 @@ int main(int argc,char** argv) {
     int count=0;cudaGetDeviceCount(&count);check(count==1,"one visible GPU per rank");cudaSetDevice(0);
 #endif
     Context ctx;tcapi::create_context(ctx);
-    planning();operators(ctx);local_generation(ctx);trotter(ctx);single_precision();absorption(ctx,MPI_COMM_WORLD);absorption_layout(ctx,MPI_COMM_WORLD);
+    planning();operators(ctx);support_weights<Tensor>(ctx);local_generation(ctx);trotter(ctx);single_precision();absorption(ctx,MPI_COMM_WORLD);absorption_layout(ctx,MPI_COMM_WORLD);
     if(rank==0)std::cout<<tnbp::make_timestamp()<<" # pauli_evolution: PASS checks="<<checks
       <<" max_operator_error="<<max_operator_error
       <<" first_order_ratio="<<convergence_ratios[0]
