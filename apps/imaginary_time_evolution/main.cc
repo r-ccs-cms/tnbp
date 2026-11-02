@@ -126,6 +126,8 @@ int main(int argc,char** argv) {
       continuing=bool(saved) && o.get("restart_mode","auto")!="initial";
       ite::Config cfg;
       if(continuing) {
+        ite::require(saved->operator_weights==tnbp::PauliExponentialWeights,
+          "saved operator weights differ; use --restart_mode initial for a new calculation");
         cfg=saved->config;auto specified=cfg;
         if(o.has("sparse_pauli"))specified.h=ite::read_hamiltonian(o.get("sparse_pauli"));
         if(o.has("schedule") || o.has("time_step"))specified.schedule=ite::read_schedule(o);
@@ -157,6 +159,7 @@ int main(int argc,char** argv) {
       ite::log(true,"app: imaginary_time_evolution");for(const auto& [key,value]:o.values)ite::log(true,key,": ",value);
       ite::log(true,"initialization: ",o.has("portable_load") ? "checkpoint" : o.has("initial_statefile") ? "basis-file" : o.get("initial_state","zero"));
       ite::log(true,"site_ownership: ",o.get("ownerfile","automatic"));
+      ite::log(true,"operator_weights: ",tnbp::PauliExponentialWeights);
       ite::log(true,"config: ",ite::encode_config(cfg));ite::log(true,"plan_digest: ",plan.plan_digest," layers: ",plan.layers.size());
       ite::log(true,"step_start: ",next," step_end: ",end," continuing: ",continuing," measure_every: ",measure_every);
       for(std::size_t e=0;e<edges.size();++e)ite::log(true,"edge ",e,": ",edges[e].first," ",edges[e].second);

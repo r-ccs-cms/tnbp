@@ -75,7 +75,13 @@ The graph, plan and operator scalar are calculated on every rank. TPO tensors
 are generated and cached only for that rank's local sites, in the same order
 as its state tensors, and applied through `AttachTPO`. `log_scale` is a common
 whole-operator value, not a rank-local contribution to sum. Local generation
-does not change the checkpoint format or plan/compression versions.
+does not change native tensor records or the plan/compression protocol identifiers.
+
+The TPO's branch coefficients are shared equally over the non-identity Pauli
+sites. Intermediate I sites, including routing branch points, carry no weight;
+the sign of the Pauli-branch coefficient appears once at the term root. This
+`pauli-support-equal-v1` layout leaves the exact exponential and `log_scale`
+unchanged and preserves the existing cutoff and parallel compression routines.
 
 ## Options and output
 
@@ -171,11 +177,15 @@ mpirun -np 2 ./imaginary_time_evolution \
   --portable_save checkpoint-160
 ```
 
-Resume metadata version 2 records the `leaf-batches-v1` compression protocol.
-Plan version 2 requires site-disjoint trees within each layer. Earlier draft
-metadata or plan versions are rejected rather than silently continuing
-with a different compression algorithm; generic portable states without app
-metadata remain valid initial states.
+Resume metadata version 3 records the `pauli-support-equal-v1` operator weights
+and the unchanged `leaf-batches-v1` compression protocol. Plan version 2 still
+requires site-disjoint trees. Version 2 resume metadata describes the former
+root-only weights: automatic continuation is rejected rather than silently
+changing the numerical trajectory. A valid version 2 checkpoint can still be
+used with `--restart_mode initial` and an explicitly supplied Hamiltonian and
+schedule. Earlier draft metadata or plan versions remain rejected. Generic
+portable states without app metadata remain valid initial states; the native
+V/E format is unchanged.
 
 A valid `imaginary_time.resume` restores the plan identity, complete schedule,
 calculation settings and next step. Explicit settings must match. MPI count,
@@ -210,3 +220,7 @@ and same-node GPU-per-rank MPI 1/2-rank tests; CLI acceptance passed 74 runs in
 each GPU configuration. See [test coverage](../../test/pauli_evolution/README.md#cuda-validation)
 for the backend revision and checkpoint-reader setup. These tests do not
 establish general BP convergence or multi-node/performance guarantees.
+
+The support-balanced weight layout has CPU float/double, MPI and CLI regression
+coverage. The GB200 validation above predates this layout change; CUDA execution
+has not been rerun for the new layout.

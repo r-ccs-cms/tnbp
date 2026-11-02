@@ -5,6 +5,8 @@
 #include <type_traits>
 
 namespace tnbp {
+// Numerical layout identifier used by callers that persist evolution settings.
+inline constexpr const char* PauliExponentialWeights = "pauli-support-equal-v1";
 template<class TenT> struct ScaledPauliTPO {
   std::vector<TenT> tensors;
   double log_scale = 0; // Exact operator = exp(log_scale) * represented TPO.
@@ -46,13 +48,19 @@ ScaledPauliTPO<TenT> generate(context_handle_t<TenT>& ctx,const PauliEvolutionPl
   ScaledPauliTPO<TenT> result;
   result.tensors.reserve(target_sites.size());
   std::vector<std::pair<double,double>> weights;
+  std::vector<std::pair<double,double>> site_weights;
   std::vector<bool> active(p.graph.edges.size(),false);
   for(auto id:ids) {
     const double x=dt*p.hamiltonian.terms.at(id).coefficient;
     if(!std::isfinite(x)) throw std::overflow_error("Pauli TPO: coefficient times time step overflow");
     result.log_scale+=std::abs(x);
     if(!std::isfinite(result.log_scale)) throw std::overflow_error("Pauli TPO: log scale overflow");
-    weights.push_back(coefficients(x));
+    const auto weight=coefficients(x);
+    weights.push_back(weight);
+    const auto support=p.hamiltonian.terms[id].local_ops.size();
+    const double power=1.0/static_cast<double>(support);
+    site_weights.emplace_back(std::pow(weight.first,power),
+                              std::pow(std::abs(weight.second),power));
     if(dt!=0) for(auto e:p.routes.at(id).tree_edge_ids) {
       if(active[e]) throw std::invalid_argument("Pauli TPO: repeated layer edge");
       active[e]=true;
@@ -73,7 +81,7 @@ ScaledPauliTPO<TenT> generate(context_handle_t<TenT>& ctx,const PauliEvolutionPl
     }
     std::vector<Elem> data(count);
     for(std::size_t linear=0;linear<count;++linear) {
-      std::vector<std::size_t> coord(shape.size()); auto remainder=linear;
+      elem_coors_t<TenT> coord(shape.size()); auto remainder=linear;
       for(std::size_t k=0;k<shape.size();++k) {coord[k]=remainder%shape[k]; remainder/=shape[k];}
       auto product=matrix('I'); bool nonzero=true;
       if(dt!=0) for(std::size_t j=0;j<ids.size();++j) {
@@ -91,7 +99,15 @@ ScaledPauliTPO<TenT> generate(context_handle_t<TenT>& ctx,const PauliEvolutionPl
           for(auto leg:local->tree_legs) if(coord[leg]!=branch) nonzero=false;
           if(!nonzero) break;
           factor=matrix(branch ? local->op : 'I');
-          if(v==route.root_site) for(auto& value:factor) value*=branch ? b : a;
+          // Share each branch coefficient once per non-identity Pauli site.
+          // Routing I sites, including branch points, remain pure copy tensors.
+          if(local->op!='I') {
+            const auto [local_a,local_b]=site_weights[j];
+            double weight=branch ? local_b : local_a;
+            // Keep a negative coefficient's sign at one deterministic site.
+            if(branch && b<0 && v==route.root_site) weight=-weight;
+            for(auto& value:factor) value*=weight;
+          }
         }
         product=multiply(factor,product);
       }
