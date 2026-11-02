@@ -151,5 +151,11 @@ convergence, multi-node correctness or performance. CPU/CUDA native tensor
 checkpoint interchange is not supported. CPU-only CTest registrations remain
 disabled for CUDA builds.
 
-This GPU run predates support-balanced weights. The new weight layout is covered
-by CPU tests; GPU revalidation of the changed construction is pending.
+Support-balanced weights were revalidated on 2026-11-02 at commit `cdda0c2`,
+using the same CUDA backend `f32c87d`. Both shared-GPU and two-GPU runs passed
+complex float/double operator construction on MPI 1/2 and 78 CLI runs with
+2,375 checks each. Batch tests passed shared-GPU MPI 1/2/3/4 and distinct-GPU
+MPI 1/2. A shared-GPU checkpoint repacked on two distinct GPUs was byte-identical.
+The committed CLI acceptance script was used with only its native-record decoder
+adapted for GPU records. This supersedes the earlier 74-run count for the new
+weight layout; the validation scope limitations above still apply.

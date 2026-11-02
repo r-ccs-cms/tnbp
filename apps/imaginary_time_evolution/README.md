@@ -221,6 +221,8 @@ each GPU configuration. See [test coverage](../../test/pauli_evolution/README.md
 for the backend revision and checkpoint-reader setup. These tests do not
 establish general BP convergence or multi-node/performance guarantees.
 
-The support-balanced weight layout has CPU float/double, MPI and CLI regression
-coverage. The GB200 validation above predates this layout change; CUDA execution
-has not been rerun for the new layout.
+The support-balanced weight layout was revalidated on GB200 with CUDA backend
+`f32c87d`: operator construction for complex float/double on MPI 1/2, batch
+compression with shared-GPU MPI 1/2/3/4 and two-GPU MPI 1/2, and 78 CLI
+acceptance runs in each GPU configuration. Reading and repacking a shared-GPU
+checkpoint on two distinct GPUs also preserved all checkpoint bytes.
