@@ -67,14 +67,14 @@ template<class E> void test_svd() {
         E reconstructed=u.GetElem(i)*s.GetElem(0)*v.GetElem(j);
         check(std::abs(reconstructed-(i==0 && j==0?E(4):E(0)))<tol,"truncated factors reconstructed");
     }
-    tcapi::trunc_svd(ctx,spectrum,1,u,s,v,err,3,3,R(0),R(3));
+    tcapi::trunc_svd(ctx,spectrum,1,u,s,v,err,3,R(3),3,R(0));
     check(s.Shape()==tcapi::shape_t<T>({2,2}) && err==R(0),"cutoff equality kept, minimum does not restore discarded values");
-    tcapi::trunc_svd(ctx,spectrum,1,u,s,v,err,1,3,R(0),R(0));
+    tcapi::trunc_svd(ctx,spectrum,1,u,s,v,err,3,R(0),1,R(0));
     check(s.Shape()==tcapi::shape_t<T>({2,2}),"zero singular value unnecessary at zero target");
     auto equal=tcapi::eye<T>(ctx,2);
-    tcapi::trunc_svd(ctx,equal,1,u,s,v,err,1,2,R(0.5),R(0));
+    tcapi::trunc_svd(ctx,equal,1,u,s,v,err,2,R(0),1,R(0.5));
     check(s.Shape()==tcapi::shape_t<T>({1,1}) && err==R(0.5),"inclusive target error boundary");
-    tcapi::trunc_svd(ctx,equal,1,u,s,v,err,1,2,R(0.49),R(0));
+    tcapi::trunc_svd(ctx,equal,1,u,s,v,err,2,R(0),1,R(0.49));
     check(s.Shape()==tcapi::shape_t<T>({2,2}) && err==R(0),"increase rank to meet target");
     tcapi::trunc_svd(ctx,zero,1,u,s,v,err,2,R(0));
     check(s.Shape()==tcapi::shape_t<T>({1,1}) && err==R(0),"zero matrix truncation has zero error");
@@ -83,8 +83,8 @@ template<class E> void test_svd() {
     throws<std::domain_error>([&]{tcapi::trunc_svd(ctx,spectrum,1,u,s,v,err,3,R(5));});
     check(tcapi::close(ctx,s,saved,R(0)) && err==R(-7),"empty truncation preserves outputs and error");
     throws<std::invalid_argument>([&]{tcapi::trunc_svd(ctx,spectrum,1,u,s,v,err,0,R(0));});
-    throws<std::invalid_argument>([&]{tcapi::trunc_svd(ctx,spectrum,1,u,s,v,err,2,1,R(0),R(0));});
-    throws<std::invalid_argument>([&]{tcapi::trunc_svd(ctx,spectrum,1,u,s,v,err,1,3,R(-1),R(0));});
+    throws<std::invalid_argument>([&]{tcapi::trunc_svd(ctx,spectrum,1,u,s,v,err,1,R(0),2,R(0));});
+    throws<std::invalid_argument>([&]{tcapi::trunc_svd(ctx,spectrum,1,u,s,v,err,3,R(0),1,R(-1));});
     throws<std::invalid_argument>([&]{tcapi::trunc_svd(ctx,spectrum,1,u,s,v,err,3,R(-1));});
     auto alias=tcapi::copy(ctx,spectrum);
     tcapi::trunc_svd(ctx,alias,1,u,s,alias,err,1,R(0));

@@ -74,16 +74,16 @@ void svd(context_handle_t<TenT>& ctx, const TenT& a, order_t<TenT> rows,
 template<class TenT>
 void trunc_svd(context_handle_t<TenT>& ctx, const TenT& a, order_t<TenT> rows,
                TenT& u, real_ten_t<TenT>& sigma, TenT& v_dag, real_t<TenT>& trunc_err,
-               bond_dim_t<TenT> chi_min, bond_dim_t<TenT> chi_max,
-               real_t<TenT> target, real_t<TenT> s_min) {
+               bond_dim_t<TenT> chi_max, real_t<TenT> s_min,
+               bond_dim_t<TenT> chi_min, real_t<TenT> target) {
     detail::verbose::call diagnostic("trunc_svd", [&](std::ostream& log) {
         detail::verbose::field(log, "dtype", detail::verbose::scalar_name<elem_t<TenT>>());
         detail::verbose::field(log, "a", a);
         detail::verbose::field(log, "rows", rows);
-        detail::verbose::field(log, "chi_min", chi_min);
         detail::verbose::field(log, "chi_max", chi_max);
-        detail::verbose::field(log, "target", target);
         detail::verbose::field(log, "s_min", s_min);
+        detail::verbose::field(log, "chi_min", chi_min);
+        detail::verbose::field(log, "target", target);
     });
     using R=real_t<TenT>;
     detail::require_context(ctx);
@@ -135,6 +135,6 @@ void trunc_svd(context_handle_t<TenT>& ctx, const TenT& a, order_t<TenT> rows,
         detail::verbose::field(log, "chi_max", chi_max);
         detail::verbose::field(log, "s_min", s_min);
     });
-    tcapi::trunc_svd(ctx,a,rows,u,sigma,v_dag,trunc_err,1,chi_max,real_t<TenT>(0),s_min);
+    tcapi::trunc_svd(ctx,a,rows,u,sigma,v_dag,trunc_err,chi_max,s_min,bond_dim_t<TenT>(1),real_t<TenT>(0));
 }
 } // namespace tcapi

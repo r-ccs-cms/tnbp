@@ -230,7 +230,9 @@ nonfinite inputs are rejected, and reported numerical failures become exceptions
 Truncation selection is implemented in the adapter to follow the specification:
 values below s_min are discarded, chi_min never restores them, and the smallest
 allowed rank meeting the inclusive target-error bound is kept, up to chi_max.
-The short overload is equivalent to chi_min=1 and target=0. Parameters require
+The general overload takes `(chi_max, s_min, chi_min, target_trunc_err)`
+in TCAPI V1 order. The short overload is equivalent to chi_min=1 and target=0.
+Parameters require
 1 <= chi_min <= chi_max, finite nonnegative s_min and target. No surviving
 singular value raises domain_error under the existing zero-dimension restriction.
 Squared weights are normalized by the largest singular value and accumulated
