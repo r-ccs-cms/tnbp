@@ -219,7 +219,7 @@ namespace tnbp {
 	BondDimT chi_min = 1;
 	BondDimT chi_max = max_dim;
 	tcapi::trunc_svd(ctx,T,num_rows,X,S,Y,
-		       trunc_err,chi_min,chi_max,err,eps);
+		       trunc_err,chi_max,eps,chi_min,err);
 	
 	auto shape_s = tcapi::shape(ctx,S);
 	res_bond_dim[edge_address] = shape_s[0];
