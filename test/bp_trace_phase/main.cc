@@ -167,9 +167,8 @@ template<class E> void run(MPI_Comm comm) {
           "legacy subset updates selected edge and preserves other messages");
   }
   // A subset call computes J's messages alone. J's predictions never read J's
-  // own messages, so zeroing them leaves J's result unchanged, while the
-  // predictions that sites 0 and 1 send along the other two edges read them
-  // and become undefined: an update that also computed those would reject them.
+  // own messages, which are zeroed here; the predictions that sites 0 and 1
+  // send along the other two edges do read them.
   std::vector<std::size_t> j_slots;
   for(std::size_t j=0;j<edgeids.size();++j)if(edgeids[j]==0)
     for(int direction=0;direction<2;++direction)j_slots.push_back(j+direction*edgeids.size());
