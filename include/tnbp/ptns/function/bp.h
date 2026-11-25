@@ -60,23 +60,32 @@ inline std::vector<int> MakeBPCommunicationOrder(
   return result;
 }
 
-/** Compute all locally sourced messages from immutable E into F.
- * F uses the same two-direction layout as E; remote-source slots are filled
- * by ExchangeBPMessages. Intermediate normalization follows the legacy update.
- */
+namespace detail {
+
+/** The once-per-process BP_ALGORITHM record of a TenT's message updates. */
 template<typename TenT>
-void UpdateBPMessages(context_handle_t<TenT>& ctx,
+void LogBPAlgorithm(MPI_Comm comm) {
+  static bool logged=false;
+  if(logged) return;
+  int rank; MPI_Comm_rank(comm,&rank);
+  if(rank==0) std::clog << make_timestamp() << " BP_ALGORITHM " << BPAlgorithm << " gauge=" << BPGauge
+                       << " residual=" << BPResidual << std::endl;
+  logged=true;
+}
+
+/** UpdateBPMessages restricted to the locally sourced messages of the edges
+ * `wanted` accepts (an index into I); the other slots of F are left as they
+ * are. The subset entry point uses it so that its cost follows |J|, not the
+ * whole graph.
+ */
+template<typename TenT, typename Wanted>
+void UpdateBPMessagesOn(context_handle_t<TenT>& ctx,
     const std::vector<std::pair<int,int>>& I, const std::vector<TenT>& V,
     const std::vector<int>& SiteIdx, const std::vector<TenT>& E,
-    const std::vector<int>& EdgeIdx, MPI_Comm comm, std::vector<TenT>& F) {
+    const std::vector<int>& EdgeIdx, MPI_Comm comm, std::vector<TenT>& F,
+    const Wanted& wanted) {
   using BondLabelT=typename tcapi::tensor_traits<TenT>::bond_label_t;
-  int rank; MPI_Comm_rank(comm,&rank);
-  static bool logged=false;
-  if(!logged) {
-    if(rank==0) std::clog << make_timestamp() << " BP_ALGORITHM " << BPAlgorithm << " gauge=" << BPGauge
-                         << " residual=" << BPResidual << std::endl;
-    logged=true;
-  }
+  LogBPAlgorithm<TenT>(comm);
   const std::size_t size_e=EdgeIdx.size();
   F.resize(2*size_e);
   for(std::size_t address=0; address<SiteIdx.size(); ++address) {
@@ -84,6 +93,7 @@ void UpdateBPMessages(context_handle_t<TenT>& ctx,
     const auto bonds=GetSurroundingBondIndex(site,I);
     for(std::size_t target=0; target<bonds.size(); ++target) {
       const int edge=bonds[target];
+      if(!wanted(edge)) continue;
       TenT message;
       TenT T = tcapi::copy(ctx,V[address]);
       auto order_v = tcapi::order(ctx,T);
@@ -129,6 +139,21 @@ void UpdateBPMessages(context_handle_t<TenT>& ctx,
   }
 }
 
+} // namespace detail
+
+/** Compute all locally sourced messages from immutable E into F.
+ * F uses the same two-direction layout as E; remote-source slots are filled
+ * by ExchangeBPMessages. Intermediate normalization follows the legacy update.
+ */
+template<typename TenT>
+void UpdateBPMessages(context_handle_t<TenT>& ctx,
+    const std::vector<std::pair<int,int>>& I, const std::vector<TenT>& V,
+    const std::vector<int>& SiteIdx, const std::vector<TenT>& E,
+    const std::vector<int>& EdgeIdx, MPI_Comm comm, std::vector<TenT>& F) {
+  detail::UpdateBPMessagesOn(ctx,I,V,SiteIdx,E,EdgeIdx,comm,F,
+                             [](int){ return true; });
+}
+
 /** Exchange only boundary messages after local computation has completed.
  * order must come from MakeBPCommunicationOrder: disjoint rank pairs within
  * each shared round, with matching edge order at both endpoints. The first
@@ -158,9 +183,9 @@ void ExchangeBPMessages(context_handle_t<TenT>& ctx,
 }
 
 /** Compatibility entry point for subset-edge updates.
- * Computes local predictions into a temporary buffer, but exchanges and commits
- * only J. Repeated full sweeps should use UpdateBPMessages/ExchangeBPMessages
- * directly to avoid recomputing predictions for each legacy layer.
+ * Computes the local predictions of J alone into a temporary buffer, then
+ * exchanges and commits only J, so one call costs |J| messages. Repeated full
+ * sweeps should use UpdateBPMessages/ExchangeBPMessages directly.
  */
   template <typename TenT>
   void BeliefPropagation(context_handle_t<TenT> & ctx,
@@ -174,15 +199,15 @@ void ExchangeBPMessages(context_handle_t<TenT>& ctx,
 			 MPI_Comm comm,
 			 std::vector<TenT> & F) {
 
-    std::vector<TenT> all;
-    UpdateBPMessages(ctx,I,V,SiteIdx,E,EdgeIdx,comm,all);
-    int rank; MPI_Comm_rank(comm,&rank);
-    auto order=MakeBPCommunicationOrder(I,Site_To_MpiRank,rank);
     auto selected=[&](int edge) {
       return std::any_of(J.begin(),J.end(),[&](const auto& pair) {
         return pair==I[edge] || (pair.first==I[edge].second && pair.second==I[edge].first);
       });
     };
+    std::vector<TenT> all;
+    detail::UpdateBPMessagesOn(ctx,I,V,SiteIdx,E,EdgeIdx,comm,all,selected);
+    int rank; MPI_Comm_rank(comm,&rank);
+    auto order=MakeBPCommunicationOrder(I,Site_To_MpiRank,rank);
     order.erase(std::remove_if(order.begin(),order.end(),
         [&](int edge){return !selected(edge);}),order.end());
     ExchangeBPMessages(ctx,I,Site_To_MpiRank,EdgeIdx,order,comm,all);
