@@ -62,7 +62,8 @@ inline std::vector<int> MakeBPCommunicationOrder(
 
 namespace detail {
 
-/** The once-per-process BP_ALGORITHM record of a TenT's message updates. */
+/** Writes the BP_ALGORITHM record of a TenT's message updates at most once per
+ * process, and only from a process that is rank 0 of comm on its first call. */
 template<typename TenT>
 void LogBPAlgorithm(MPI_Comm comm) {
   static bool logged=false;
@@ -74,9 +75,9 @@ void LogBPAlgorithm(MPI_Comm comm) {
 }
 
 /** UpdateBPMessages restricted to the locally sourced messages of the edges
- * `wanted` accepts (an index into I); the other slots of F are left as they
- * are. The subset entry point uses it so that its cost follows |J|, not the
- * whole graph.
+ * `wanted` accepts (an index into I). F is resized to 2*EdgeIdx.size(); a slot
+ * of an edge `wanted` rejects keeps its previous content, default-constructed
+ * if the resize added it.
  */
 template<typename TenT, typename Wanted>
 void UpdateBPMessagesOn(context_handle_t<TenT>& ctx,
@@ -183,9 +184,9 @@ void ExchangeBPMessages(context_handle_t<TenT>& ctx,
 }
 
 /** Compatibility entry point for subset-edge updates.
- * Computes the local predictions of J alone into a temporary buffer, then
- * exchanges and commits only J, so one call costs |J| messages. Repeated full
- * sweeps should use UpdateBPMessages/ExchangeBPMessages directly.
+ * Computes the locally sourced messages of J alone into a temporary buffer,
+ * then exchanges and commits only J. Repeated full sweeps should use
+ * UpdateBPMessages/ExchangeBPMessages directly.
  */
   template <typename TenT>
   void BeliefPropagation(context_handle_t<TenT> & ctx,

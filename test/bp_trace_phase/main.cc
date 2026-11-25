@@ -166,6 +166,21 @@ template<class E> void run(MPI_Comm comm) {
     check(tcapi::close(ctx,compatibility[slot],expected,tol),
           "legacy subset updates selected edge and preserves other messages");
   }
+  // A subset call computes J's messages alone. J's predictions never read J's
+  // own messages, so zeroing them leaves J's result unchanged, while the
+  // predictions that sites 0 and 1 send along the other two edges read them
+  // and become undefined: an update that also computed those would reject them.
+  std::vector<std::size_t> j_slots;
+  for(std::size_t j=0;j<edgeids.size();++j)if(edgeids[j]==0)
+    for(int direction=0;direction<2;++direction)j_slots.push_back(j+direction*edgeids.size());
+  std::vector<T> without_j;
+  for(const auto& message:e)without_j.push_back(tcapi::copy(ctx,message));
+  for(const auto slot:j_slots)without_j[slot]=tcapi::zeros<T>(ctx,{2,2});
+  compatibility.clear();
+  tnbp::BeliefPropagation(ctx,state,subset,without_j,edgeids,compatibility);
+  for(const auto slot:j_slots)
+    check(tcapi::close(ctx,compatibility[slot],f[slot],tol),
+          "legacy subset computes only J's messages");
   if(rank==0)std::cout<<"PASS type_bytes="<<sizeof(E)<<" ranks="<<size<<" residual="<<residual<<std::endl;
 }
 int main(int argc,char**argv){MPI_Init(&argc,&argv);try{
