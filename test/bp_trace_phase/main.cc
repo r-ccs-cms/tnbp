@@ -175,11 +175,14 @@ template<class E> void run(MPI_Comm comm) {
   std::vector<T> without_j;
   for(const auto& message:e)without_j.push_back(tcapi::copy(ctx,message));
   for(const auto slot:j_slots)without_j[slot]=tcapi::zeros<T>(ctx,{2,2});
-  compatibility.clear();
-  tnbp::BeliefPropagation(ctx,state,subset,without_j,edgeids,compatibility);
-  for(const auto slot:j_slots)
-    check(tcapi::close(ctx,compatibility[slot],f[slot],tol),
-          "legacy subset computes only J's messages");
+  const auto [a,b]=edges.front();
+  for(const auto& pair:std::vector<std::pair<int,int>>{{a,b},{b,a}}) {
+    compatibility.clear();
+    tnbp::BeliefPropagation(ctx,state,std::vector<std::pair<int,int>>{pair},without_j,edgeids,compatibility);
+    for(const auto slot:j_slots)
+      check(tcapi::close(ctx,compatibility[slot],f[slot],tol),
+            "legacy subset computes only J's messages, given in either orientation");
+  }
   if(rank==0)std::cout<<"PASS type_bytes="<<sizeof(E)<<" ranks="<<size<<" residual="<<residual<<std::endl;
 }
 int main(int argc,char**argv){MPI_Init(&argc,&argv);try{
