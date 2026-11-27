@@ -78,4 +78,4 @@ BP integration and restart updates use `UpdateBPMessages` followed by
 `ExchangeBPMessages`. The trace-phase suite also checks the `TensorProductState`
 overloads against the explicit graph interfaces. Legacy `BeliefPropagation(J)`
 calls are confined to compatibility checks, including preservation of messages
-outside the requested subset.
+outside the requested subset and computation of the subset's messages alone.
